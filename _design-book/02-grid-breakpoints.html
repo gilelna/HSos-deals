@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HS2026 Design Book · 02 · Grid &amp; Responsive System</title>
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <link rel="stylesheet" href="./style-guide.css">
+  <link rel="stylesheet" href="./_shared.css">
+</head>
+<body class="page-bg">
+
+<!-- ── Navigation ── -->
+<nav class="db-nav">
+  <div class="wrap db-nav__inner">
+    <a href="./index.html" class="db-nav__brand">
+      <span class="db-nav__brand-mark">HS</span>
+      <span class="db-nav__brand-label">Design Book</span>
+    </a>
+    <div class="db-nav__links">
+      <a href="./01-constitution.html" class="db-nav__link">01 · Constitution</a>
+      <a href="./02-grid-breakpoints.html" class="db-nav__link is-active">02 · Grid</a>
+      <a href="./03-components.html" class="db-nav__link">03 · Components</a>
+      <a href="./04-sections.html" class="db-nav__link">04 · Sections</a>
+      <a href="./05-block-patterns.html" class="db-nav__link">05 · Patterns</a>
+      <a href="./06-cheat-sheet.html" class="db-nav__link">06 · Cheat Sheet</a>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ── Header ── -->
+<header class="db-header">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="micro color-gold mb-sp-4">HS2026 · Design Book · 02</p>
+      <h1 class="h1 color-white">Grid &amp; Responsive System</h1>
+      <p class="body-lg mt-sp-4 text-muted" style="max-width:44ch">
+        Container anatomy, golden ratio layout, auto-fit grids, and the breakpoint system.
+      </p>
+    </div>
+  </div>
+</header>
+
+
+<main>
+
+  <!-- ══════════════════════════════════════════════
+       §1  Container Anatomy
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§1 · Container Anatomy — 1100px = φ × 680px</h2>
+      </div>
+
+      <div class="callout reveal">
+        <p class="note">
+          <strong class="color-espresso">The 1100px container.</strong> This number was not chosen arbitrarily.
+          1100 / φ = 680px — the ideal prose reading width (confirmed by readability research: 60–70 characters
+          per line at 18px = ~650–700px). When you center 680px text in 1100px, the remaining 420px creates
+          two margins of 210px each. 420 / 680 = 0.618 = 1/φ. Every empty space is mathematically proportional
+          to the filled space.
+        </p>
+      </div>
+
+      <!-- Container visual ruler -->
+      <div class="container-ruler reveal mt-sp-6 mb-sp-3">
+        <div class="container-ruler__zone" style="left:0;width:19.09%;background:var(--c-peach);opacity:.5">
+          <p class="micro">210px</p>
+        </div>
+        <div class="container-ruler__zone" style="left:19.09%;right:19.09%;background:var(--c-gold);opacity:.75">
+          <p class="micro color-white">680px CONTENT (61.8%)</p>
+        </div>
+        <div class="container-ruler__zone" style="right:0;width:19.09%;background:var(--c-peach);opacity:.5">
+          <p class="micro">210px</p>
+        </div>
+      </div>
+      <p class="note reveal text-center mb-sp-6">1100px total = 210 + 680 + 210. Every ratio is 1/φ or φ.</p>
+
+      <!-- Three zones explained -->
+      <div class="col-3 reveal" data-delay="1">
+        <div class="card">
+          <p class="micro color-gold mb-sp-3">--container</p>
+          <p class="h4 mb-sp-3">1100px</p>
+          <p class="body" style="color:#777">Max site width. Never increase. Whitespace on wide screens is a feature, not a defect.</p>
+          <p class="equation mt-sp-4">1100 / φ = 680 ✓<br>1100 / φ² = 420 ✓</p>
+        </div>
+        <div class="card">
+          <p class="micro color-gold mb-sp-3">--content-zone</p>
+          <p class="h4 mb-sp-3">680px</p>
+          <p class="body" style="color:#777">Golden narrow reading width. Prose, narrow content, form layout. 60–70 chars per line at 18px.</p>
+          <p class="equation mt-sp-4">680 / 1100 = 0.618 = 1/φ ✓<br>680 / 420 = 1.619 ≈ φ ✓</p>
+        </div>
+        <div class="card">
+          <p class="micro color-gold mb-sp-3">--sidebar</p>
+          <p class="h4 mb-sp-3">420px</p>
+          <p class="body" style="color:#777">Minor column width. Image column in golden 2-col layouts. Sidebar, aside, decorative column.</p>
+          <p class="equation mt-sp-4">420 / 1100 = 0.382 = 1/φ² ✓<br>420 / 680 = 0.618 = 1/φ ✓</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §2  Golden Grid — Layout Proportions
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-light-blue">
+    <div class="wrap">
+
+      <div class="section-label reveal" style="border-color:#D8E8EC">
+        <h2>§2 · Golden Grid — 61.8 / 38.2 + Inverse</h2>
+      </div>
+
+      <!-- 2-col golden ratio demo -->
+      <p class="label reveal mb-sp-5">Golden 2-Column: 61.8% content + 38.2% image</p>
+      <div class="golden-grid reveal mb-sp-7">
+        <div class="bg-light-blue radius-section py-sp-6 px-sp-6 content-stack">
+          <p class="label">Hero text — 61.8%</p>
+          <p class="h2" style="max-width:12ch">Speak English with confidence</p>
+          <p class="body-lg" style="color:#666">Clear structure and practical tools to help you thrive. The text column takes 61.8% of the container.</p>
+          <a class="btn btn-primary btn-lg mt-auto">Get Started</a>
+        </div>
+        <div class="bg-soft-blue radius-section" style="min-height:280px;display:flex;align-items:center;justify-content:center">
+          <div class="text-center">
+            <p class="label color-teal">Image — 38.2%</p>
+            <p class="micro mt-sp-3" style="color:#888">1100 × 0.382 = 420px</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inverse golden ratio -->
+      <p class="label reveal mb-sp-5">Inverse: 38.2% image + 61.8% content (editorial variant)</p>
+      <div class="golden-grid-inv reveal">
+        <div class="bg-espresso radius-section" style="min-height:220px;display:flex;align-items:center;justify-content:center">
+          <p class="label color-gold">Image — 38.2%</p>
+        </div>
+        <div class="bg-pink radius-section py-sp-6 px-sp-6 content-stack">
+          <p class="label">About — 61.8%</p>
+          <p class="h3">Your English is amazing</p>
+          <p class="body" style="color:#777">You don't have to be a native speaker to have great English. The content column expands to 61.8%.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §3  Auto-fit Grids
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§3 · Auto-fit Grids — repeat(auto-fit, minmax(Xpx, 1fr))</h2>
+      </div>
+
+      <p class="body reveal mb-sp-6" style="color:#777;max-width:52ch">
+        Auto-fit grids collapse gracefully: wide viewport = N columns,
+        narrow = fewer, mobile = 1 column. Gap is always <code class="token-code" style="font-size:inherit">--space-5</code>.
+      </p>
+
+      <!-- grid-auto-200 -->
+      <p class="label reveal mb-sp-4">grid-auto-200 · minmax(200px, 1fr) · 5 col at 1100px</p>
+      <div class="grid-auto-200 reveal mb-sp-7">
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Card A</p><p class="body" style="color:#888">Pronunciation</p></div>
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Card B</p><p class="body" style="color:#888">Fluency</p></div>
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Card C</p><p class="body" style="color:#888">Grammar</p></div>
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Card D</p><p class="body" style="color:#888">Confidence</p></div>
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Card E</p><p class="body" style="color:#888">Accent</p></div>
+      </div>
+
+      <!-- grid-auto-280 -->
+      <p class="label reveal mb-sp-4">grid-auto-280 · minmax(280px, 1fr) · 3 col at 1100px</p>
+      <div class="grid-auto-280 reveal mb-sp-7">
+        <div class="card"><p class="label mb-sp-3">Free Downloads</p><p class="h4 mb-sp-3">Start practicing today</p><p class="body" style="color:#888">PDFs and audio files for immediate practice.</p></div>
+        <div class="card"><p class="label mb-sp-3">App Access</p><p class="h4 mb-sp-3">Free 14-day Plan</p><p class="body" style="color:#888">Daily video lessons and practice sheets.</p></div>
+        <div class="card"><p class="label mb-sp-3">Courses</p><p class="h4 mb-sp-3">Transform your English</p><p class="body" style="color:#888">Pronunciation, mindset, fluency — fast.</p></div>
+      </div>
+
+      <!-- grid-auto-300 -->
+      <p class="label reveal mb-sp-4">grid-auto-300 · minmax(300px, 1fr) · 3 col at 1100px</p>
+      <div class="grid-auto-300 reveal">
+        <div class="card"><p class="h4 mb-sp-3">Feature One</p><p class="body" style="color:#888">Wider minimum, fewer columns, more content per card.</p></div>
+        <div class="card"><p class="h4 mb-sp-3">Feature Two</p><p class="body" style="color:#888">Ideal for feature rows where each card needs breathing room.</p></div>
+        <div class="card"><p class="h4 mb-sp-3">Feature Three</p><p class="body" style="color:#888">Consistent with the golden spacing system throughout.</p></div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §4  Card Grids
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-warm-cream">
+    <div class="wrap">
+
+      <div class="section-label reveal" style="border-color:#EDE9E0">
+        <h2>§4 · Card Grids — Fixed Column Count</h2>
+      </div>
+
+      <p class="label reveal mb-sp-4">card-grid--2</p>
+      <div class="card-grid card-grid--2 reveal mb-sp-7">
+        <div class="card"><p class="label mb-sp-3">Testimonial</p><p class="h4 mb-sp-3">"My English changed completely"</p><p class="body" style="color:#888">After 3 months with Hadar's program I felt confident speaking in meetings for the first time.</p></div>
+        <div class="card"><p class="label mb-sp-3">Testimonial</p><p class="h4 mb-sp-3">"I finally stopped translating in my head"</p><p class="body" style="color:#888">The way Hadar teaches connected fluency and mindset. That was the missing piece for me.</p></div>
+      </div>
+
+      <p class="label reveal mb-sp-4">card-grid--4</p>
+      <div class="card-grid card-grid--4 reveal">
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Q1</p><p class="h4">250+</p><p class="note mt-sp-2">Free resources</p></div>
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Q2</p><p class="h4">4</p><p class="note mt-sp-2">Courses</p></div>
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Q3</p><p class="h4">200k</p><p class="note mt-sp-2">YouTube subscribers</p></div>
+        <div class="card card-tight"><p class="micro color-gold mb-sp-2">Q4</p><p class="h4">15+</p><p class="note mt-sp-2">Years teaching</p></div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §5  Breakpoints Reference
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§5 · Breakpoints Reference Table</h2>
+      </div>
+
+      <div class="callout reveal">
+        <p class="note">
+          <strong class="color-espresso">Breakpoints are values, not variables.</strong>
+          CSS custom properties cannot be used inside @media rules. Use the values below directly.
+          Convention: max-width for collapse/hide triggers, min-width for progressive enhancement.
+        </p>
+      </div>
+
+      <div class="reveal mt-sp-6" style="overflow-x:auto">
+        <table class="bp-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Value</th>
+              <th>Direction</th>
+              <th>Use case</th>
+              <th>Example rule</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>xs</td>
+              <td class="body">479px</td>
+              <td class="body">max-width</td>
+              <td class="body">Mobile portrait only — stack CTAs, hide decorative elements</td>
+              <td><span class="equation" style="display:inline">@media (max-width: 479px)</span></td>
+            </tr>
+            <tr>
+              <td>sm</td>
+              <td class="body">767px</td>
+              <td class="body">max-width</td>
+              <td class="body">Mobile landscape max — stack hero columns, collapse nav links</td>
+              <td><span class="equation" style="display:inline">@media (max-width: 767px)</span></td>
+            </tr>
+            <tr>
+              <td>sm+</td>
+              <td class="body">768px</td>
+              <td class="body">max-width</td>
+              <td class="body">Grid collapses for golden-grid, col-3, col-2 — used by style-guide</td>
+              <td><span class="equation" style="display:inline">@media (max-width: 768px)</span></td>
+            </tr>
+            <tr>
+              <td>md</td>
+              <td class="body">1023px</td>
+              <td class="body">max-width</td>
+              <td class="body">Tablet max — adjust container padding, intermediate layouts</td>
+              <td><span class="equation" style="display:inline">@media (max-width: 1023px)</span></td>
+            </tr>
+            <tr>
+              <td>lg</td>
+              <td class="body">1280px</td>
+              <td class="body">min-width</td>
+              <td class="body">Wide desktop — enhanced layouts, optional sidebar patterns</td>
+              <td><span class="equation" style="display:inline">@media (min-width: 1280px)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §6  Responsive Behavior
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-light-purple">
+    <div class="wrap">
+
+      <div class="section-label reveal" style="border-color:#E0D8E8">
+        <h2>§6 · Responsive Behavior — Stacking Rules</h2>
+      </div>
+
+      <div class="grid-auto-280 reveal" data-delay="1">
+
+        <div class="card">
+          <p class="micro color-gold mb-sp-3">≥ 1100px — Full desktop</p>
+          <p class="h4 mb-sp-3">Full layout</p>
+          <ul class="wp-block-list body" style="color:#777">
+            <li>Container at 1100px max</li>
+            <li>Golden grid: 61.8 / 38.2</li>
+            <li>card-grid--4 shows 4 columns</li>
+            <li>All hero variants 2-column</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <p class="micro color-gold mb-sp-3">769–1099px — Tablet landscape</p>
+          <p class="h4 mb-sp-3">Fluid container</p>
+          <ul class="wp-block-list body" style="color:#777">
+            <li>Container padding shrinks via clamp</li>
+            <li>auto-fit grids start collapsing</li>
+            <li>Hero columns still side-by-side</li>
+            <li>card-grid--4 may show 2–3 cols</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <p class="micro color-gold mb-sp-3">480–767px — Tablet / Mobile landscape</p>
+          <p class="h4 mb-sp-3">Stack trigger</p>
+          <ul class="wp-block-list body" style="color:#777">
+            <li>Hero columns stack vertically</li>
+            <li>golden-grid, col-3, col-2 → 1 col</li>
+            <li>card-grid--4 and --2 → 1 col</li>
+            <li>.hide-sm, .show-sm active</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <p class="micro color-gold mb-sp-3">≤ 479px — Mobile portrait</p>
+          <p class="h4 mb-sp-3">CTA + button stack</p>
+          <ul class="wp-block-list body" style="color:#777">
+            <li>.hero-btns stacks vertically</li>
+            <li>All buttons go full-width</li>
+            <li>.hide-xs, .show-xs active</li>
+            <li>Reduced container padding</li>
+          </ul>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+
+<footer class="db-footer">
+  <p>HS2026 Design Book · 02 · Grid &amp; Responsive System · Do not deploy to WordPress</p>
+</footer>
+
+
+<script>
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); } });
+  },{threshold:.05});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

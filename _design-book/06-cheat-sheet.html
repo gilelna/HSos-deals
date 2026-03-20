@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HS2026 Design Book · 06 · Designer Cheat Sheet</title>
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <link rel="stylesheet" href="./style-guide.css">
+  <link rel="stylesheet" href="./_shared.css">
+  <style>
+    /* ── Cheat sheet–specific overrides ── */
+    .cs-jump {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      padding: var(--space-4) 0;
+    }
+    .cs-jump a {
+      font-family: var(--font-body);
+      font-size: var(--text-micro);
+      font-weight: 700;
+      letter-spacing: var(--tracking-wide);
+      text-transform: uppercase;
+      color: var(--c-gold);
+      text-decoration: none;
+      padding: var(--space-1) var(--space-3);
+      border: 1px solid rgba(193,168,104,.3);
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+      transition: background .15s, color .15s;
+    }
+    .cs-jump a:hover {
+      background: var(--c-gold);
+      color: #fff;
+    }
+
+    /* Class chip display */
+    .class-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-bottom: var(--space-5);
+    }
+    .cls {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: var(--text-micro);
+      background: #F5F4F0;
+      color: var(--c-espresso);
+      padding: var(--space-1) var(--space-3);
+      border-radius: var(--radius-sm);
+      border: 1px solid #E8E6E0;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background .12s;
+      user-select: all;
+    }
+    .cls:hover { background: #EDE9E0; }
+    .cls--gold  { background: rgba(193,168,104,.1); border-color: rgba(193,168,104,.4); color: #7A6030; }
+    .cls--teal  { background: rgba(2,99,96,.07);    border-color: rgba(2,99,96,.2);    color: var(--c-deep-teal); }
+    .cls--dark  { background: rgba(26,20,16,.06);   border-color: rgba(26,20,16,.15);  color: var(--c-espresso); }
+
+    /* Copy snippet panel — styled differently from pattern-panel */
+    .snip {
+      margin-bottom: var(--space-6);
+    }
+    .snip__label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+    .snip__title {
+      font-family: var(--font-body);
+      font-size: var(--text-micro);
+      font-weight: 700;
+      letter-spacing: var(--tracking-wider);
+      text-transform: uppercase;
+      color: var(--c-espresso);
+    }
+    .snip__copy {
+      font-family: var(--font-body);
+      font-size: var(--text-micro);
+      font-weight: 700;
+      letter-spacing: var(--tracking-wide);
+      text-transform: uppercase;
+      color: var(--c-gold);
+      background: rgba(193,168,104,.08);
+      border: 1px solid rgba(193,168,104,.25);
+      border-radius: var(--radius-pill);
+      padding: var(--space-1) var(--space-3);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .snip__copy:hover   { background: var(--c-gold); color: #fff; }
+    .snip__copy.copied  { background: var(--c-green-dark); color: #fff; border-color: var(--c-green-dark); }
+    .snip__code {
+      background: var(--c-espresso);
+      border-radius: var(--radius-card);
+      padding: var(--space-5) var(--space-6);
+      overflow-x: auto;
+    }
+    .snip__code pre {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: var(--text-micro);
+      color: rgba(255,255,255,.75);
+      line-height: 1.9;
+      margin: 0;
+      white-space: pre;
+    }
+    /* Syntax highlight */
+    .snip__code .hl-tag   { color: #7EC8C8; }
+    .snip__code .hl-attr  { color: #C1A868; }
+    .snip__code .hl-val   { color: #A8D8A8; }
+    .snip__code .hl-cmt   { color: rgba(255,255,255,.3); }
+
+    /* Reference table */
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-micro);
+    }
+    .ref-table th {
+      font-family: var(--font-body);
+      font-weight: 700;
+      letter-spacing: var(--tracking-wider);
+      text-transform: uppercase;
+      color: #999;
+      text-align: left;
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid #EEEDE9;
+    }
+    .ref-table td {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid #F5F4F1;
+      vertical-align: middle;
+    }
+    .ref-table td:first-child {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      color: var(--c-gold);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .ref-table td:last-child { color: #888; }
+
+    /* Color swatch row */
+    .color-row {
+      display: grid;
+      grid-template-columns: 32px 1fr 1fr;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid #F5F4F1;
+    }
+    .color-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+    }
+    .color-classes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+
+    /* Toast */
+    #copy-toast {
+      position: fixed;
+      bottom: var(--space-6);
+      right: var(--space-6);
+      background: var(--c-green-dark);
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: var(--text-micro);
+      font-weight: 700;
+      letter-spacing: var(--tracking-wide);
+      text-transform: uppercase;
+      padding: var(--space-3) var(--space-5);
+      border-radius: var(--radius-pill);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #copy-toast.show { opacity: 1; transform: none; }
+  </style>
+</head>
+<body class="page-bg">
+
+<!-- ── Navigation ── -->
+<nav class="db-nav">
+  <div class="wrap db-nav__inner">
+    <a href="./index.html" class="db-nav__brand">
+      <span class="db-nav__brand-mark">HS</span>
+      <span class="db-nav__brand-label">Design Book</span>
+    </a>
+    <div class="db-nav__links">
+      <a href="./01-constitution.html" class="db-nav__link">01 · Constitution</a>
+      <a href="./02-grid-breakpoints.html" class="db-nav__link">02 · Grid</a>
+      <a href="./03-components.html" class="db-nav__link">03 · Components</a>
+      <a href="./04-sections.html" class="db-nav__link">04 · Sections</a>
+      <a href="./05-block-patterns.html" class="db-nav__link">05 · Patterns</a>
+      <a href="./06-cheat-sheet.html" class="db-nav__link is-active">06 · Cheat Sheet</a>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ── Page Header ── -->
+<header class="db-header">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="micro color-gold mb-sp-4">HS2026 · Design Book · 06</p>
+      <h1 class="h1 color-white">Designer Cheat Sheet</h1>
+      <p class="body-lg mt-sp-4 text-muted max-ch-44">
+        All utility classes at a glance. Click any class chip to select it.
+        Use the snippet panels to copy production-ready HTML blocks.
+      </p>
+    </div>
+  </div>
+</header>
+
+
+<!-- ── Jump links ── -->
+<div class="wrap py-sp-5 reveal">
+  <nav class="cs-jump" aria-label="Jump to section">
+    <a href="#typography">Typography</a>
+    <a href="#colors">Colors</a>
+    <a href="#spacing">Spacing</a>
+    <a href="#layout">Layout</a>
+    <a href="#flex">Flex</a>
+    <a href="#visibility">Visibility</a>
+    <a href="#components">Components</a>
+    <a href="#snippets">Snippets</a>
+  </nav>
+</div>
+
+
+<main>
+
+  <!-- ══════════════════════════════════════════════
+       §1  TYPOGRAPHY
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white" id="typography">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§1 · Typography Classes</h2>
+      </div>
+
+      <!-- Type scale -->
+      <p class="label reveal mb-sp-4">Type Scale — add directly to any element</p>
+      <div class="reveal" style="display:flex;flex-direction:column;gap:0">
+
+        <div class="token-row token-row--align-end">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.display</code></div>
+          <p class="display color-espresso">English</p>
+          <p class="note ml-auto text-right hide-sm">56→112px · Quincy Black · ls -0.04em</p>
+        </div>
+        <div class="token-row token-row--align-end">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.h1</code></div>
+          <p class="h1 color-espresso">Speak with confidence</p>
+          <p class="note ml-auto text-right hide-sm">46→76px · Quincy Black</p>
+        </div>
+        <div class="token-row token-row--align-end">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.h2</code></div>
+          <p class="h2 color-espresso">How I can help you</p>
+          <p class="note ml-auto text-right hide-sm">36→52px · Quincy Bold</p>
+        </div>
+        <div class="token-row token-row--align-end">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.h3</code></div>
+          <p class="h3 color-espresso">Your English is amazing</p>
+          <p class="note ml-auto text-right hide-sm">28→38px · Quincy Bold</p>
+        </div>
+        <div class="token-row token-row--align-end">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.h4</code></div>
+          <p class="h4 color-espresso">Start practicing today</p>
+          <p class="note ml-auto text-right hide-sm">22→28px · Quincy Bold</p>
+        </div>
+        <div class="token-row">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.body-lg</code></div>
+          <p class="body-lg text-muted">Clear structure and real practice to help you thrive.</p>
+          <p class="note ml-auto text-right hide-sm">18→22px · Effra</p>
+        </div>
+        <div class="token-row">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.body</code></div>
+          <p class="body text-muted">Weekly lessons, free resources, and proven programs. Line height = φ.</p>
+          <p class="note ml-auto text-right hide-sm">16→18px · Effra · lh φ</p>
+        </div>
+        <div class="token-row">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.label</code></div>
+          <p class="label">Free Downloads · Courses</p>
+          <p class="note ml-auto text-right hide-sm">12→14px · gold · uppercase · ls +0.08</p>
+        </div>
+        <div class="token-row">
+          <div class="class-grid" style="margin:0;min-width:140px;flex-shrink:0"><code class="cls">.micro</code></div>
+          <p class="micro text-muted">Week 1–6 · New Sound</p>
+          <p class="note ml-auto text-right hide-sm">10→12px · uppercase · ls +0.14</p>
+        </div>
+      </div>
+
+      <!-- Text modifiers -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Text Modifiers</p>
+      <div class="class-grid reveal">
+        <code class="cls">.text-muted</code>
+        <code class="cls">.text-center</code>
+        <code class="cls">.text-left</code>
+        <code class="cls">.text-right</code>
+        <code class="cls">.text-upper</code>
+        <code class="cls">.text-balance</code>
+        <code class="cls">.gold-underline</code>
+        <code class="cls">.font-title</code>
+        <code class="cls">.font-body</code>
+        <code class="cls">.lh-tight</code>
+        <code class="cls">.lh-snug</code>
+        <code class="cls">.lh-normal</code>
+        <code class="cls">.lh-prose</code>
+        <code class="cls">.lh-loose</code>
+      </div>
+
+      <!-- Max-width prose constraints -->
+      <p class="label reveal mt-sp-6 mb-sp-4">Prose Width Constraints (max-ch-*)</p>
+      <div class="class-grid reveal">
+        <code class="cls">.max-ch-10</code>
+        <code class="cls">.max-ch-14</code>
+        <code class="cls">.max-ch-16</code>
+        <code class="cls">.max-ch-18</code>
+        <code class="cls">.max-ch-24</code>
+        <code class="cls">.max-ch-36</code>
+        <code class="cls">.max-ch-42</code>
+        <code class="cls">.max-ch-44</code>
+        <code class="cls">.max-ch-46</code>
+        <code class="cls">.max-ch-48</code>
+        <code class="cls">.max-ch-52</code>
+        <code class="cls">.max-ch-58</code>
+        <code class="cls">.max-ch-64</code>
+        <code class="cls">.max-ch-72</code>
+      </div>
+      <p class="note reveal">Rule: headings → 10–18ch · lead body → 44–52ch · prose → 58–72ch</p>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §2  COLORS
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-warm-cream" id="colors">
+    <div class="wrap">
+
+      <div class="section-label section-label--cream reveal">
+        <h2>§2 · Color Utilities</h2>
+      </div>
+
+      <p class="note reveal mb-sp-5">Every token has a <code class="cls cls--dark">.bg-*</code> and a <code class="cls cls--dark">.color-*</code> class. Dark bg classes auto-set white text — no extra class needed.</p>
+
+      <!-- Core palette -->
+      <p class="label reveal mb-sp-4">Core Palette</p>
+      <div class="reveal" data-delay="1">
+        <div class="color-row">
+          <div class="color-dot" style="background:#1A1410"></div>
+          <div class="color-classes"><code class="cls cls--dark">.bg-espresso</code><code class="cls cls--dark">.color-espresso</code></div>
+          <p class="note">#1A1410 · primary dark / body text</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#C1A868"></div>
+          <div class="color-classes"><code class="cls cls--gold">.bg-gold</code><code class="cls cls--gold">.color-gold</code></div>
+          <p class="note">#C1A868 · primary brand gold</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#A8904F"></div>
+          <div class="color-classes"><code class="cls cls--gold">.bg-gold-deep</code><code class="cls cls--gold">.color-gold-deep</code></div>
+          <p class="note">#A8904F · gold hover</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#026360"></div>
+          <div class="color-classes"><code class="cls cls--teal">.bg-green-dark</code><code class="cls cls--teal">.color-green-dark</code></div>
+          <p class="note">#026360 · deep brand green</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#1E5E5B"></div>
+          <div class="color-classes"><code class="cls cls--teal">.bg-deep-teal</code><code class="cls cls--teal">.color-deep-teal</code></div>
+          <p class="note">#1E5E5B · teal hover</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#409690"></div>
+          <div class="color-classes"><code class="cls cls--teal">.bg-teal</code><code class="cls cls--teal">.color-teal</code></div>
+          <p class="note">#409690 · medium teal</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#CBE3E5;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)"></div>
+          <div class="color-classes"><code class="cls">.bg-soft-blue</code><code class="cls">.color-soft-blue</code></div>
+          <p class="note">#CBE3E5 · decorative light blue</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#FFFFFF;box-shadow:inset 0 0 0 1px #ddd"></div>
+          <div class="color-classes"><code class="cls">.bg-white</code><code class="cls">.color-white</code></div>
+          <p class="note">#FFFFFF</p>
+        </div>
+      </div>
+
+      <!-- Section backgrounds -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Section Background Palette</p>
+      <div class="reveal" data-delay="2">
+        <div class="color-row">
+          <div class="color-dot" style="background:#F3F7FA;box-shadow:inset 0 0 0 1px #dde8f0"></div>
+          <div class="color-classes"><code class="cls">.bg-light-blue</code></div>
+          <p class="note">#F3F7FA</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#F7F2F9;box-shadow:inset 0 0 0 1px #e8dced"></div>
+          <div class="color-classes"><code class="cls">.bg-light-purple</code></div>
+          <p class="note">#F7F2F9</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#F9F2F3;box-shadow:inset 0 0 0 1px #ecdddf"></div>
+          <div class="color-classes"><code class="cls">.bg-pink</code></div>
+          <p class="note">#F9F2F3</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#FAF5EC;box-shadow:inset 0 0 0 1px #ede5d3"></div>
+          <div class="color-classes"><code class="cls">.bg-warm-cream</code></div>
+          <p class="note">#FAF5EC</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#F7BAA4"></div>
+          <div class="color-classes"><code class="cls">.bg-peach</code></div>
+          <p class="note">#F7BAA4</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#6B4F2A"></div>
+          <div class="color-classes"><code class="cls cls--dark">.bg-amber</code></div>
+          <p class="note">#6B4F2A · auto white text</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#8B3A52"></div>
+          <div class="color-classes"><code class="cls cls--dark">.bg-berry</code></div>
+          <p class="note">#8B3A52 · auto white text</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#C4622D"></div>
+          <div class="color-classes"><code class="cls cls--dark">.bg-terracotta</code></div>
+          <p class="note">#C4622D · auto white text</p>
+        </div>
+        <div class="color-row">
+          <div class="color-dot" style="background:#4A6E7A"></div>
+          <div class="color-classes"><code class="cls cls--dark">.bg-slate</code></div>
+          <p class="note">#4A6E7A · auto white text</p>
+        </div>
+      </div>
+
+      <!-- Section rhythm rule -->
+      <div class="callout reveal mt-sp-6">
+        <p class="note"><strong class="color-espresso">Section alternation law.</strong> Never place two dark sections or two light sections adjacent. Rhythm: light → dark → light → dark. Recommended sequence: bg-pink → bg-espresso → bg-warm-cream → bg-green-dark → bg-light-blue → bg-deep-teal → bg-peach → bg-espresso.</p>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §3  SPACING
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white" id="spacing">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§3 · Spacing Scale</h2>
+      </div>
+
+      <p class="note reveal mb-sp-5">All spacing is pt / pb / pl / pr / px / py for padding, mt / mb / ml / mr / mx / my for margin. Suffix = scale step (1–9).</p>
+
+      <div class="reveal">
+        <table class="ref-table">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Value</th>
+              <th>Padding classes</th>
+              <th>Margin classes</th>
+              <th>Use</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>sp-1</td>
+              <td>4px</td>
+              <td><code class="cls">pt/pb/pl/pr/px/py-sp-1</code></td>
+              <td><code class="cls">mt/mb/ml/mr/mx/my-sp-1</code></td>
+              <td>Icon gap, border inset</td>
+            </tr>
+            <tr>
+              <td>sp-2</td>
+              <td>6px</td>
+              <td><code class="cls">… -sp-2</code></td>
+              <td><code class="cls">… -sp-2</code></td>
+              <td>Tight inline, badge padding</td>
+            </tr>
+            <tr>
+              <td>sp-3</td>
+              <td>10px</td>
+              <td><code class="cls">… -sp-3</code></td>
+              <td><code class="cls">… -sp-3</code></td>
+              <td>Close siblings, chip padding</td>
+            </tr>
+            <tr style="border-top:2px solid var(--c-gold)">
+              <td style="color:var(--c-gold)">sp-4 ←</td>
+              <td><strong>16px = 1rem</strong></td>
+              <td><code class="cls cls--gold">… -sp-4</code></td>
+              <td><code class="cls cls--gold">… -sp-4</code></td>
+              <td>Component gaps (= type base)</td>
+            </tr>
+            <tr>
+              <td>sp-5</td>
+              <td>26px</td>
+              <td><code class="cls">… -sp-5</code></td>
+              <td><code class="cls">… -sp-5</code></td>
+              <td>Card inner rhythm, input padding</td>
+            </tr>
+            <tr>
+              <td>sp-6</td>
+              <td>42px</td>
+              <td><code class="cls">… -sp-6</code></td>
+              <td><code class="cls">… -sp-6</code></td>
+              <td>Card padding, major element gaps</td>
+            </tr>
+            <tr>
+              <td>sp-7</td>
+              <td>68px</td>
+              <td><code class="cls">… -sp-7</code></td>
+              <td><code class="cls">… -sp-7</code></td>
+              <td>Narrow section padding</td>
+            </tr>
+            <tr style="border-top:2px solid var(--c-green-dark)">
+              <td style="color:var(--c-green-dark)">sp-8 ←</td>
+              <td><strong>110px</strong></td>
+              <td><code class="cls cls--teal">… -sp-8</code></td>
+              <td><code class="cls cls--teal">… -sp-8</code></td>
+              <td>Standard section vertical rhythm</td>
+            </tr>
+            <tr>
+              <td>sp-9</td>
+              <td>178px</td>
+              <td><code class="cls">… -sp-9</code></td>
+              <td><code class="cls">… -sp-9</code></td>
+              <td>Hero max breathing room</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="note reveal mt-sp-5">Also available: <code class="cls">.mt-auto</code> · <code class="cls">.mx-auto</code> · <code class="cls">.gap-3/4/5/6</code></p>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §4  LAYOUT
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-light-blue" id="layout">
+    <div class="wrap">
+
+      <div class="section-label section-label--blue reveal">
+        <h2>§4 · Layout Classes</h2>
+      </div>
+
+      <!-- Containers -->
+      <p class="label reveal mb-sp-4">Containers</p>
+      <div class="reveal">
+        <table class="ref-table">
+          <thead><tr><th>Class</th><th>Width</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td>.wrap</td><td>max 1100px + px-sp-6 gutters</td><td>All sections</td></tr>
+            <tr><td>.wrap-narrow</td><td>max 680px + px-sp-6 gutters</td><td>Blog / long-form prose</td></tr>
+            <tr><td>.section-shell</td><td>Applies section vertical padding</td><td>Wrap every section block</td></tr>
+            <tr><td>.section-shell--sm</td><td>py-sp-7 (68px)</td><td>Compact sections</td></tr>
+            <tr><td>.section-shell--lg</td><td>py-sp-9 (178px)</td><td>Hero-scale sections</td></tr>
+            <tr><td>.section-inset-wrap</td><td>mx clamp + border-radius-lg</td><td>Wispr-style inset block</td></tr>
+            <tr><td>.alignfull</td><td>100vw bleed, centered</td><td>Full-bleed image/color bands</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Grid helpers -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Grid Helpers</p>
+      <div class="reveal">
+        <table class="ref-table">
+          <thead><tr><th>Class</th><th>Columns</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td>.golden-grid</td><td>61.8fr / 38.2fr</td><td>Text left · image right</td></tr>
+            <tr><td>.golden-grid-inv</td><td>38.2fr / 61.8fr</td><td>Image left · text right</td></tr>
+            <tr><td>.col-2</td><td>50% / 50%</td><td>Equal two-column</td></tr>
+            <tr><td>.col-3</td><td>33% / 33% / 33%</td><td>Equal three-column</td></tr>
+            <tr><td>.grid-auto-200</td><td>auto-fit minmax(200px,1fr)</td><td>Dense icon/swatch grids</td></tr>
+            <tr><td>.grid-auto-240</td><td>auto-fit minmax(240px,1fr)</td><td>Small card grids</td></tr>
+            <tr><td>.grid-auto-280</td><td>auto-fit minmax(280px,1fr)</td><td>Standard card grids ← default</td></tr>
+            <tr><td>.grid-auto-300</td><td>auto-fit minmax(300px,1fr)</td><td>Wide card grids</td></tr>
+            <tr><td>.card-grid--2</td><td>fixed 2 cols</td><td>Testimonial pairs</td></tr>
+            <tr><td>.card-grid--4</td><td>fixed 4 cols</td><td>Icon row (use with caution)</td></tr>
+            <tr><td>.col-span-full</td><td>1 / -1</td><td>Break out of grid to full width</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Misc layout -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Misc Layout</p>
+      <div class="class-grid reveal">
+        <code class="cls">.relative</code>
+        <code class="cls">.overflow-hidden</code>
+        <code class="cls">.w-full</code>
+        <code class="cls">.mx-auto</code>
+        <code class="cls">.content-stack</code>
+        <code class="cls">.inline-actions</code>
+        <code class="cls">.stack</code>
+        <code class="cls">.form-row</code>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §5  FLEX UTILITIES
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white" id="flex">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§5 · Flex Utilities</h2>
+      </div>
+
+      <div class="class-grid reveal">
+        <code class="cls">.flex</code>
+        <code class="cls">.flex-wrap</code>
+        <code class="cls">.flex-col</code>
+        <code class="cls">.flex-1</code>
+        <code class="cls">.flex-shrink-0</code>
+        <code class="cls">.items-start</code>
+        <code class="cls">.items-center</code>
+        <code class="cls">.items-end</code>
+        <code class="cls">.justify-center</code>
+        <code class="cls">.justify-between</code>
+        <code class="cls">.gap-3</code>
+        <code class="cls">.gap-4</code>
+        <code class="cls">.gap-5</code>
+        <code class="cls">.gap-6</code>
+        <code class="cls">.mt-auto</code>
+        <code class="cls">.min-w-280</code>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §6  VISIBILITY / BREAKPOINTS
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-light-purple" id="visibility">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§6 · Visibility &amp; Breakpoint Helpers</h2>
+      </div>
+
+      <div class="reveal">
+        <table class="ref-table">
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Breakpoint</th>
+              <th>Behaviour</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>.hide-xs</td><td>≤ 479px</td><td>Hidden on mobile portrait and below</td></tr>
+            <tr><td>.show-xs</td><td>≤ 479px</td><td>Visible only on mobile portrait</td></tr>
+            <tr><td>.stack-xs</td><td>≤ 479px</td><td>flex-direction: column at ≤479px</td></tr>
+            <tr><td>.full-xs</td><td>≤ 479px</td><td>width: 100% at ≤479px</td></tr>
+            <tr><td>.center-xs</td><td>≤ 479px</td><td>text-align: center at ≤479px</td></tr>
+            <tr style="border-top:1px solid #D8E8EC"><td>.hide-sm</td><td>≤ 767px</td><td>Hidden on mobile</td></tr>
+            <tr><td>.show-sm</td><td>≤ 767px</td><td>Visible only on mobile</td></tr>
+            <tr><td>.stack-sm</td><td>≤ 767px</td><td>flex-direction: column at ≤767px</td></tr>
+            <tr><td>.full-sm</td><td>≤ 767px</td><td>width: 100% at ≤767px</td></tr>
+            <tr><td>.center-sm</td><td>≤ 767px</td><td>text-align: center at ≤767px</td></tr>
+            <tr><td>.order-first-sm</td><td>≤ 767px</td><td>order: -1 (move element first)</td></tr>
+            <tr><td>.order-last-sm</td><td>≤ 767px</td><td>order: 999 (move element last)</td></tr>
+            <tr style="border-top:1px solid #D8E8EC"><td>.hide-md</td><td>≤ 1023px</td><td>Hidden on tablet and below</td></tr>
+            <tr><td>.show-md</td><td>≤ 1023px</td><td>Visible only on tablet and below</td></tr>
+            <tr><td>.stack-md</td><td>≤ 1023px</td><td>flex-direction: column at ≤1023px</td></tr>
+            <tr><td>.full-md</td><td>≤ 1023px</td><td>width: 100% at ≤1023px</td></tr>
+            <tr style="border-top:1px solid #D8E8EC"><td>.hide-lg</td><td>≥ 1024px</td><td>Hidden on desktop only</td></tr>
+            <tr><td>.show-lg</td><td>≥ 1024px</td><td>Visible only on desktop</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Shadow + radius -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Shadow &amp; Radius</p>
+      <div class="class-grid reveal">
+        <code class="cls">.shadow-subtle</code>
+        <code class="cls">.shadow-card</code>
+        <code class="cls">.shadow-raised</code>
+        <code class="cls">.shadow-float</code>
+        <code class="cls">.shadow-gold</code>
+        <code class="cls">.radius-sm</code>
+        <code class="cls">.radius-card</code>
+        <code class="cls">.radius-section</code>
+        <code class="cls">.radius-section-lg</code>
+        <code class="cls">.radius-pill</code>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §7  COMPONENTS
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-warm-cream" id="components">
+    <div class="wrap">
+
+      <div class="section-label section-label--cream reveal">
+        <h2>§7 · Component Classes</h2>
+      </div>
+
+      <!-- Buttons -->
+      <p class="label reveal mb-sp-4">Buttons — always .btn + size + variant</p>
+      <div class="demo-row reveal mb-sp-5">
+        <a class="btn btn-primary btn-md" href="#">.btn-primary</a>
+        <a class="btn btn-outline btn-md" href="#">.btn-outline</a>
+        <a class="btn btn-gold-outline btn-md" href="#">.btn-gold-outline</a>
+        <a class="btn btn-dark btn-md" href="#">.btn-dark</a>
+        <a class="btn btn-teal btn-md" href="#">.btn-teal</a>
+        <a class="btn btn-soft btn-md" href="#">.btn-soft</a>
+        <a class="btn btn-berry btn-md" href="#">.btn-berry</a>
+        <a class="btn btn-terracotta btn-md" href="#">.btn-terracotta</a>
+      </div>
+      <div class="class-grid reveal">
+        <code class="cls">.btn</code>
+        <code class="cls">.btn-sm</code>
+        <code class="cls">.btn-md</code>
+        <code class="cls">.btn-lg</code>
+        <code class="cls cls--gold">.btn-primary</code>
+        <code class="cls">.btn-outline</code>
+        <code class="cls cls--gold">.btn-gold-outline</code>
+        <code class="cls cls--dark">.btn-dark</code>
+        <code class="cls cls--teal">.btn-teal</code>
+        <code class="cls">.btn-soft</code>
+        <code class="cls">.btn-ghost</code>
+        <code class="cls">.btn-berry</code>
+        <code class="cls">.btn-terracotta</code>
+        <code class="cls">.arrow-btn</code>
+      </div>
+
+      <!-- Cards -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Cards</p>
+      <div class="col-3 reveal mb-sp-4">
+        <div class="card">
+          <p class="h4 mb-sp-3">.card</p>
+          <p class="body text-muted">White bg, 12px radius, card shadow, hover lift.</p>
+        </div>
+        <div class="card bg-espresso">
+          <p class="h4 color-white mb-sp-3">.card.bg-espresso</p>
+          <p class="body text-muted">Dark card — text auto-flips white.</p>
+        </div>
+        <div class="card bg-green-dark">
+          <p class="h4 color-white mb-sp-3">.card.bg-green-dark</p>
+          <p class="body text-muted">Teal card — text auto-flips white.</p>
+        </div>
+      </div>
+      <div class="class-grid reveal">
+        <code class="cls">.card</code>
+        <code class="cls">.card-tight</code>
+        <code class="cls">.card-loose</code>
+        <code class="cls">.content-stack</code>
+      </div>
+
+      <!-- Badges + chips -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Badges &amp; Chips</p>
+      <div class="demo-row reveal mb-sp-4">
+        <span class="badge badge--gold">badge--gold</span>
+        <span class="badge badge--soft-blue">badge--soft-blue</span>
+        <span class="badge badge--peach">badge--peach</span>
+        <span class="badge badge--espresso">badge--espresso</span>
+        <span class="badge badge--green-dark">badge--green-dark</span>
+        <span class="chip">chip</span>
+        <span class="chip active">chip.active</span>
+      </div>
+      <div class="class-grid reveal">
+        <code class="cls">.badge</code>
+        <code class="cls cls--gold">.badge--gold</code>
+        <code class="cls">.badge--soft-blue</code>
+        <code class="cls">.badge--peach</code>
+        <code class="cls cls--dark">.badge--espresso</code>
+        <code class="cls cls--teal">.badge--green-dark</code>
+        <code class="cls">.chip</code>
+        <code class="cls">.chip.active</code>
+      </div>
+
+      <!-- WP Block Bridge -->
+      <p class="label reveal mt-sp-7 mb-sp-4">WordPress Block Button Bridge</p>
+      <div class="class-grid reveal">
+        <code class="cls">.wp-block-button.is-style-outline-gold</code>
+        <code class="cls">.wp-block-button.is-style-ghost</code>
+        <code class="cls">.wp-block-button.is-style-chip</code>
+      </div>
+      <p class="note reveal mt-sp-3">Apply to the outer <code>.wp-block-button</code> wrapper — the inner <code>.wp-block-button__link</code> inherits all styles automatically.</p>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §8  COPY-PASTE SNIPPETS
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white" id="snippets">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§8 · Copy-Paste Snippets</h2>
+      </div>
+
+      <p class="body-lg text-muted reveal mb-sp-7 max-ch-52">Production-ready HTML using only classes from <code class="cls">style-guide.css</code>. Paste directly into a WordPress Custom HTML block or Gutenberg Group block.</p>
+
+
+      <!-- ── Snippet 1: Universal content block ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">Eyebrow + Heading + Body + CTA</span>
+          <button class="snip__copy" data-snip="snip-1">Copy</button>
+        </div>
+        <!-- Preview -->
+        <div class="card mb-sp-4 bg-warm-cream shadow-subtle">
+          <p class="label mb-sp-4">How I can help</p>
+          <h2 class="h2 color-espresso max-ch-14 mb-sp-4">Start making change right here</h2>
+          <p class="body-lg text-muted max-ch-46 mb-sp-5">Clear structure, real practice, and proven techniques to help you communicate naturally.</p>
+          <div class="inline-actions">
+            <a class="btn btn-primary btn-lg" href="#">Get Started →</a>
+            <a class="btn btn-gold-outline btn-md" href="#">Learn More</a>
+          </div>
+        </div>
+        <!-- Code -->
+        <div class="snip__code" id="snip-1">
+<pre>&lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"content-stack"</span>&gt;
+  &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"label"</span>&gt;How I can help&lt;/<span class="hl-tag">p</span>&gt;
+  &lt;<span class="hl-tag">h2</span> <span class="hl-attr">class</span>=<span class="hl-val">"h2 color-espresso max-ch-14"</span>&gt;Start making change right here&lt;/<span class="hl-tag">h2</span>&gt;
+  &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body-lg text-muted max-ch-46"</span>&gt;
+    Clear structure, real practice, and proven techniques.
+  &lt;/<span class="hl-tag">p</span>&gt;
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"inline-actions mt-sp-3"</span>&gt;
+    &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-primary btn-lg"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;Get Started →&lt;/<span class="hl-tag">a</span>&gt;
+    &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-gold-outline btn-md"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;Learn More&lt;/<span class="hl-tag">a</span>&gt;
+  &lt;/<span class="hl-tag">div</span>&gt;
+&lt;/<span class="hl-tag">div</span>&gt;</pre>
+        </div>
+      </div>
+
+
+      <!-- ── Snippet 2: Section shell ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">Section Shell (light bg)</span>
+          <button class="snip__copy" data-snip="snip-2">Copy</button>
+        </div>
+        <div class="snip__code" id="snip-2">
+<pre>&lt;<span class="hl-tag">section</span> <span class="hl-attr">class</span>=<span class="hl-val">"section-shell bg-warm-cream"</span>&gt;
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wrap"</span>&gt;
+
+    &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"text-center mb-sp-7"</span>&gt;
+      &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"label mb-sp-4"</span>&gt;Section eyebrow&lt;/<span class="hl-tag">p</span>&gt;
+      &lt;<span class="hl-tag">h2</span> <span class="hl-attr">class</span>=<span class="hl-val">"h2 mx-auto max-ch-16"</span>&gt;Section heading goes here&lt;/<span class="hl-tag">h2</span>&gt;
+      &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body-lg mt-sp-4 text-muted mx-auto max-ch-52"</span>&gt;
+        Supporting description text. Keep under 52 characters wide.
+      &lt;/<span class="hl-tag">p</span>&gt;
+    &lt;/<span class="hl-tag">div</span>&gt;
+
+    &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"grid-auto-280"</span>&gt;
+      <span class="hl-cmt">&lt;!-- Cards go here --&gt;</span>
+    &lt;/<span class="hl-tag">div</span>&gt;
+
+  &lt;/<span class="hl-tag">div</span>&gt;
+&lt;/<span class="hl-tag">section</span>&gt;
+
+<span class="hl-cmt">&lt;!-- Swap bg-warm-cream for: bg-light-blue / bg-light-purple / bg-pink / bg-peach --&gt;</span></pre>
+        </div>
+      </div>
+
+
+      <!-- ── Snippet 3: Card ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">Card — standard</span>
+          <button class="snip__copy" data-snip="snip-3">Copy</button>
+        </div>
+        <!-- Preview -->
+        <div class="card content-stack mb-sp-4" style="max-width:300px">
+          <span class="label">Free Downloads</span>
+          <h3 class="h4">Practice with my free resources</h3>
+          <p class="body text-muted">Download PDFs and audio recordings for free. No sign-up required.</p>
+          <div class="flex justify-between items-center mt-auto pt-sp-4">
+            <a class="btn btn-primary btn-md" href="#">Start →</a>
+            <button class="arrow-btn" aria-label="View">→</button>
+          </div>
+        </div>
+        <div class="snip__code" id="snip-3">
+<pre>&lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"card content-stack"</span>&gt;
+  &lt;<span class="hl-tag">span</span> <span class="hl-attr">class</span>=<span class="hl-val">"label"</span>&gt;Category label&lt;/<span class="hl-tag">span</span>&gt;
+  &lt;<span class="hl-tag">h3</span> <span class="hl-attr">class</span>=<span class="hl-val">"h4"</span>&gt;Card heading&lt;/<span class="hl-tag">h3</span>&gt;
+  &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body text-muted"</span>&gt;Short description. One or two sentences only.&lt;/<span class="hl-tag">p</span>&gt;
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"flex justify-between items-center mt-auto pt-sp-4"</span>&gt;
+    &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-primary btn-md"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;Start →&lt;/<span class="hl-tag">a</span>&gt;
+    &lt;<span class="hl-tag">button</span> <span class="hl-attr">class</span>=<span class="hl-val">"arrow-btn"</span> <span class="hl-attr">aria-label</span>=<span class="hl-val">"View"</span>&gt;→&lt;/<span class="hl-tag">button</span>&gt;
+  &lt;/<span class="hl-tag">div</span>&gt;
+&lt;/<span class="hl-tag">div</span>&gt;
+
+<span class="hl-cmt">&lt;!-- Dark card: add bg-espresso or bg-green-dark to .card
+     Text auto-flips white — add color-white to heading if needed --&gt;</span></pre>
+        </div>
+      </div>
+
+
+      <!-- ── Snippet 4: Dark inset section ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">Dark Inset Section (About / Feature)</span>
+          <button class="snip__copy" data-snip="snip-4">Copy</button>
+        </div>
+        <div class="snip__code" id="snip-4">
+<pre>&lt;<span class="hl-tag">section</span> <span class="hl-attr">class</span>=<span class="hl-val">"section-shell bg-light-purple"</span>&gt;
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"section-inset-wrap"</span>&gt;
+    &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"bg-espresso py-sp-8 px-sp-7 relative overflow-hidden"</span>&gt;
+
+      &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"tex-dots"</span> <span class="hl-attr">style</span>=<span class="hl-val">"position:absolute;inset:0;pointer-events:none"</span>&gt;&lt;/<span class="hl-tag">div</span>&gt;
+
+      &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wrap relative"</span> <span class="hl-attr">style</span>=<span class="hl-val">"position:relative;z-index:1"</span>&gt;
+        &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"golden-grid"</span>&gt;
+
+          &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"content-stack"</span>&gt;
+            &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"label"</span>&gt;Section eyebrow&lt;/<span class="hl-tag">p</span>&gt;
+            &lt;<span class="hl-tag">h2</span> <span class="hl-attr">class</span>=<span class="hl-val">"h2 color-white"</span>&gt;
+              Heading with &lt;<span class="hl-tag">span</span> <span class="hl-attr">class</span>=<span class="hl-val">"color-gold gold-underline"</span>&gt;accent&lt;/<span class="hl-tag">span</span>&gt; word
+            &lt;/<span class="hl-tag">h2</span>&gt;
+            &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body-lg text-muted max-ch-46"</span>&gt;Body text here.&lt;/<span class="hl-tag">p</span>&gt;
+            &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"inline-actions mt-auto pt-sp-3"</span>&gt;
+              &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-primary btn-lg"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;Primary CTA →&lt;/<span class="hl-tag">a</span>&gt;
+            &lt;/<span class="hl-tag">div</span>&gt;
+          &lt;/<span class="hl-tag">div</span>&gt;
+
+          &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"flex items-center justify-center"</span>&gt;
+            &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"img-ph img-ph--portrait hero-round__img bg-deep-teal"</span>&gt;Portrait&lt;/<span class="hl-tag">div</span>&gt;
+          &lt;/<span class="hl-tag">div</span>&gt;
+
+        &lt;/<span class="hl-tag">div</span>&gt;
+      &lt;/<span class="hl-tag">div</span>&gt;
+    &lt;/<span class="hl-tag">div</span>&gt;
+  &lt;/<span class="hl-tag">div</span>&gt;
+&lt;/<span class="hl-tag">section</span>&gt;</pre>
+        </div>
+      </div>
+
+
+      <!-- ── Snippet 5: Testimonial card ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">Testimonial Card</span>
+          <button class="snip__copy" data-snip="snip-5">Copy</button>
+        </div>
+        <!-- Preview -->
+        <article class="card content-stack mb-sp-4" style="max-width:400px">
+          <div class="inline-actions mb-sp-4">
+            <span class="color-gold" style="font-size:var(--text-h4)">★★★★★</span>
+          </div>
+          <p class="h4 mb-sp-4">"My English changed completely after just 3 months."</p>
+          <p class="body text-muted">I used to avoid speaking in meetings. After Hadar's program I started volunteering to present.</p>
+          <div class="mt-auto pt-sp-5" style="border-top:1px solid #F0EEE9">
+            <p class="label">— María, Spain</p>
+            <p class="note mt-sp-1">Enrolled in Accent Makeover</p>
+          </div>
+        </article>
+        <div class="snip__code" id="snip-5">
+<pre>&lt;<span class="hl-tag">article</span> <span class="hl-attr">class</span>=<span class="hl-val">"card content-stack"</span>&gt;
+  &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"color-gold mb-sp-4"</span>&gt;★★★★★&lt;/<span class="hl-tag">p</span>&gt;
+  &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"h4 mb-sp-4"</span>&gt;"Quote headline here — keep under 8 words."&lt;/<span class="hl-tag">p</span>&gt;
+  &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body text-muted"</span> <span class="hl-attr">style</span>=<span class="hl-val">"flex:1"</span>&gt;
+    Full testimonial body text. Two to four sentences.
+  &lt;/<span class="hl-tag">p</span>&gt;
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"mt-auto pt-sp-5"</span> <span class="hl-attr">style</span>=<span class="hl-val">"border-top:1px solid #F0EEE9"</span>&gt;
+    &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"label"</span>&gt;— Name, Country&lt;/<span class="hl-tag">p</span>&gt;
+    &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"note mt-sp-1"</span>&gt;Enrolled in Program Name&lt;/<span class="hl-tag">p</span>&gt;
+  &lt;/<span class="hl-tag">div</span>&gt;
+&lt;/<span class="hl-tag">article</span>&gt;</pre>
+        </div>
+      </div>
+
+
+      <!-- ── Snippet 6: Newsletter strip ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">Newsletter Strip</span>
+          <button class="snip__copy" data-snip="snip-6">Copy</button>
+        </div>
+        <!-- Preview -->
+        <div class="section-shell bg-green-dark mb-sp-4">
+          <div class="wrap">
+            <div class="text-center mb-sp-7">
+              <p class="label mb-sp-4">Free lessons · every week</p>
+              <h2 class="h2 color-white mx-auto max-ch-18">Get weekly English tips in your inbox</h2>
+              <p class="body-lg mt-sp-4 text-muted mx-auto max-ch-44">Free pronunciation guides and fluency tips — delivered every Tuesday.</p>
+            </div>
+            <form class="form-row mx-auto max-ch-52" onsubmit="return false">
+              <input class="input" type="email" placeholder="Your email address" aria-label="Email address">
+              <button class="btn btn-primary btn-lg flex-shrink-0" type="submit">Yes! Send me lessons</button>
+            </form>
+          </div>
+        </div>
+        <div class="snip__code" id="snip-6">
+<pre>&lt;<span class="hl-tag">section</span> <span class="hl-attr">class</span>=<span class="hl-val">"section-shell bg-green-dark"</span>&gt;
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wrap"</span>&gt;
+
+    &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"text-center mb-sp-7"</span>&gt;
+      &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"label mb-sp-4"</span>&gt;Free lessons · every week&lt;/<span class="hl-tag">p</span>&gt;
+      &lt;<span class="hl-tag">h2</span> <span class="hl-attr">class</span>=<span class="hl-val">"h2 color-white mx-auto max-ch-18"</span>&gt;
+        Get weekly English tips in your inbox
+      &lt;/<span class="hl-tag">h2</span>&gt;
+      &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body-lg mt-sp-4 text-muted mx-auto max-ch-44"</span>&gt;
+        Free tips delivered every Tuesday. Join 40,000+ learners.
+      &lt;/<span class="hl-tag">p</span>&gt;
+    &lt;/<span class="hl-tag">div</span>&gt;
+
+    &lt;<span class="hl-tag">form</span> <span class="hl-attr">class</span>=<span class="hl-val">"form-row mx-auto max-ch-52"</span>&gt;
+      &lt;<span class="hl-tag">input</span> <span class="hl-attr">class</span>=<span class="hl-val">"input"</span> <span class="hl-attr">type</span>=<span class="hl-val">"email"</span> <span class="hl-attr">placeholder</span>=<span class="hl-val">"Your email address"</span>&gt;
+      &lt;<span class="hl-tag">button</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-primary btn-lg flex-shrink-0"</span> <span class="hl-attr">type</span>=<span class="hl-val">"submit"</span>&gt;
+        Send me lessons
+      &lt;/<span class="hl-tag">button</span>&gt;
+    &lt;/<span class="hl-tag">form</span>&gt;
+
+    &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"note text-center mt-sp-4 text-muted"</span>&gt;
+      No spam. Unsubscribe anytime.
+    &lt;/<span class="hl-tag">p</span>&gt;
+
+  &lt;/<span class="hl-tag">div</span>&gt;
+&lt;/<span class="hl-tag">section</span>&gt;</pre>
+        </div>
+      </div>
+
+
+      <!-- ── Snippet 7: Hero golden columns ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">Hero — Golden Columns (61.8 / 38.2)</span>
+          <button class="snip__copy" data-snip="snip-7">Copy</button>
+        </div>
+        <div class="snip__code" id="snip-7">
+<pre><span class="hl-cmt">&lt;!-- WordPress: add inside a Columns block with 2 columns, no gap --&gt;</span>
+&lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wp-block-columns hero-cols bg-pink"</span>&gt;
+
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wp-block-column py-sp-8 px-sp-7"</span>&gt;
+    &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"hero-label"</span>&gt;Pronunciation · Fluency · Confidence&lt;/<span class="hl-tag">p</span>&gt;
+    &lt;<span class="hl-tag">h1</span> <span class="hl-attr">class</span>=<span class="hl-val">"hero-h1"</span>&gt;Speak English&lt;<span class="hl-tag">br</span>&gt;with confidence&lt;/<span class="hl-tag">h1</span>&gt;
+    &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"hero-body"</span>&gt;Your main value proposition. Keep under 20 words.&lt;/<span class="hl-tag">p</span>&gt;
+    &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"hero-btns"</span>&gt;
+      &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-primary btn-lg"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;Start Here →&lt;/<span class="hl-tag">a</span>&gt;
+      &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wp-block-button is-style-outline-gold"</span>&gt;
+        &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"wp-block-button__link px-sp-6"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;Free Resources&lt;/<span class="hl-tag">a</span>&gt;
+      &lt;/<span class="hl-tag">div</span>&gt;
+    &lt;/<span class="hl-tag">div</span>&gt;
+  &lt;/<span class="hl-tag">div</span>&gt;
+
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wp-block-column"</span>&gt;
+    <span class="hl-cmt">&lt;!-- Insert image block here --&gt;</span>
+  &lt;/<span class="hl-tag">div</span>&gt;
+
+&lt;/<span class="hl-tag">div</span>&gt;
+
+<span class="hl-cmt">&lt;!-- Swap bg-pink for: bg-light-blue / bg-warm-cream / bg-light-purple
+     Hero variants: hero-cols · hero-round · hero-float --&gt;</span></pre>
+        </div>
+      </div>
+
+
+      <!-- ── Snippet 8: 3-col cards section ── -->
+      <div class="snip reveal">
+        <div class="snip__label">
+          <span class="snip__title">3-Column Card Grid Section</span>
+          <button class="snip__copy" data-snip="snip-8">Copy</button>
+        </div>
+        <div class="snip__code" id="snip-8">
+<pre>&lt;<span class="hl-tag">section</span> <span class="hl-attr">class</span>=<span class="hl-val">"section-shell bg-warm-cream"</span>&gt;
+  &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"wrap"</span>&gt;
+
+    &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"text-center mb-sp-7"</span>&gt;
+      &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"label mb-sp-4"</span>&gt;Section eyebrow&lt;/<span class="hl-tag">p</span>&gt;
+      &lt;<span class="hl-tag">h2</span> <span class="hl-attr">class</span>=<span class="hl-val">"h2 mx-auto max-ch-16"</span>&gt;Section heading&lt;/<span class="hl-tag">h2</span>&gt;
+    &lt;/<span class="hl-tag">div</span>&gt;
+
+    &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"grid-auto-280"</span>&gt;
+
+      &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"card content-stack"</span>&gt;
+        &lt;<span class="hl-tag">span</span> <span class="hl-attr">class</span>=<span class="hl-val">"label"</span>&gt;Card eyebrow&lt;/<span class="hl-tag">span</span>&gt;
+        &lt;<span class="hl-tag">h3</span> <span class="hl-attr">class</span>=<span class="hl-val">"h4"</span>&gt;Card heading&lt;/<span class="hl-tag">h3</span>&gt;
+        &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body text-muted"</span>&gt;Card description.&lt;/<span class="hl-tag">p</span>&gt;
+        &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-primary btn-md mt-auto"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;CTA →&lt;/<span class="hl-tag">a</span>&gt;
+      &lt;/<span class="hl-tag">div</span>&gt;
+
+      &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"card content-stack bg-green-dark"</span>&gt;
+        &lt;<span class="hl-tag">span</span> <span class="hl-attr">class</span>=<span class="hl-val">"label"</span>&gt;Featured card&lt;/<span class="hl-tag">span</span>&gt;
+        &lt;<span class="hl-tag">h3</span> <span class="hl-attr">class</span>=<span class="hl-val">"h4 color-white"</span>&gt;Dark card heading&lt;/<span class="hl-tag">h3</span>&gt;
+        &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body text-muted"</span>&gt;Card description.&lt;/<span class="hl-tag">p</span>&gt;
+        &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-primary btn-md mt-auto"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;CTA →&lt;/<span class="hl-tag">a</span>&gt;
+      &lt;/<span class="hl-tag">div</span>&gt;
+
+      &lt;<span class="hl-tag">div</span> <span class="hl-attr">class</span>=<span class="hl-val">"card content-stack bg-espresso"</span>&gt;
+        &lt;<span class="hl-tag">span</span> <span class="hl-attr">class</span>=<span class="hl-val">"label"</span>&gt;Dark card&lt;/<span class="hl-tag">span</span>&gt;
+        &lt;<span class="hl-tag">h3</span> <span class="hl-attr">class</span>=<span class="hl-val">"h4 color-white"</span>&gt;Espresso card heading&lt;/<span class="hl-tag">h3</span>&gt;
+        &lt;<span class="hl-tag">p</span> <span class="hl-attr">class</span>=<span class="hl-val">"body text-muted"</span>&gt;Card description.&lt;/<span class="hl-tag">p</span>&gt;
+        &lt;<span class="hl-tag">a</span> <span class="hl-attr">class</span>=<span class="hl-val">"btn btn-gold-outline btn-md mt-auto"</span> <span class="hl-attr">href</span>=<span class="hl-val">"#"</span>&gt;CTA →&lt;/<span class="hl-tag">a</span>&gt;
+      &lt;/<span class="hl-tag">div</span>&gt;
+
+    &lt;/<span class="hl-tag">div</span>&gt;
+  &lt;/<span class="hl-tag">div</span>&gt;
+&lt;/<span class="hl-tag">section</span>&gt;</pre>
+        </div>
+      </div>
+
+
+    </div>
+  </section>
+
+</main>
+
+
+<footer class="db-footer">
+  <p>HS2026 Design Book · 06 · Designer Cheat Sheet · Do not deploy to WordPress</p>
+</footer>
+
+<!-- ── Copy toast ── -->
+<div id="copy-toast">Copied!</div>
+
+
+<script>
+  /* ── Scroll reveal ── */
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); } });
+  },{threshold:.05});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  /* ── Copy snippets ── */
+  const toast = document.getElementById('copy-toast');
+  let toastTimer;
+
+  function showToast() {
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  document.querySelectorAll('.snip__copy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.snip;
+      const pre = document.getElementById(id)?.querySelector('pre');
+      if (!pre) return;
+      // Strip HTML tags, get plain text
+      const plain = pre.innerText;
+      navigator.clipboard.writeText(plain).then(() => {
+        btn.textContent = 'Copied ✓';
+        btn.classList.add('copied');
+        showToast();
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(() => {
+        // Fallback: select the text
+        const range = document.createRange();
+        range.selectNode(pre);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+      });
+    });
+  });
+
+  /* ── Class chip click-to-select ── */
+  document.querySelectorAll('.cls').forEach(el => {
+    el.addEventListener('click', () => {
+      const range = document.createRange();
+      range.selectNode(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      if (el.textContent.startsWith('.')) {
+        navigator.clipboard.writeText(el.textContent.trim()).then(() => showToast());
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HS2026 Design Book · 01 · The Design Constitution</title>
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <link rel="stylesheet" href="./style-guide.css">
+  <link rel="stylesheet" href="./_shared.css">
+</head>
+<body class="page-bg">
+
+<!-- ── Navigation ── -->
+<nav class="db-nav">
+  <div class="wrap db-nav__inner">
+    <a href="./index.html" class="db-nav__brand">
+      <span class="db-nav__brand-mark">HS</span>
+      <span class="db-nav__brand-label">Design Book</span>
+    </a>
+    <div class="db-nav__links">
+      <a href="./01-constitution.html" class="db-nav__link is-active">01 · Constitution</a>
+      <a href="./02-grid-breakpoints.html" class="db-nav__link">02 · Grid</a>
+      <a href="./03-components.html" class="db-nav__link">03 · Components</a>
+      <a href="./04-sections.html" class="db-nav__link">04 · Sections</a>
+      <a href="./05-block-patterns.html" class="db-nav__link">05 · Patterns</a>
+      <a href="./06-cheat-sheet.html" class="db-nav__link">06 · Cheat Sheet</a>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ── Header ── -->
+<header class="db-header">
+  <div class="wrap">
+    <div class="reveal flex gap-6 flex-wrap items-center">
+      <div class="flex-1 min-w-280">
+        <p class="micro color-gold mb-sp-4">HS2026 · Design System</p>
+        <h1 class="display color-white max-ch-10">The Design<br><em class="color-gold" style="font-style:italic">Constitution</em></h1>
+        <p class="body-lg mt-sp-5 text-muted max-ch-42">
+          Typography, spacing, and proportional systems — derived from the golden ratio φ
+          and print tradition. This document IS the specimen.
+        </p>
+      </div>
+      <div class="equation equation--dark flex-shrink-0">
+φ  = 1.618033988...<br>
+φ² = 2.618033...<br>
+1/φ = 0.618033... = φ - 1<br>
+<br>
+Container:  1100px<br>
+÷ φ      =   680px  (content zone)<br>
+÷ φ²     =   420px  (sidebar)<br>
+<br>
+space-4 = 1rem = body font = 16px<br>
+Leading = 1.618 = φ exactly ✓
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<main>
+
+  <!-- ══════════════════════════════════════════════
+       §1  Brand Identity
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§1 · Brand Identity — Color Palette + Type Pairing</h2>
+      </div>
+
+      <!-- Color palette — core -->
+      <p class="label reveal mt-sp-2 mb-sp-4">Core Palette</p>
+      <div class="grid-auto-200 reveal" data-delay="1">
+
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#1A1410"></div>
+          <span class="token-name">--c-espresso</span>
+          <span class="token-code">#1A1410</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#C1A868"></div>
+          <span class="token-name">--c-gold</span>
+          <span class="token-code">#C1A868</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#A8904F"></div>
+          <span class="token-name">--c-gold-deep</span>
+          <span class="token-code">#A8904F</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#026360"></div>
+          <span class="token-name">--c-green-dark</span>
+          <span class="token-code">#026360</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#1E5E5B"></div>
+          <span class="token-name">--c-deep-teal</span>
+          <span class="token-code">#1E5E5B</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#409690"></div>
+          <span class="token-name">--c-teal</span>
+          <span class="token-code">#409690</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#CBE3E5"></div>
+          <span class="token-name">--c-soft-blue</span>
+          <span class="token-code">#CBE3E5</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--lg" style="background-color:#FFFFFF;border:1px solid #eee"></div>
+          <span class="token-name">--c-white</span>
+          <span class="token-code">#FFFFFF</span>
+        </div>
+
+      </div>
+
+      <!-- Extended palette -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Section Background Palette</p>
+      <div class="grid-auto-200 reveal" data-delay="2">
+
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#F3F7FA;border:1px solid #dde8f0"></div>
+          <span class="token-name">--c-light-blue</span>
+          <span class="token-code">#F3F7FA</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#F7F2F9;border:1px solid #e8dced"></div>
+          <span class="token-name">--c-light-purple</span>
+          <span class="token-code">#F7F2F9</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#F9F2F3;border:1px solid #ecdddf"></div>
+          <span class="token-name">--c-pink</span>
+          <span class="token-code">#F9F2F3</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#FAF5EC;border:1px solid #ede5d3"></div>
+          <span class="token-name">--c-warm-cream</span>
+          <span class="token-code">#FAF5EC</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#F7BAA4"></div>
+          <span class="token-name">--c-peach</span>
+          <span class="token-code">#F7BAA4</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#6B4F2A"></div>
+          <span class="token-name">--c-amber</span>
+          <span class="token-code">#6B4F2A</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#8B3A52"></div>
+          <span class="token-name">--c-berry</span>
+          <span class="token-code">#8B3A52</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#C4622D"></div>
+          <span class="token-name">--c-terracotta</span>
+          <span class="token-code">#C4622D</span>
+        </div>
+        <div class="token-row token-row--swatch">
+          <div class="swatch swatch--md" style="background-color:#4A6E7A"></div>
+          <span class="token-name">--c-slate</span>
+          <span class="token-code">#4A6E7A</span>
+        </div>
+
+      </div>
+
+      <!-- Font pairing specimen -->
+      <p class="label reveal mt-sp-7 mb-sp-5">Typeface Pairing</p>
+      <div class="col-2 reveal" data-delay="1">
+        <div class="card">
+          <p class="micro mb-sp-3">--font-display · Quincy</p>
+          <p class="font-specimen--display color-espresso">
+            Speak English with confidence
+          </p>
+          <p class="note mt-sp-4">Quincy CF — display / headings only. Black (900) for hero, Bold (700) for sections.</p>
+        </div>
+        <div class="card">
+          <p class="micro mb-sp-3">--font-body · Effra</p>
+          <p class="font-specimen--body color-espresso">
+            Clear structure, real practice, and proven techniques to help you communicate naturally and with confidence.
+          </p>
+          <p class="note mt-sp-4">Effra — all body copy, UI text, labels, micro. Regular (400) and Bold (700).</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §2  Type Scale — Live Specimen
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-light-blue">
+    <div class="wrap">
+
+      <div class="section-label section-label--blue reveal">
+        <h2>§2 · Type Scale — Live Specimen · fluid clamp 400px → 1400px</h2>
+      </div>
+
+      <div class="callout callout--white reveal">
+        <p class="note">
+          <strong class="color-espresso">Why not pure φ?</strong> — A pure φ scale from 16px gives h2 at 110px, h1 at 178px.
+          Mathematically correct but typographically absurd for web layout. Print masters (Tschichold, Müller-Brockmann)
+          established that display type above 60px needs a <em>decelerating</em> scale — proportional to √φ (≈1.272) for
+          large sizes. Our scale uses φ steps for body→h4, then moderates for h2→display. Mathematically proportional
+          at every step, optically harmonious across all sizes.
+        </p>
+      </div>
+
+      <div class="reveal" style="display:flex;flex-direction:column;gap:0">
+
+        <div class="token-row token-row--blue token-row--align-end">
+          <span class="token-name">display</span>
+          <p class="display color-espresso">English</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-display</p>
+            <p class="note">clamp(3.5rem → 7rem) · wt 900 · ls -0.04em · lh 1.05</p>
+            <p class="note color-gold">Hero headline only · Quincy Black</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue token-row--align-end" data-delay="1">
+          <span class="token-name">h1</span>
+          <p class="h1 color-espresso">Speak with confidence</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-h1</p>
+            <p class="note">clamp(2.875rem → 4.75rem) · wt 900 · ls -0.02em · lh 1.2</p>
+            <p class="note color-gold">Page titles · Quincy Black</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue token-row--align-end" data-delay="2">
+          <span class="token-name">h2</span>
+          <p class="h2 color-espresso">How I can help you</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-h2</p>
+            <p class="note">clamp(2.25rem → 3.25rem) · wt 700 · ls -0.02em · lh 1.2</p>
+            <p class="note color-gold">Section headings · Quincy Bold</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue token-row--align-end" data-delay="3">
+          <span class="token-name">h3</span>
+          <p class="h3 color-espresso">Your English is amazing</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-h3</p>
+            <p class="note">clamp(1.75rem → 2.375rem) · wt 700 · lh 1.4</p>
+            <p class="note color-gold">Sub-sections · Quincy Bold</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue token-row--align-end" data-delay="4">
+          <span class="token-name">h4</span>
+          <p class="h4 color-espresso">Start practicing today</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-h4</p>
+            <p class="note">clamp(1.375rem → 1.75rem) · wt 700 · lh 1.4</p>
+            <p class="note color-gold">Cards, testimonials · Quincy Bold</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue" data-delay="5">
+          <span class="token-name">body-lg</span>
+          <p class="body-lg text-muted max-ch-36">Clear structure, supportive community, and practical tools to help you thrive in English.</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-lg</p>
+            <p class="note">clamp(1.125rem → 1.375rem) · wt 400 · lh 1.618 (φ)</p>
+            <p class="note color-gold">Lead paragraphs · Effra</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue" data-delay="6">
+          <span class="token-name">body</span>
+          <p class="body text-muted max-ch-48">Weekly lessons, free resources and proven programs to help you speak clearly, freely, and without fear. The line height here is φ = 1.618 exactly.</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-body</p>
+            <p class="note">clamp(1rem → 1.125rem) · wt 400 · lh 1.618 (φ)</p>
+            <p class="note color-gold">All prose · Effra</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue">
+          <span class="token-name">label</span>
+          <p class="label">Free Downloads · Pronunciation · Courses</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-label</p>
+            <p class="note">clamp(0.75rem → 0.875rem) · wt 700 · ls +0.08em · uppercase</p>
+            <p class="note color-gold">Eyebrows, categories · Effra Bold</p>
+          </div>
+        </div>
+
+        <div class="token-row token-row--blue">
+          <span class="token-name">micro</span>
+          <p class="micro text-muted">Week 1–6 · Grammar Tutorial · New Sound</p>
+          <div class="ml-auto text-right">
+            <p class="token-code">--text-micro</p>
+            <p class="note">clamp(0.625rem → 0.75rem) · wt 700 · ls +0.14em · uppercase</p>
+            <p class="note color-gold">Badges, tags, meta · Effra Bold</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §3  Spacing Scale — Visual Ruler
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§3 · Spacing Scale — Visual Ruler · φ from 4px</h2>
+      </div>
+
+      <div class="callout reveal">
+        <p class="note">
+          <strong class="color-espresso">The 4px Atom.</strong> Every spacing value is a multiple of 4px.
+          This is the fundamental grid unit — the smallest meaningful gap the eye can detect at screen resolution.
+          The φ progression from this base creates: icon gaps → inline → component → section → hero.
+          Each step is 1.618× the previous. The body font-size (16px = space-4) appears at step 4 —
+          this alignment of type and space creates invisible harmonic resonance.
+        </p>
+      </div>
+
+      <div class="reveal" style="display:flex;flex-direction:column;gap:var(--space-2)">
+        <div class="token-row">
+          <span class="token-name">--space-1</span>
+          <div class="sp-bar w-sp-1"></div>
+          <p class="body text-muted">4px · Icon gap, micro spacing</p>
+          <p class="token-code">0.25rem</p>
+        </div>
+        <div class="token-row">
+          <span class="token-name">--space-2</span>
+          <div class="sp-bar w-sp-2"></div>
+          <p class="body text-muted">6px · Tight inline elements</p>
+          <p class="token-code">0.375rem</p>
+        </div>
+        <div class="token-row">
+          <span class="token-name">--space-3</span>
+          <div class="sp-bar w-sp-3"></div>
+          <p class="body text-muted">10px · Close siblings, badge padding</p>
+          <p class="token-code">0.625rem</p>
+        </div>
+        <div class="token-row" style="border-bottom:2px solid var(--c-gold)">
+          <span class="token-name">--space-4</span>
+          <div class="sp-bar w-sp-4 bg-teal sp-bar--full"></div>
+          <p class="body color-espresso"><strong>16px = 1rem = body base ← anchor</strong> · Component gaps</p>
+          <p class="token-code">1.000rem</p>
+        </div>
+        <div class="token-row">
+          <span class="token-name">--space-5</span>
+          <div class="sp-bar w-sp-5"></div>
+          <p class="body text-muted">26px · Card inner rhythm, input padding</p>
+          <p class="token-code">1.625rem ≈ φ × sp-4</p>
+        </div>
+        <div class="token-row">
+          <span class="token-name">--space-6</span>
+          <div class="sp-bar w-sp-6"></div>
+          <p class="body text-muted">42px · Card padding, between-element gaps</p>
+          <p class="token-code">2.625rem ≈ φ × sp-5</p>
+        </div>
+        <div class="token-row">
+          <span class="token-name">--space-7</span>
+          <div class="sp-bar w-sp-7"></div>
+          <p class="body text-muted">68px · Narrow section padding</p>
+          <p class="token-code">4.25rem ≈ φ × sp-6</p>
+        </div>
+        <div class="token-row" style="border-bottom:2px solid var(--c-green-dark)">
+          <span class="token-name">--space-8</span>
+          <div class="sp-bar w-sp-8 bg-green-dark sp-bar--full"></div>
+          <p class="body color-espresso"><strong>110px · Standard section vertical rhythm</strong></p>
+          <p class="token-code">6.875rem ≈ φ × sp-7</p>
+        </div>
+        <div class="token-row">
+          <span class="token-name">--space-9</span>
+          <div class="sp-bar w-sp-9"></div>
+          <p class="body text-muted">178px · Max hero breathing room</p>
+          <p class="token-code">11.125rem ≈ φ × sp-8</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §4  Shadow System — Atmospheric Depth
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-warm-cream">
+    <div class="wrap">
+
+      <div class="section-label section-label--cream reveal">
+        <h2>§4 · Shadow System — Atmospheric Depth</h2>
+      </div>
+
+      <div class="callout callout--white reveal">
+        <p class="note">
+          <strong class="color-espresso">Two-layer shadow principle.</strong> Real light creates two types of shadow:
+          ambient (scattered light from the whole sky — large, soft, low opacity) and key
+          (directional sun/lamp — small, sharp, higher opacity). Single-layer CSS shadows look fake.
+          Our system uses warm espresso color (#1A1410) not pure black — warm shadow tint stays on-brand
+          and avoids the cold look of rgba(0,0,0).
+        </p>
+      </div>
+
+      <div class="grid-auto-200 reveal" data-delay="1">
+        <div>
+          <div class="card shadow-subtle mb-sp-4">
+            <p class="h4">Subtle</p>
+            <p class="body mt-sp-2 text-muted">Background separation, inner sections</p>
+          </div>
+          <p class="equation">0 1px 3px rgba(26,20,16,.05)<br>0 4px 12px rgba(26,20,16,.05)</p>
+        </div>
+        <div>
+          <div class="card shadow-card mb-sp-4">
+            <p class="h4">Card</p>
+            <p class="body mt-sp-2 text-muted">Standard card resting state</p>
+          </div>
+          <p class="equation">0 2px 6px rgba(26,20,16,.06)<br>0 8px 24px rgba(26,20,16,.08)</p>
+        </div>
+        <div>
+          <div class="card shadow-raised mb-sp-4">
+            <p class="h4">Raised</p>
+            <p class="body mt-sp-2 text-muted">Card hover / elevated state</p>
+          </div>
+          <p class="equation">0 4px 12px rgba(26,20,16,.08)<br>0 16px 48px rgba(26,20,16,.10)</p>
+        </div>
+        <div>
+          <div class="card shadow-float mb-sp-4">
+            <p class="h4">Float</p>
+            <p class="body mt-sp-2 text-muted">Modals, floating nav</p>
+          </div>
+          <p class="equation">0 8px 24px rgba(26,20,16,.10)<br>0 32px 80px rgba(26,20,16,.12)</p>
+        </div>
+        <div>
+          <div class="card bg-gold shadow-gold mb-sp-4">
+            <p class="h4 color-white">Gold Glow</p>
+            <p class="body mt-sp-2 color-white text-muted">Primary CTA buttons only</p>
+          </div>
+          <p class="equation">0 4px 20px rgba(193,168,104,.25)</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §5  Constitutional Rules
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-espresso">
+    <div class="wrap">
+
+      <div class="section-label section-label--dark reveal">
+        <h2>§5 · The Constitutional Rules</h2>
+      </div>
+
+      <div class="grid-auto-280 reveal" data-delay="1">
+
+        <!-- Typography Laws -->
+        <div class="callout callout--dark">
+          <p class="label mb-sp-4">Typography Laws</p>
+          <div class="content-stack">
+            <p class="body"><span class="color-gold" style="font-weight:700">1.</span> Never use more than 2 type sizes adjacent without a hierarchy break.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">2.</span> Body text: Effra only. Headings: Quincy only. Never mix roles.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">3.</span> Line length: 52–72 characters for body. Wider = harder to read.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">4.</span> Display type always gets tracking-tight or tighter. Never track display loose.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">5.</span> Uppercase labels always get tracking-wide minimum. Unspaced caps are illegible.</p>
+          </div>
+        </div>
+
+        <!-- Spacing Laws -->
+        <div class="callout callout--dark">
+          <p class="label mb-sp-4">Spacing Laws</p>
+          <div class="content-stack">
+            <p class="body"><span class="color-gold" style="font-weight:700">1.</span> All spacing values must be from the scale. No arbitrary px values.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">2.</span> Space between heading and body: space-4 (= 1rem = the type base).</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">3.</span> Card padding: space-6 standard. Never below space-5, never above space-7.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">4.</span> Section vertical rhythm: space-8. This is non-negotiable. Sections need breath.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">5.</span> Gap between type and CTA button: space-5 minimum. Give the call-to-action air.</p>
+          </div>
+        </div>
+
+        <!-- Layout Laws -->
+        <div class="callout callout--dark">
+          <p class="label mb-sp-4">Layout Laws</p>
+          <div class="content-stack">
+            <p class="body"><span class="color-gold" style="font-weight:700">1.</span> 2-column splits: always 61.8/38.2 or 50/50. No 40/60 or 30/70.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">2.</span> Narrow prose content: max 680px. Never wider. Reading comfort is a law.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">3.</span> Sections alternate light/dark. Never two adjacent dark or two adjacent light sections.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">4.</span> Grid gaps = space-5 (cards) or space-6 (major elements). Consistent, never ad-hoc.</p>
+            <p class="body"><span class="color-gold" style="font-weight:700">5.</span> Container max-width: 1100px. Never increase. Whitespace on wide screens is a feature.</p>
+          </div>
+        </div>
+
+        <!-- φ Cheat Sheet -->
+        <div class="callout callout--phi">
+          <p class="label mb-sp-4">The φ Cheat Sheet</p>
+          <div class="equation equation--dark">
+φ  = 1.618  multiply to go up<br>
+1/φ = 0.618  multiply to go down<br>
+<br>
+Need a value between A and B?<br>
+→ A × 1.618 should equal B<br>
+→ If not, adjust until it does<br>
+<br>
+Column split: 61.8% / 38.2%<br>
+Container:    1100px<br>
+Content zone: 680px<br>
+Body → LG:    1rem → 1.618rem<br>
+sp-4 → sp-5:  1rem → 1.625rem<br>
+lh body:      1.618 (φ exactly)
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+
+<footer class="db-footer">
+  <p>HS2026 Design Book · 01 · The Design Constitution · Do not deploy to WordPress</p>
+</footer>
+
+
+<script>
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); } });
+  },{threshold:.05});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

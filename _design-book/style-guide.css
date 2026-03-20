@@ -1,0 +1,1166 @@
+/* ══════════════════════════════════════════════
+   HS2026 Design Book — style-guide.css
+   All utility classes + component classes.
+   Single CSS source for all design-book HTML files.
+
+   Import order: this file imports tokens.css first.
+   HTML files link to fonts.css + style-guide.css + _shared.css.
+
+   Section order:
+     §1  Reset + Base        §6  WP Block Bridge
+     §2  Layout              §7  Media
+     §3  Typography          §8  Hero System
+     §4  Color Utilities     §9  Single-Property Utilities
+     §5  Components          §10 Responsive Breakpoints
+
+   Design Book v1.0 · HS2026 · March 2026
+══════════════════════════════════════════════ */
+
+@import './tokens.css';
+
+
+/* ══════════════════════════════════════════════
+   §1  RESET + BASE
+══════════════════════════════════════════════ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-prose);
+  color: var(--c-espresso);
+  background: #fff;
+  overflow-x: hidden;
+}
+
+
+/* ══════════════════════════════════════════════
+   §2  LAYOUT
+══════════════════════════════════════════════ */
+
+/* Centered content container */
+.wrap {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+}
+
+/* Narrow reading-width container */
+.wrap-narrow {
+  max-width: var(--content-zone);
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+}
+
+/* Section vertical rhythm shells */
+.section-shell     { padding-block: var(--section-pad); }
+.section-shell--sm { padding-block: var(--space-7); }
+.section-shell--lg { padding-block: var(--space-9); }
+
+/* Full viewport bleed */
+.alignfull {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+}
+
+.col-span-full { grid-column: 1 / -1 !important; }
+
+/* WP Group utility shells */
+.wp-block-group.section {
+  padding-block: var(--section-pad);
+}
+
+.wp-block-group.container {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--container-px);
+}
+
+.wp-block-group.section-inset {
+  border-radius: var(--radius-section);
+  margin-inline: clamp(0.5rem, 1vw, 1.5rem);
+  overflow: hidden;
+}
+
+/* Inset section helper (Wispr Flow style) */
+.section-inset-wrap {
+  margin-inline: clamp(0.5rem, 2vw, 3rem);
+  border-radius: var(--radius-section-lg);
+  overflow: hidden;
+}
+
+/* ── Auto-fit grid helpers ── */
+.grid-auto-200 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-5);
+}
+
+.grid-auto-240 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-5);
+}
+
+.grid-auto-280 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-5);
+}
+
+.grid-auto-300 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-5);
+}
+
+/* ── Fixed card grids ── */
+.card-grid    { display: grid; gap: var(--space-5); }
+.card-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.card-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* ── Proportional grids (golden ratio) ── */
+.golden-grid     { display: grid; grid-template-columns: 61.8fr 38.2fr; gap: var(--space-6); }
+.golden-grid-inv { display: grid; grid-template-columns: 38.2fr 61.8fr; gap: var(--space-6); }
+.col-3           { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+.col-2           { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
+
+/* ── Flex layout primitives ── */
+.stack          { display: flex; flex-direction: column; }
+.content-stack  { display: flex; flex-direction: column; gap: var(--space-5); }
+.inline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+
+/* ── Form row — email input + submit inline ── */
+.form-row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.form-row .input,
+.form-row input[type="email"] {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* ── Surface shadow helpers ── */
+.surface-subtle { box-shadow: var(--shadow-subtle); }
+.surface-card   { box-shadow: var(--shadow-card); }
+.surface-raised { box-shadow: var(--shadow-raised); }
+.surface-float  { box-shadow: var(--shadow-float); }
+
+
+/* ══════════════════════════════════════════════
+   §3  TYPOGRAPHY
+   Exact constitution classes + .label-text alias,
+   .font-title and .font-body family utilities,
+   .gold-underline accent.
+══════════════════════════════════════════════ */
+
+.display {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 900;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tightest);
+}
+
+.h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-h1);
+  font-weight: 900;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+}
+
+.h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  font-weight: 700;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+}
+
+.h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+}
+
+.h4 {
+  font-family: var(--font-display);
+  font-size: var(--text-h4);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+}
+
+.body-lg {
+  font-size: var(--text-lg);
+  line-height: var(--leading-prose);
+}
+
+.body {
+  font-size: var(--text-body);
+  line-height: var(--leading-prose);
+}
+
+/* Eyebrow label — gold uppercase */
+.label,
+.label-text {
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--c-gold);
+}
+
+/* Micro — badge / meta text */
+.micro {
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+/* Font family utilities */
+.font-title { font-family: var(--font-display); }
+.font-body  { font-family: var(--font-body); }
+
+/* Gold accent underline */
+.gold-underline {
+  text-decoration: underline;
+  text-decoration-color: var(--c-gold);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 2px;
+}
+
+/* Muted body text */
+.text-muted    { opacity: 0.65; }
+.text-muted-sm { opacity: 0.45; }
+
+
+/* ══════════════════════════════════════════════
+   §4  COLOR UTILITIES
+   .bg-{name} and .color-{name} for every --c-* token.
+   Suffix matches the token name after --c-
+══════════════════════════════════════════════ */
+
+.bg-gold         { background-color: var(--c-gold); }
+.bg-gold-deep    { background-color: var(--c-gold-deep); }
+.bg-green-dark   { background-color: var(--c-green-dark); }
+.bg-deep-teal    { background-color: var(--c-deep-teal); }
+.bg-teal         { background-color: var(--c-teal); }
+.bg-soft-blue    { background-color: var(--c-soft-blue); }
+.bg-light-blue   { background-color: var(--c-light-blue); }
+.bg-light-purple { background-color: var(--c-light-purple); }
+.bg-pink         { background-color: var(--c-pink); }
+.bg-warm-cream   { background-color: var(--c-warm-cream); }
+.bg-peach        { background-color: var(--c-peach); }
+.bg-white        { background-color: var(--c-white); }
+.bg-espresso     { background-color: var(--c-espresso); }
+.bg-amber        { background-color: var(--c-amber); }
+.bg-berry        { background-color: var(--c-berry); }
+.bg-terracotta   { background-color: var(--c-terracotta); }
+.bg-slate        { background-color: var(--c-slate); }
+
+/* ── Dark background auto text ──────────────────
+   Sections with dark fills inherit light text so .text-muted
+   (which uses opacity) doesn't produce dark-on-dark invisibility.
+   Explicit .color-* classes override when needed.
+──────────────────────────────────────────────── */
+.bg-espresso,
+.bg-green-dark,
+.bg-deep-teal,
+.bg-amber,
+.bg-berry,
+.bg-terracotta,
+.bg-slate {
+  color: rgba(255,255,255,0.85);
+}
+
+.color-gold         { color: var(--c-gold); }
+.color-gold-deep    { color: var(--c-gold-deep); }
+.color-green-dark   { color: var(--c-green-dark); }
+.color-deep-teal    { color: var(--c-deep-teal); }
+.color-teal         { color: var(--c-teal); }
+.color-soft-blue    { color: var(--c-soft-blue); }
+.color-light-blue   { color: var(--c-light-blue); }
+.color-light-purple { color: var(--c-light-purple); }
+.color-pink         { color: var(--c-pink); }
+.color-warm-cream   { color: var(--c-warm-cream); }
+.color-peach        { color: var(--c-peach); }
+.color-white        { color: var(--c-white); }
+.color-espresso     { color: var(--c-espresso); }
+.color-amber        { color: var(--c-amber); }
+.color-berry        { color: var(--c-berry); }
+.color-terracotta   { color: var(--c-terracotta); }
+.color-slate        { color: var(--c-slate); }
+
+
+/* ══════════════════════════════════════════════
+   §5  COMPONENTS
+   .btn variants · .arrow-btn · .card variants ·
+   .chip · .input · .tex-dots/cross/grid · .img-ph
+══════════════════════════════════════════════ */
+
+/* ── Button base ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: var(--text-label);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all .2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-md { padding: var(--space-3) var(--space-5); }
+.btn-lg { padding: var(--space-4) var(--space-6); }
+
+/* Primary — gold fill */
+.btn-primary {
+  background: var(--c-gold);
+  color: #fff;
+  box-shadow: var(--shadow-gold);
+}
+.btn-primary:hover {
+  background: var(--c-gold-deep);
+  box-shadow: var(--shadow-raised);
+}
+
+/* Outline — espresso border */
+.btn-outline {
+  background: transparent;
+  color: var(--c-espresso);
+  border-color: var(--c-espresso);
+}
+.btn-outline:hover {
+  background: var(--c-espresso);
+  color: #fff;
+}
+
+/* Soft — soft-blue fill */
+.btn-soft {
+  background: var(--c-soft-blue);
+  color: var(--c-espresso);
+  border-color: transparent;
+}
+.btn-soft:hover {
+  background: var(--c-teal);
+  color: #fff;
+}
+
+/* Dark — espresso fill */
+.btn-dark {
+  background: var(--c-espresso);
+  color: #fff;
+  border-color: var(--c-espresso);
+}
+.btn-dark:hover {
+  background: var(--c-amber);
+  border-color: var(--c-amber);
+}
+
+/* Teal — green-dark fill */
+.btn-teal {
+  background: var(--c-green-dark);
+  color: #fff;
+  border-color: var(--c-green-dark);
+}
+.btn-teal:hover {
+  background: var(--c-deep-teal);
+  border-color: var(--c-deep-teal);
+}
+
+/* Berry fill */
+.btn-berry {
+  background: var(--c-berry);
+  color: #fff;
+  border-color: var(--c-berry);
+}
+.btn-berry:hover {
+  background: var(--c-espresso);
+  border-color: var(--c-espresso);
+}
+
+/* Terracotta fill */
+.btn-terracotta {
+  background: var(--c-terracotta);
+  color: #fff;
+  border-color: var(--c-terracotta);
+}
+.btn-terracotta:hover {
+  background: var(--c-amber);
+  border-color: var(--c-amber);
+}
+
+/* Gold outline */
+.btn-gold-outline {
+  background: transparent;
+  color: var(--c-gold);
+  border-color: var(--c-gold);
+}
+.btn-gold-outline:hover {
+  background: var(--c-gold);
+  color: #fff;
+}
+
+/* Ghost — for use on dark / image backgrounds */
+.btn-ghost {
+  background: transparent;
+  color: #fff;
+  border: 2px solid rgba(255,255,255,.35);
+}
+.btn-ghost:hover {
+  background: rgba(255,255,255,.10);
+}
+
+/* ── Arrow button (gold circle with →) ── */
+.arrow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--c-gold);
+  color: #fff;
+  font-size: 1.125rem;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background .18s, transform .18s;
+  border: none;
+  cursor: pointer;
+}
+.arrow-btn:hover {
+  background: var(--c-gold-deep);
+  transform: translateX(3px);
+}
+
+/* ── Card system ── */
+.card {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-6);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-raised);
+}
+
+.card-tight { padding: var(--space-5); }
+.card-loose { padding: var(--space-7); }
+
+/* ── Pill chip / filter tag ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  border: 1.5px solid var(--c-gold);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-4);
+  color: var(--c-espresso);
+  cursor: pointer;
+  transition: all .18s ease;
+}
+.chip:hover,
+.chip.active {
+  background: var(--c-gold);
+  color: #fff;
+  border-color: var(--c-gold);
+}
+
+/* ── Input system ── */
+.input,
+input[type="text"],
+input[type="email"] {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  border: 1.5px solid #E5E5E0;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-5);
+  background: #fff;
+  color: var(--c-espresso);
+  transition: border-color .2s, box-shadow .2s;
+  width: 100%;
+  min-height: 44px;
+}
+.input::placeholder,
+input[type="text"]::placeholder,
+input[type="email"]::placeholder { color: #B8B5AF; }
+
+.input:focus,
+input[type="text"]:focus,
+input[type="email"]:focus {
+  outline: none;
+  border-color: var(--c-gold);
+  box-shadow: 0 0 0 3px rgba(193,168,104,.14);
+}
+
+/* ── Texture overlays ── */
+.tex-dots {
+  background-image: radial-gradient(circle, rgba(193,168,104,0.20) 1.2px, transparent 1.2px);
+  background-size: 22px 22px;
+}
+
+.tex-cross {
+  background-image: url("data:image/svg+xml,%3Csvg width='28' height='28' viewBox='0 0 28 28' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='%23C1A868' stroke-width='0.7' opacity='0.22'%3E%3Cline x1='14' y1='8' x2='14' y2='20'/%3E%3Cline x1='8' y1='14' x2='20' y2='14'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 28px 28px;
+}
+
+.tex-grid {
+  background-image:
+    linear-gradient(rgba(193,168,104,0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(193,168,104,0.09) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* ── Image placeholders ── */
+.img-ph {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  color: var(--c-espresso);
+  opacity: 0.35;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  background: var(--c-soft-blue);
+}
+.img-ph--portrait  { aspect-ratio: 3/4; }
+.img-ph--landscape { aspect-ratio: 16/9; }
+.img-ph--sq        { aspect-ratio: 1/1; }
+.img-ph--hero      { aspect-ratio: 4/5; }
+
+/* ── Status badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
+  line-height: 1;
+}
+.badge--gold       { background: var(--c-gold);      color: #fff; }
+.badge--soft-blue  { background: var(--c-soft-blue);  color: var(--c-teal); }
+.badge--peach      { background: var(--c-peach);      color: var(--c-espresso); }
+.badge--espresso   { background: var(--c-espresso);   color: #fff; }
+.badge--green-dark { background: var(--c-green-dark); color: #fff; }
+
+
+/* ══════════════════════════════════════════════
+   §6  WP BLOCK BRIDGE
+   .wp-block-button__link base + button style variants,
+   ul.wp-block-list.
+══════════════════════════════════════════════ */
+
+/* Base for all WP button blocks */
+.wp-block-button__link {
+  font-family:     var(--font-body) !important;
+  font-size:       var(--text-label) !important;
+  font-weight:     700;
+  letter-spacing:  var(--tracking-wide);
+  text-transform:  uppercase;
+  border-radius:   var(--radius-pill) !important;
+  min-height:      44px;
+  display:         inline-flex;
+  align-items:     center;
+  justify-content: center;
+  transition:      all .2s ease;
+  text-decoration: none;
+}
+
+/* is-style-outline-gold */
+.wp-block-button.is-style-outline-gold .wp-block-button__link {
+  background:  transparent !important;
+  color:       var(--c-gold) !important;
+  border:      2px solid var(--c-gold) !important;
+}
+.wp-block-button.is-style-outline-gold .wp-block-button__link:hover {
+  background:  var(--c-gold) !important;
+  color:       #fff !important;
+}
+
+/* is-style-ghost — for buttons on dark/image backgrounds */
+.wp-block-button.is-style-ghost .wp-block-button__link {
+  background:  transparent !important;
+  color:       #fff !important;
+  border:      2px solid rgba(255,255,255,.35) !important;
+}
+.wp-block-button.is-style-ghost .wp-block-button__link:hover {
+  background:  rgba(255,255,255,.10) !important;
+}
+
+/* is-style-chip — pill filter / tag chips */
+.wp-block-button.is-style-chip .wp-block-button__link {
+  background:  transparent !important;
+  color:       var(--c-espresso) !important;
+  border:      1.5px solid var(--c-gold) !important;
+  font-size:   var(--text-micro) !important;
+  padding:     var(--space-2) var(--space-4) !important;
+  min-height:  36px;
+}
+.wp-block-button.is-style-chip .wp-block-button__link:hover,
+.wp-block-button.is-style-chip.is-active .wp-block-button__link {
+  background:  var(--c-gold) !important;
+  color:       #fff !important;
+}
+
+/* WP unordered list */
+ul.wp-block-list {
+  list-style: disc;
+  padding: 0.5em 1em;
+}
+ul.wp-block-list li {
+  padding-bottom: 0.8em;
+}
+
+
+/* ══════════════════════════════════════════════
+   §7  MEDIA UTILITIES
+   Responsive iframe embed · inline video wrapper ·
+   transcript modal.
+══════════════════════════════════════════════ */
+
+/* 16:9 responsive iframe container */
+.iframing {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 0;
+  max-width: 100% !important;
+  padding-bottom: 56.25%;
+}
+.iframing iframe,
+.iframing object,
+.iframing embed {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/* Inline video with overlay controls */
+.inline-video-wrapper {
+  position: relative;
+  max-width: 100%;
+}
+.video-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  transition: background 0.3s;
+}
+.inline-video-wrapper:hover .video-overlay { background: rgba(0,0,0,0.6); }
+
+.play-button {
+  background: red;
+  border-radius: 50%;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ══════════════════════════════════════════════
+   §8  HERO SYSTEM
+   Content helper classes (.hero__label / .hero__title /
+   .hero__body / .hero__actions) + 5 layout variants:
+
+     A  .hero-cols            — Golden Ratio 61.8 / 38.2
+     B  .hero-float           — Floating blob mask 55 / 45
+     C  .hero-bg              — Full background image
+     D  .hero-round           — Circular portrait 40 / 60
+     E  .hero-cols.hero-deco  — Decorative circle + parallax
+
+   WP column flex-nowrap fix + 767px mobile breakpoint.
+══════════════════════════════════════════════ */
+
+/* ── Shared content helpers ── */
+.hero__label, .hero-label {
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--c-gold);
+  margin-bottom: var(--space-3);
+}
+
+.hero__title, .hero-h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-h1);
+  font-weight: 700;
+  color: var(--c-espresso);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-4);
+}
+
+.hero__body, .hero-body {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--c-espresso);
+  line-height: var(--leading-prose);
+  opacity: 0.75;
+  margin-bottom: var(--space-6);
+}
+
+.hero__actions, .hero-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+/* ── WP column flex-nowrap fix ──────────────────
+   Root cause: WP core sets flex-wrap:wrap on .wp-block-columns.
+   flex-basis totals + gap always exceed 100%, so the second
+   column wraps at every viewport width.
+   Fix: force nowrap on hero variants; use flex shorthand.
+──────────────────────────────────────────────── */
+.hero-cols.wp-block-columns,
+.hero-float.wp-block-columns,
+.hero-round.wp-block-columns {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+}
+
+.hero-cols.wp-block-columns > .wp-block-column,
+.hero-float.wp-block-columns > .wp-block-column,
+.hero-round.wp-block-columns > .wp-block-column {
+  min-width: 0 !important;
+  flex-shrink: 0;
+}
+
+/* ── Hero A + E: Golden Ratio 61.8 / 38.2 ── */
+.hero-cols,
+.hero-2col--golden { position: relative; }
+
+.hero-cols.wp-block-columns > .wp-block-column:first-child { flex: 0 0 61.8% !important; }
+.hero-cols.wp-block-columns > .wp-block-column:last-child  { flex: 1 0 0 !important; }
+
+/* Plain div variant (design-book specimens without WP block classes) */
+.hero-cols--plain {
+  display: flex;
+  flex-wrap: nowrap;
+  position: relative;
+}
+.hero-cols--plain > .hero-col--primary { flex: 0 0 61.8%; min-width: 0; }
+.hero-cols--plain > .hero-col--secondary { flex: 1 0 0; min-width: 0; }
+
+/* ── Hero B: Floating blob 55 / 45 ── */
+.hero-float,
+.hero-2col--float { position: relative; }
+
+.hero-float.wp-block-columns > .wp-block-column:first-child {
+  flex: 0 0 55% !important;
+  padding-block: clamp(3rem, 2rem + 4vw, 6rem);
+  padding-inline: var(--space-7);
+}
+.hero-float.wp-block-columns > .wp-block-column:last-child {
+  flex: 1 0 0 !important;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+}
+.hero-float__bg-circle {
+  position: absolute;
+  width: 340px; height: 340px;
+  background: var(--c-soft-blue);
+  border-radius: 50%;
+  opacity: 0.45;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+.hero-float__img {
+  position: relative; z-index: 1;
+  width: 82%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  clip-path: polygon(30% 0%, 70% 5%, 95% 25%, 100% 60%, 80% 90%, 50% 100%, 20% 95%, 0% 70%, 5% 30%);
+}
+
+/* ── Hero C: Full background image ── */
+.hero-bg {
+  position: relative;
+  min-height: clamp(500px, 70vh, 800px);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+}
+.hero-bg__overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 60%, transparent 100%);
+  z-index: 0;
+}
+.hero-bg__content {
+  position: relative; z-index: 1;
+  max-width: 50%;
+  padding: clamp(3rem, 2rem + 4vw, 6rem) var(--space-7);
+}
+.hero-bg__content .hero-h1    { color: #fff; }
+.hero-bg__content .hero-body  { color: rgba(255,255,255,0.8); opacity: 1; }
+.hero-bg__content .hero-label { color: var(--c-gold); }
+
+/* ── Hero D: Circular portrait 40 / 60 ── */
+.hero-round,
+.hero-2col--round { position: relative; }
+.hero-round.wp-block-columns { align-items: center; }
+
+.hero-round.wp-block-columns > .wp-block-column:first-child {
+  flex: 0 0 40% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(2rem, 1.5rem + 2vw, 4rem);
+}
+.hero-round.wp-block-columns > .wp-block-column:last-child {
+  flex: 1 0 0 !important;
+  padding-block: clamp(3rem, 2rem + 4vw, 6rem);
+  padding-right: var(--space-7);
+}
+.hero-round__img {
+  width: clamp(220px, 30vw, 380px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: var(--shadow-raised);
+}
+
+/* ── Hero E: Decorative circle + parallax ── */
+.hero-deco { position: relative; overflow: hidden; }
+.hero-deco__shape {
+  position: absolute;
+  right: -8%; top: 50%;
+  transform: translateY(-50%);
+  width: clamp(300px, 40vw, 560px);
+  aspect-ratio: 1;
+  background: var(--c-soft-blue);
+  opacity: 0.3;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+.hero-deco > .wp-block-column { position: relative; z-index: 1; }
+
+/* ── Mobile: re-enable wrap + full-width column stack ── */
+@media (max-width: 767px) {
+  .hero-cols.wp-block-columns,
+  .hero-float.wp-block-columns,
+  .hero-round.wp-block-columns {
+    flex-wrap: wrap !important;
+  }
+  .hero-cols.wp-block-columns > .wp-block-column,
+  .hero-float.wp-block-columns > .wp-block-column,
+  .hero-round.wp-block-columns > .wp-block-column {
+    flex: 0 0 100% !important;
+    min-width: 100% !important;
+  }
+  /* Hero B: image first on mobile */
+  .hero-float.wp-block-columns > .wp-block-column:last-child {
+    order: -1;
+    min-height: 55vw;
+  }
+  .hero-float.wp-block-columns > .wp-block-column:first-child { padding-inline: var(--space-5); }
+  .hero-float__img { clip-path: none; width: 70%; }
+  /* Hero C: vertical gradient on mobile */
+  .hero-bg__overlay {
+    background: linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.30) 100%);
+  }
+  .hero-bg__content { max-width: 100%; padding: var(--space-6) var(--space-5); }
+  /* Hero D: image first on mobile */
+  .hero-round.wp-block-columns > .wp-block-column:first-child { order: -1; }
+  .hero-round__img { width: clamp(160px, 50vw, 260px); }
+  .hero-round.wp-block-columns > .wp-block-column:last-child {
+    padding: var(--space-5);
+  }
+  /* Plain hero variant */
+  .hero-cols--plain { flex-wrap: wrap; }
+  .hero-cols--plain > .hero-col--primary,
+  .hero-cols--plain > .hero-col--secondary { flex: 0 0 100%; }
+}
+
+@media (max-width: 479px) {
+  .hero-btns { flex-direction: column; width: 100%; }
+  .hero-btns .wp-block-button { width: 100%; }
+  .hero-btns .wp-block-button__link { width: 100% !important; text-align: center; }
+}
+
+
+/* ══════════════════════════════════════════════
+   §9  SINGLE-PROPERTY UTILITIES
+   .text-* · .shadow-* · .radius-* · .lh-* ·
+   .w-sp-1–9 · padding/margin scale · misc
+══════════════════════════════════════════════ */
+
+/* Text alignment / transform */
+.text-left    { text-align: left; }
+.text-center  { text-align: center; }
+.text-right   { text-align: right; }
+.text-upper   { text-transform: uppercase; }
+.text-balance { text-wrap: balance; }
+
+/* Shadow */
+.shadow-subtle { box-shadow: var(--shadow-subtle); }
+.shadow-card   { box-shadow: var(--shadow-card); }
+.shadow-raised { box-shadow: var(--shadow-raised); }
+.shadow-float  { box-shadow: var(--shadow-float); }
+.shadow-gold   { box-shadow: var(--shadow-gold); }
+.shadow-button { box-shadow: var(--shadow-button); }
+
+/* Border radius */
+.radius-sm         { border-radius: var(--radius-sm); }
+.radius-card       { border-radius: var(--radius-card); }
+.radius-section    { border-radius: var(--radius-section); }
+.radius-section-lg { border-radius: var(--radius-section-lg); }
+.radius-pill       { border-radius: var(--radius-pill); }
+
+/* Line height */
+.lh-tight  { line-height: var(--leading-tight); }
+.lh-snug   { line-height: var(--leading-snug); }
+.lh-normal { line-height: var(--leading-normal); }
+.lh-prose  { line-height: var(--leading-prose); }
+.lh-loose  { line-height: var(--leading-loose); }
+
+/* Width = spacing token */
+.w-sp-1 { width: var(--space-1); }
+.w-sp-2 { width: var(--space-2); }
+.w-sp-3 { width: var(--space-3); }
+.w-sp-4 { width: var(--space-4); }
+.w-sp-5 { width: var(--space-5); }
+.w-sp-6 { width: var(--space-6); }
+.w-sp-7 { width: var(--space-7); }
+.w-sp-8 { width: var(--space-8); }
+.w-sp-9 { width: var(--space-9); }
+
+/* Padding utilities — pt/pb/pl/pr/px/py × sp-1–9 */
+.pt-sp-1 { padding-top: var(--space-1); } .pt-sp-2 { padding-top: var(--space-2); }
+.pt-sp-3 { padding-top: var(--space-3); } .pt-sp-4 { padding-top: var(--space-4); }
+.pt-sp-5 { padding-top: var(--space-5); } .pt-sp-6 { padding-top: var(--space-6); }
+.pt-sp-7 { padding-top: var(--space-7); } .pt-sp-8 { padding-top: var(--space-8); }
+.pt-sp-9 { padding-top: var(--space-9); }
+
+.pb-sp-1 { padding-bottom: var(--space-1); } .pb-sp-2 { padding-bottom: var(--space-2); }
+.pb-sp-3 { padding-bottom: var(--space-3); } .pb-sp-4 { padding-bottom: var(--space-4); }
+.pb-sp-5 { padding-bottom: var(--space-5); } .pb-sp-6 { padding-bottom: var(--space-6); }
+.pb-sp-7 { padding-bottom: var(--space-7); } .pb-sp-8 { padding-bottom: var(--space-8); }
+.pb-sp-9 { padding-bottom: var(--space-9); }
+
+.pl-sp-1 { padding-left: var(--space-1); } .pl-sp-2 { padding-left: var(--space-2); }
+.pl-sp-3 { padding-left: var(--space-3); } .pl-sp-4 { padding-left: var(--space-4); }
+.pl-sp-5 { padding-left: var(--space-5); } .pl-sp-6 { padding-left: var(--space-6); }
+.pl-sp-7 { padding-left: var(--space-7); } .pl-sp-8 { padding-left: var(--space-8); }
+.pl-sp-9 { padding-left: var(--space-9); }
+
+.pr-sp-1 { padding-right: var(--space-1); } .pr-sp-2 { padding-right: var(--space-2); }
+.pr-sp-3 { padding-right: var(--space-3); } .pr-sp-4 { padding-right: var(--space-4); }
+.pr-sp-5 { padding-right: var(--space-5); } .pr-sp-6 { padding-right: var(--space-6); }
+.pr-sp-7 { padding-right: var(--space-7); } .pr-sp-8 { padding-right: var(--space-8); }
+.pr-sp-9 { padding-right: var(--space-9); }
+
+.px-sp-1 { padding-inline: var(--space-1); } .px-sp-2 { padding-inline: var(--space-2); }
+.px-sp-3 { padding-inline: var(--space-3); } .px-sp-4 { padding-inline: var(--space-4); }
+.px-sp-5 { padding-inline: var(--space-5); } .px-sp-6 { padding-inline: var(--space-6); }
+.px-sp-7 { padding-inline: var(--space-7); } .px-sp-8 { padding-inline: var(--space-8); }
+.px-sp-9 { padding-inline: var(--space-9); }
+
+.py-sp-1 { padding-block: var(--space-1); } .py-sp-2 { padding-block: var(--space-2); }
+.py-sp-3 { padding-block: var(--space-3); } .py-sp-4 { padding-block: var(--space-4); }
+.py-sp-5 { padding-block: var(--space-5); } .py-sp-6 { padding-block: var(--space-6); }
+.py-sp-7 { padding-block: var(--space-7); } .py-sp-8 { padding-block: var(--space-8); }
+.py-sp-9 { padding-block: var(--space-9); }
+
+/* Margin utilities — mt/mb/ml/mr/mx/my × sp-1–9 */
+.mt-sp-1 { margin-top: var(--space-1); } .mt-sp-2 { margin-top: var(--space-2); }
+.mt-sp-3 { margin-top: var(--space-3); } .mt-sp-4 { margin-top: var(--space-4); }
+.mt-sp-5 { margin-top: var(--space-5); } .mt-sp-6 { margin-top: var(--space-6); }
+.mt-sp-7 { margin-top: var(--space-7); } .mt-sp-8 { margin-top: var(--space-8); }
+.mt-sp-9 { margin-top: var(--space-9); }
+
+.mb-sp-1 { margin-bottom: var(--space-1); } .mb-sp-2 { margin-bottom: var(--space-2); }
+.mb-sp-3 { margin-bottom: var(--space-3); } .mb-sp-4 { margin-bottom: var(--space-4); }
+.mb-sp-5 { margin-bottom: var(--space-5); } .mb-sp-6 { margin-bottom: var(--space-6); }
+.mb-sp-7 { margin-bottom: var(--space-7); } .mb-sp-8 { margin-bottom: var(--space-8); }
+.mb-sp-9 { margin-bottom: var(--space-9); }
+
+.ml-sp-1 { margin-left: var(--space-1); } .ml-sp-2 { margin-left: var(--space-2); }
+.ml-sp-3 { margin-left: var(--space-3); } .ml-sp-4 { margin-left: var(--space-4); }
+.ml-sp-5 { margin-left: var(--space-5); } .ml-sp-6 { margin-left: var(--space-6); }
+.ml-sp-7 { margin-left: var(--space-7); } .ml-sp-8 { margin-left: var(--space-8); }
+.ml-sp-9 { margin-left: var(--space-9); }
+
+.mr-sp-1 { margin-right: var(--space-1); } .mr-sp-2 { margin-right: var(--space-2); }
+.mr-sp-3 { margin-right: var(--space-3); } .mr-sp-4 { margin-right: var(--space-4); }
+.mr-sp-5 { margin-right: var(--space-5); } .mr-sp-6 { margin-right: var(--space-6); }
+.mr-sp-7 { margin-right: var(--space-7); } .mr-sp-8 { margin-right: var(--space-8); }
+.mr-sp-9 { margin-right: var(--space-9); }
+
+.mx-sp-1 { margin-inline: var(--space-1); } .mx-sp-2 { margin-inline: var(--space-2); }
+.mx-sp-3 { margin-inline: var(--space-3); } .mx-sp-4 { margin-inline: var(--space-4); }
+.mx-sp-5 { margin-inline: var(--space-5); } .mx-sp-6 { margin-inline: var(--space-6); }
+.mx-sp-7 { margin-inline: var(--space-7); } .mx-sp-8 { margin-inline: var(--space-8); }
+.mx-sp-9 { margin-inline: var(--space-9); }
+
+.my-sp-1 { margin-block: var(--space-1); } .my-sp-2 { margin-block: var(--space-2); }
+.my-sp-3 { margin-block: var(--space-3); } .my-sp-4 { margin-block: var(--space-4); }
+.my-sp-5 { margin-block: var(--space-5); } .my-sp-6 { margin-block: var(--space-6); }
+.my-sp-7 { margin-block: var(--space-7); } .my-sp-8 { margin-block: var(--space-8); }
+.my-sp-9 { margin-block: var(--space-9); }
+
+/* Misc helpers */
+.overflow-hidden { overflow: hidden; }
+.relative        { position: relative; }
+.w-full          { width: 100%; }
+.flex            { display: flex; }
+.flex-wrap       { flex-wrap: wrap; }
+.flex-col        { flex-direction: column; }
+.flex-1          { flex: 1; }
+.flex-shrink-0   { flex-shrink: 0; }
+.items-start     { align-items: flex-start; }
+.items-center    { align-items: center; }
+.items-end       { align-items: flex-end; }
+.justify-center  { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-3           { gap: var(--space-3); }
+.gap-4           { gap: var(--space-4); }
+.gap-5           { gap: var(--space-5); }
+.gap-6           { gap: var(--space-6); }
+.mt-auto         { margin-top: auto; }
+.mx-auto         { margin-inline: auto; }
+.opacity-1       { opacity: 1; }
+.min-w-280       { min-width: 280px; }
+
+/* Max-width character constraints — use for prose and headings */
+.max-ch-10 { max-width: 10ch; }
+.max-ch-14 { max-width: 14ch; }
+.max-ch-16 { max-width: 16ch; }
+.max-ch-18 { max-width: 18ch; }
+.max-ch-24 { max-width: 24ch; }
+.max-ch-36 { max-width: 36ch; }
+.max-ch-42 { max-width: 42ch; }
+.max-ch-44 { max-width: 44ch; }
+.max-ch-46 { max-width: 46ch; }
+.max-ch-48 { max-width: 48ch; }
+.max-ch-52 { max-width: 52ch; }
+.max-ch-58 { max-width: 58ch; }
+.max-ch-64 { max-width: 64ch; }
+.max-ch-72 { max-width: 72ch; }
+
+
+/* ══════════════════════════════════════════════
+   §10 RESPONSIVE BREAKPOINTS
+══════════════════════════════════════════════ */
+
+/* ── Visibility helpers ─────────────────────────
+   Breakpoint naming: xs ≤479  sm ≤767  md ≤1023  lg ≥1024
+   .hide-{bp}  — hidden at / below that breakpoint
+   .show-{bp}  — visible only at / below that breakpoint (hidden above)
+   .only-{bp}  — visible only at that range
+──────────────────────────────────────────────── */
+
+/* Default: show-* are hidden until their breakpoint activates */
+.show-sm,
+.show-xs,
+.show-md { display: none !important; }
+
+/* Default: hide-lg is only hidden at large — so default is visible */
+
+@media (min-width: 1024px) {
+  /* lg+ only */
+  .hide-lg  { display: none !important; }
+  .show-lg  { display: block !important; }
+}
+
+@media (max-width: 1023px) {
+  /* md and below */
+  .hide-md  { display: none !important; }
+  .show-md  { display: block !important; }
+  .stack-md { display: flex !important; flex-direction: column !important; }
+  .full-md  { width: 100% !important; }
+}
+
+@media (max-width: 768px) {
+  .golden-grid,
+  .golden-grid-inv,
+  .col-3,
+  .col-2 { grid-template-columns: 1fr; }
+
+  .wrap,
+  .wrap-narrow { padding-inline: var(--space-5); }
+
+  .form-row { flex-direction: column; }
+  .form-row .input,
+  .form-row input[type="email"] { min-width: 0; }
+}
+
+@media (max-width: 767px) {
+  .card-grid--4,
+  .card-grid--2 { grid-template-columns: 1fr; }
+
+  .hide-sm   { display: none !important; }
+  .show-sm   { display: block !important; }
+  .stack-sm  { display: flex !important; flex-direction: column !important; }
+  .full-sm   { width: 100% !important; }
+  .center-sm { text-align: center !important; }
+  .order-first-sm { order: -1 !important; }
+  .order-last-sm  { order: 999 !important; }
+}
+
+@media (max-width: 479px) {
+  .hide-xs   { display: none !important; }
+  .show-xs   { display: block !important; }
+  .stack-xs  { display: flex !important; flex-direction: column !important; }
+  .full-xs   { width: 100% !important; }
+  .center-xs { text-align: center !important; }
+}

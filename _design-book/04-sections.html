@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HS2026 Design Book · 04 · Section Pattern Library</title>
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <link rel="stylesheet" href="./style-guide.css">
+  <link rel="stylesheet" href="./_shared.css">
+</head>
+<body class="page-bg">
+
+<!-- ── Navigation ── -->
+<nav class="db-nav">
+  <div class="wrap db-nav__inner">
+    <a href="./index.html" class="db-nav__brand">
+      <span class="db-nav__brand-mark">HS</span>
+      <span class="db-nav__brand-label">Design Book</span>
+    </a>
+    <div class="db-nav__links">
+      <a href="./01-constitution.html" class="db-nav__link">01 · Constitution</a>
+      <a href="./02-grid-breakpoints.html" class="db-nav__link">02 · Grid</a>
+      <a href="./03-components.html" class="db-nav__link">03 · Components</a>
+      <a href="./04-sections.html" class="db-nav__link is-active">04 · Sections</a>
+      <a href="./05-block-patterns.html" class="db-nav__link">05 · Patterns</a>
+      <a href="./06-cheat-sheet.html" class="db-nav__link">06 · Cheat Sheet</a>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ── Page Header ── -->
+<header class="db-header">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="micro color-gold mb-sp-4">HS2026 · Design Book · 04</p>
+      <h1 class="h1 color-white">Section Pattern Library</h1>
+      <p class="body-lg mt-sp-4 text-muted" style="max-width:44ch">
+        Full-width production-ready section specimens. Each section uses only classes from style-guide.css.
+        Backgrounds alternate per the constitutional color rhythm.
+      </p>
+    </div>
+  </div>
+</header>
+
+
+<main>
+
+  <!-- ── Section label ── -->
+  <div class="wrap py-sp-5">
+    <div class="section-label">
+      <h2>Six section specimens below — scroll to preview each</h2>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       01  Hero A — Golden Columns
+       .hero-cols · bg-pink · Golden Ratio 61.8/38.2
+  ══════════════════════════════════════════════ -->
+  <section class="reveal" aria-label="Hero A — Golden Columns">
+
+    <div class="wp-block-columns hero-cols bg-pink">
+
+      <div class="wp-block-column py-sp-8 px-sp-7">
+        <p class="hero-label">Pronunciation · Fluency · Confidence</p>
+        <h1 class="hero-h1">Speak English<br>with confidence</h1>
+        <p class="hero-body">Clear structure, real practice, and proven techniques to help you communicate naturally — whatever your level.</p>
+        <div class="hero-btns">
+          <a class="btn btn-primary btn-lg" href="#">Start Here →</a>
+          <div class="wp-block-button is-style-outline-gold">
+            <a class="wp-block-button__link px-sp-6" href="#">Free Resources</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="wp-block-column">
+        <div class="img-ph img-ph--hero">Hero image 4:5</div>
+      </div>
+
+    </div>
+
+    <div class="wrap py-sp-3">
+      <p class="note">Hero A · <code class="token-code" style="font-size:inherit">.hero-cols.wp-block-columns</code> · bg: --c-pink · 61.8% content / 38.2% image</p>
+    </div>
+
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       02  Hero D — Circular Portrait
+       .hero-round · bg-light-blue · 40/60
+  ══════════════════════════════════════════════ -->
+  <section class="reveal" aria-label="Hero D — Circular Portrait">
+
+    <div class="wp-block-columns hero-round bg-light-blue">
+
+      <div class="wp-block-column">
+        <div class="img-ph img-ph--sq hero-round__img" style="background:var(--c-soft-blue)">Portrait</div>
+      </div>
+
+      <div class="wp-block-column py-sp-8">
+        <p class="hero-label">Your guide to clear, confident English</p>
+        <h1 class="hero-h1">Hi, I'm Hadar.<br>Let's work together.</h1>
+        <p class="hero-body">I'm an accent and fluency coach helping non-native English speakers sound and feel more confident. Over 200,000 students worldwide.</p>
+        <div class="hero-btns">
+          <a class="btn btn-primary btn-lg" href="#">Work with Me →</a>
+          <div class="wp-block-button is-style-outline-gold">
+            <a class="wp-block-button__link px-sp-6" href="#">My Story</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="wrap py-sp-3">
+      <p class="note">Hero D · <code class="token-code" style="font-size:inherit">.hero-round.wp-block-columns</code> · bg: --c-light-blue · 40% image / 60% content · circular portrait</p>
+    </div>
+
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       03  How I Can Help — 3-col card grid
+       bg-warm-cream · .grid-auto-280
+  ══════════════════════════════════════════════ -->
+  <section class="section-shell bg-warm-cream reveal" aria-label="How I Can Help">
+    <div class="wrap">
+
+      <div class="text-center mb-sp-7">
+        <p class="label mb-sp-4">How I can help</p>
+        <h2 class="h2" style="max-width:14ch;margin-inline:auto">Start making change — right here</h2>
+        <p class="body-lg mt-sp-4 text-muted" style="max-width:52ch;margin-inline:auto">
+          This website is the place where you can start making change.
+          Everything below is built from the same mathematical system.
+        </p>
+      </div>
+
+      <div class="grid-auto-280">
+
+        <div class="card content-stack">
+          <span class="label">Free Downloads</span>
+          <h3 class="h4">Practice with my free resources</h3>
+          <p class="body text-muted">Download PDFs and audio recordings for free. No sign-up required.</p>
+          <div class="flex justify-between items-center mt-auto pt-sp-4">
+            <a class="btn btn-primary btn-md" href="#">Start →</a>
+            <button class="arrow-btn" aria-label="View free downloads">→</button>
+          </div>
+        </div>
+
+        <div class="card content-stack bg-green-dark">
+          <span class="label" style="color:rgba(193,168,104,.7)">App Access</span>
+          <h3 class="h4 color-white">Free 14-day Pronunciation Plan</h3>
+          <p class="body color-white text-muted">Daily video lessons and practice sheets. No strings attached.</p>
+          <div class="flex justify-between items-center mt-auto pt-sp-4">
+            <a class="btn btn-primary btn-md" href="#">Get Plan →</a>
+            <button class="arrow-btn" aria-label="Get the plan">→</button>
+          </div>
+        </div>
+
+        <div class="card content-stack bg-espresso">
+          <span class="label" style="color:rgba(193,168,104,.6)">Courses</span>
+          <h3 class="h4 color-white">Transform your English fast</h3>
+          <p class="body color-white text-muted">Pronunciation, mindset, fluency — my programs deliver results.</p>
+          <div class="flex justify-between items-center mt-auto pt-sp-4">
+            <a class="btn btn-gold-outline btn-md" href="#">Explore →</a>
+            <button class="arrow-btn" aria-label="Explore courses">→</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       04  About — Dark Inset Section
+       bg-espresso · .radius-section-lg · inset margin
+  ══════════════════════════════════════════════ -->
+  <section class="section-shell bg-light-purple reveal" aria-label="About — Dark Inset">
+    <div class="section-inset-wrap">
+      <div class="bg-espresso py-sp-8 px-sp-7 relative overflow-hidden">
+
+        <!-- Decorative texture -->
+        <div class="tex-dots" style="position:absolute;inset:0;pointer-events:none"></div>
+
+        <div class="wrap relative" style="position:relative;z-index:1">
+          <div class="golden-grid">
+
+            <div class="content-stack">
+              <p class="label">About Hadar</p>
+              <h2 class="h2 color-white">
+                I turned my <span class="color-gold gold-underline">accent</span> into<br>my superpower
+              </h2>
+              <p class="body-lg color-white text-muted" style="max-width:46ch">
+                I grew up speaking Hebrew and spent years feeling self-conscious about my English accent.
+                Then I discovered that accent isn't a barrier — it's part of who you are.
+              </p>
+              <p class="body color-white text-muted" style="max-width:46ch">
+                Now I teach non-native speakers how to speak English with clarity and confidence,
+                without losing what makes their voice unique.
+              </p>
+              <div class="inline-actions mt-auto pt-sp-3">
+                <a class="btn btn-primary btn-lg" href="#">My Full Story →</a>
+                <div class="wp-block-button is-style-ghost">
+                  <a class="wp-block-button__link px-sp-6" href="#">Watch Intro</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-center">
+              <div class="img-ph img-ph--portrait hero-round__img bg-deep-teal" style="width:clamp(240px,30vw,380px)">Portrait</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       05  Testimonials — 2-col card grid
+       bg-light-purple → bg-peach
+  ══════════════════════════════════════════════ -->
+  <section class="section-shell bg-peach reveal" aria-label="Testimonials">
+    <div class="wrap">
+
+      <div class="text-center mb-sp-7">
+        <p class="label mb-sp-4">What students say</p>
+        <h2 class="h2" style="max-width:16ch;margin-inline:auto">Real people, real results</h2>
+      </div>
+
+      <div class="card-grid card-grid--2">
+
+        <article class="card content-stack">
+          <div class="inline-actions mb-sp-4">
+            <span class="color-gold" style="font-size:var(--text-h4);line-height:1">★★★★★</span>
+          </div>
+          <p class="h4 mb-sp-4">"My English changed completely after just 3 months."</p>
+          <p class="body text-muted" style="flex:1">
+            I used to avoid speaking in meetings. After Hadar's program I started volunteering to present.
+            The way she connects fluency and mindset was the missing piece I'd been looking for.
+          </p>
+          <div class="mt-auto pt-sp-5" style="border-top:1px solid #F0EEE9">
+            <p class="label">— María, Spain</p>
+            <p class="note mt-sp-1">Enrolled in Accent Makeover</p>
+          </div>
+        </article>
+
+        <article class="card content-stack">
+          <div class="inline-actions mb-sp-4">
+            <span class="color-gold" style="font-size:var(--text-h4);line-height:1">★★★★★</span>
+          </div>
+          <p class="h4 mb-sp-4">"I finally stopped translating in my head."</p>
+          <p class="body text-muted" style="flex:1">
+            The free downloads alone were worth everything. Then I joined the course and my spoken English
+            transformed in ways I didn't think were possible at my age. Hadar's method works.
+          </p>
+          <div class="mt-auto pt-sp-5" style="border-top:1px solid #F0EEE9">
+            <p class="label">— Tomás, Brazil</p>
+            <p class="note mt-sp-1">Enrolled in Non-Accent Accent</p>
+          </div>
+        </article>
+
+        <article class="card content-stack">
+          <div class="inline-actions mb-sp-4">
+            <span class="color-gold" style="font-size:var(--text-h4);line-height:1">★★★★★</span>
+          </div>
+          <p class="h4 mb-sp-4">"I sound more like myself now — in English."</p>
+          <p class="body text-muted" style="flex:1">
+            I was so afraid my accent made me sound unprofessional. Hadar helped me understand that my voice
+            is an asset, not a liability. Game-changing perspective.
+          </p>
+          <div class="mt-auto pt-sp-5" style="border-top:1px solid #F0EEE9">
+            <p class="label">— Yuki, Japan</p>
+            <p class="note mt-sp-1">Free 14-day Plan + Course</p>
+          </div>
+        </article>
+
+        <article class="card content-stack">
+          <div class="inline-actions mb-sp-4">
+            <span class="color-gold" style="font-size:var(--text-h4);line-height:1">★★★★★</span>
+          </div>
+          <p class="h4 mb-sp-4">"Clear, practical, and actually fun to learn."</p>
+          <p class="body text-muted" style="flex:1">
+            Every lesson felt like it was made just for me. The explanations are clear, the exercises are
+            practical, and I looked forward to every session. Three months, complete transformation.
+          </p>
+          <div class="mt-auto pt-sp-5" style="border-top:1px solid #F0EEE9">
+            <p class="label">— Anas, Morocco</p>
+            <p class="note mt-sp-1">Enrolled in English Fluency Program</p>
+          </div>
+        </article>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       06  Newsletter Strip
+       bg-green-dark · inline email form
+  ══════════════════════════════════════════════ -->
+  <section class="section-shell bg-green-dark reveal" aria-label="Newsletter Sign-up">
+    <div class="wrap">
+
+      <div class="text-center mb-sp-7">
+        <p class="label mb-sp-4" style="color:rgba(193,168,104,.8)">Free lessons · every week</p>
+        <h2 class="h2 color-white" style="max-width:18ch;margin-inline:auto">
+          Get weekly English tips in your inbox
+        </h2>
+        <p class="body-lg mt-sp-4 color-white text-muted" style="max-width:44ch;margin-inline:auto">
+          Free pronunciation guides, fluency tips, and new resources — delivered every Tuesday.
+          Join 40,000+ learners.
+        </p>
+      </div>
+
+      <form class="form-row" style="max-width:560px;margin-inline:auto" onsubmit="return false">
+        <input class="input" type="email" placeholder="Your email address" aria-label="Email address">
+        <button class="btn btn-primary btn-lg" type="submit" style="flex-shrink:0">Yes! Send me lessons</button>
+      </form>
+
+      <p class="note text-center mt-sp-4 color-white text-muted">No spam. Unsubscribe anytime. Your email is safe with us.</p>
+
+    </div>
+  </section>
+
+</main>
+
+
+<footer class="db-footer">
+  <p>HS2026 Design Book · 04 · Section Pattern Library · Do not deploy to WordPress</p>
+</footer>
+
+
+<script>
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); } });
+  },{threshold:.05});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "hs-crm-webapp",
+  "version": "1.0.0",
+  "description": "HS CRM Admin Dashboard and Vendor Portal",
+  "scripts": {
+    "dev": "npx serve .",
+    "start": "npx serve ."
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

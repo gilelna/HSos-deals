@@ -1,0 +1,110 @@
+/*QUINCY CF FONT */
+
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_thin-webfont.woff2') format('woff2'),
+         url('quincy_cf_thin-webfont.woff') format('woff'),
+         url('quincy_cf_thin-webfont.ttf') format('truetype');
+    font-weight: 100;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_light-webfont.woff2') format('woff2'),
+         url('quincy_cf_light-webfont.woff') format('woff'),
+         url('quincy_cf_light-webfont.ttf') format('truetype');
+    font-weight: 200;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_regular-webfont.woff2') format('woff2'),
+         url('quincy_cf_regular-webfont.woff') format('woff'),
+         url('quincy_cf_regular-webfont.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_text-webfont.woff2') format('woff2'),
+         url('quincy_cf_text-webfont.woff') format('woff'),
+         url('quincy_cf_text-webfont.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_medium-webfont.woff2') format('woff2'),
+         url('quincy_cf_medium-webfont.woff') format('woff'),
+         url('quincy_cf_medium-webfont.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_bold-webfont.woff2') format('woff2'),
+         url('quincy_cf_bold-webfont.woff') format('woff'),
+         url('quincy_cf_bold-webfont.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_extra_bold-webfont.woff2') format('woff2'),
+         url('quincy_cf_extra_bold-webfont.woff') format('woff'),
+         url('quincy_cf_extra_bold-webfont.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Quincy';
+    src: url('quincy_cf_black-webfont.woff2') format('woff2'),
+         url('quincy_cf_black-webfont.woff') format('woff'),
+         url('quincy_cf_black-webfont.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+}
+
+/* EFFRA CC FONT */
+
+@font-face {
+    font-family: 'Effra';
+    src: url('effra_bold-webfont.woff2') format('woff2'),
+         url('effra_bold-webfont.woff') format('woff'),
+         url('effra_bold-webfont.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Effra';
+    src: url('effra_medium-webfont.woff2') format('woff2'),
+         url('effra_medium-webfont.woff') format('woff'),
+         url('effra_medium-webfont.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+}
+
+
+@font-face {
+    font-family: 'Effra';
+    src: url('effra_regular-webfont.woff2') format('woff2'),
+         url('effra_regular-webfont.woff') format('woff'),
+         url('effra_regular-webfont.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Effra';
+    src: url('effra_semi-bold-webfont.woff2') format('woff2'),
+         url('effra_semi-bold-webfont.woff') format('woff'),
+         url('effra_semi-bold-webfont.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+}

@@ -1,0 +1,114 @@
+/* ── Custom Web App Styles ── */
+
+:root {
+  --transition-fast: 0.2s ease;
+  --bg-login: var(--c-espresso);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  transition: background 0.3s;
+}
+
+.hide { display: none !important; }
+.min-vh-100 { min-height: 100vh; }
+
+/* ── Login Screen ── */
+#login-screen {
+  background: var(--c-espresso);
+  background-image: var(--tex-dots);
+  background-size: 32px 32px;
+  color: #fff;
+}
+
+#login-screen h1 { color: #fff; }
+#login-screen .body-lg { color: rgba(255,255,255,0.7); }
+
+/* ── Navigation Tabs ── */
+.nav-tab {
+  background: transparent;
+  border: none;
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: rgba(26,20,16,0.5);
+  padding-block: var(--space-4);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.nav-tab:hover { color: var(--c-espresso); }
+.nav-tab.active {
+  color: var(--c-gold);
+  border-bottom-color: var(--c-gold);
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn 0.4s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── KPI Cards ── */
+#dashboard-stats .card {
+  padding: var(--space-5);
+  transition: transform 0.2s;
+}
+#dashboard-stats .card:hover { transform: translateY(-4px); }
+
+/* ── Activity Table (Cards for Mobile) ── */
+.activity-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: #fff;
+  border: 1px solid #F0EEE9;
+  border-radius: var(--radius-sm);
+}
+
+.activity-item .meta { font-size: 0.75rem; color: #AAA7A0; }
+.activity-item .amount { font-weight: 700; color: var(--c-espresso); }
+
+/* ── Forms ── */
+.input {
+  border-color: #EDE9E0;
+  background-color: var(--c-light-blue);
+  width: 100%;
+}
+.input:focus { background-color: #fff; }
+
+/* ── Success Toast ── */
+.toast {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--c-espresso);
+  color: #fff;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-float);
+  z-index: 1000;
+  transition: opacity 0.3s;
+}
+
+/* ── Roster List ── */
+.roster-chip {
+  padding: var(--space-3);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--c-gold);
+  box-shadow: var(--shadow-subtle);
+}
+
+@media (max-width: 767px) {
+  .golden-grid { grid-template-columns: 1fr; }
+  .grid-auto-280 { grid-template-columns: 1fr; }
+}

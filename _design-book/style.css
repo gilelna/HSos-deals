@@ -1,0 +1,96 @@
+/* 
+Theme Name:   Hola HS2026
+Theme URI:    https://hadarshemesh.com/
+Description:  HS2026 child theme for Twenty Twenty-Five. Block-first, golden ratio typography system.
+Author:       Gili
+Author URI:   https://hadarshemesh.com/
+Template:     twentytwentyfive
+Version:      3.0.0
+Text Domain:  hs2026
+License:      GNU General Public License v3 or later.
+License URI:  https://www.gnu.org/licenses/gpl-3.0.html
+Tags:         flexible-header, custom-colors, custom-menu, custom-logo, editor-style,
+              featured-images, rtl-language-support, threaded-comments, translation-ready
+*/
+
+/* ══════════════════════════════════════════════════════════
+   style.css — HS2026 Child Theme
+
+   PURPOSE: WordPress theme header (required) + thin child
+   overrides that must load last in the stack.
+
+   CSS ARCHITECTURE — load order in theme-setup.php:
+     1. fonts/fonts.css          — custom typefaces
+     2. css/tokens.css           — all CSS custom properties
+     3. css/utilities.css        — color / type / layout / spacing utilities
+     4. css/components.css       — named components (btn, card, hero etc.)
+     5. css/output.css           — Tailwind compiled output
+     6. style.css  ← YOU ARE HERE — child overrides, WP specifics
+     7. css/blocks.css           — Gutenberg block-specific overrides
+
+   Rules:
+     · Only add CSS here if it genuinely must override everything above.
+     · Prefer tokens.css for new variables — not this file.
+     · Tailwind utility conflicts → resolve in css/output.css source, not here.
+   ══════════════════════════════════════════════════════════ */
+
+
+/* ── BODY BASE ──────────────────────────────────────────── */
+
+body {
+  font-family:      var(--font-body);
+  color:            var(--c-espresso);
+  background-color: var(--c-white);
+  line-height:      var(--leading-prose);
+  font-size:        var(--text-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+
+/* ── HEADING ELEMENT DEFAULTS ───────────────────────────── */
+/* Apply constitution type scale to native heading elements.
+   Gutenberg editor respects these via add_editor_style(). */
+
+h1 { font-family: var(--font-display); font-size: var(--text-h1); font-weight: 900; line-height: var(--leading-snug); letter-spacing: var(--tracking-tight); }
+h2 { font-family: var(--font-display); font-size: var(--text-h2); font-weight: 700; line-height: var(--leading-snug); letter-spacing: var(--tracking-tight); }
+h3 { font-family: var(--font-display); font-size: var(--text-h3); font-weight: 700; line-height: var(--leading-normal); }
+h4 { font-family: var(--font-display); font-size: var(--text-h4); font-weight: 700; line-height: var(--leading-normal); }
+h5 { font-family: var(--font-display); font-size: var(--text-lg);   font-weight: 700; line-height: var(--leading-normal); }
+h6 { font-family: var(--font-body);    font-size: var(--text-body); font-weight: 700; line-height: var(--leading-normal); }
+
+
+/* ── WP LIST DEFAULTS ───────────────────────────────────── */
+
+ul.wp-block-list       { list-style: disc; padding: 0.5em 1em; }
+ul.wp-block-list li    { padding-bottom: 0.8em; }
+
+
+/* ── IS-STYLE: BIG TITLE ────────────────────────────────── */
+/* Registered via includes/block-styles.php for core/heading */
+
+.is-style-big-title {
+  font-family:    var(--font-display) !important;
+  font-weight:    700 !important;
+  font-size:      var(--text-h1) !important;
+  line-height:    var(--leading-snug) !important;
+  letter-spacing: var(--tracking-tight) !important;
+  margin-bottom:  0.5rem !important;
+}
+
+
+/* ── ALIGNFULL OVERRIDE ─────────────────────────────────── */
+/* Ensure full-width bleed works even when parent has padding */
+
+.alignfull {
+  width:        100vw;
+  position:     relative;
+  left:         50%;
+  right:        50%;
+  margin-left:  -50vw;
+  margin-right: -50vw;
+}
+
+
+/* ── COL-SPAN-FULL ──────────────────────────────────────── */
+
+.col-span-full { grid-column: 1 / -1 !important; }

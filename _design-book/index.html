@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HS2026 Design Book</title>
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <link rel="stylesheet" href="./style-guide.css">
+  <link rel="stylesheet" href="./_shared.css">
+</head>
+<body class="page-dark">
+
+<!-- ── Design Book Navigation ── -->
+<nav class="db-nav">
+  <div class="wrap db-nav__inner">
+    <a href="./index.html" class="db-nav__brand">
+      <span class="db-nav__brand-mark">HS</span>
+      <span class="db-nav__brand-label">Design Book</span>
+    </a>
+    <div class="db-nav__links">
+      <a href="./01-constitution.html" class="db-nav__link">01 · Constitution</a>
+      <a href="./02-grid-breakpoints.html" class="db-nav__link">02 · Grid</a>
+      <a href="./03-components.html" class="db-nav__link">03 · Components</a>
+      <a href="./04-sections.html" class="db-nav__link">04 · Sections</a>
+      <a href="./05-block-patterns.html" class="db-nav__link">05 · Patterns</a>
+      <a href="./06-cheat-sheet.html" class="db-nav__link">06 · Cheat Sheet</a>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ── Header ── -->
+<header class="py-sp-9">
+  <div class="wrap">
+    <div class="reveal flex gap-6 flex-wrap items-center">
+      <div class="content-stack" style="flex:1;min-width:280px">
+        <p class="micro color-gold">HS2026 · March 2026</p>
+        <h1 class="display mt-sp-4">The Design<br><em class="color-gold" style="font-style:italic">Book</em></h1>
+        <p class="body-lg mt-sp-5 text-muted">
+          Typography, spacing, proportions, components, and section patterns —
+          all derived from the golden ratio φ and print tradition.
+          This folder is the single source of truth for the HS2026 design system.
+        </p>
+      </div>
+      <div class="equation" style="flex-shrink:0;background:rgba(0,0,0,.3);border-color:rgba(255,255,255,.08);color:rgba(255,255,255,.5)">
+φ  = 1.618033988...<br>
+φ² = 2.618033...<br>
+1/φ = 0.618033... = φ - 1<br>
+<br>
+a/b = b/(a+b) = φ<br>
+<br>
+Container:  1100px<br>
+÷ φ      =   680px  (content zone)<br>
+÷ φ²     =   420px  (sidebar)<br>
+<br>
+1100 / 680 = 1.6176... ≈ φ ✓<br>
+ 680 / 420 = 1.6190... ≈ φ ✓
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<!-- ── Section cards ── -->
+<section class="pb-sp-9">
+  <div class="wrap">
+
+    <div class="section-label section-label--dark reveal">
+      <h2>Six Sections</h2>
+    </div>
+
+    <div class="grid-auto-280 reveal mt-sp-6" data-delay="1">
+
+      <!-- 01 Constitution -->
+      <a href="./01-constitution.html" class="card bg-espresso" style="text-decoration:none;border:1px solid rgba(255,255,255,.07)">
+        <p class="micro color-gold mb-sp-4">01</p>
+        <h2 class="h4 color-white mb-sp-3">The Design Constitution</h2>
+        <p class="body text-muted mb-sp-5">
+          Brand identity, color palette, type scale, spacing scale, shadow system,
+          and the constitutional rules that govern every design decision.
+        </p>
+        <span class="btn btn-gold-outline btn-md">Open →</span>
+      </a>
+
+      <!-- 02 Grid -->
+      <a href="./02-grid-breakpoints.html" class="card bg-espresso" style="text-decoration:none;border:1px solid rgba(255,255,255,.07)">
+        <p class="micro color-gold mb-sp-4">02</p>
+        <h2 class="h4 color-white mb-sp-3">Grid &amp; Responsive System</h2>
+        <p class="body text-muted mb-sp-5">
+          Container anatomy, golden ratio grid, auto-fit grid helpers,
+          card grids, breakpoints reference, and responsive stacking behavior.
+        </p>
+        <span class="btn btn-gold-outline btn-md">Open →</span>
+      </a>
+
+      <!-- 03 Components -->
+      <a href="./03-components.html" class="card bg-espresso" style="text-decoration:none;border:1px solid rgba(255,255,255,.07)">
+        <p class="micro color-gold mb-sp-4">03</p>
+        <h2 class="h4 color-white mb-sp-3">Component System</h2>
+        <p class="body text-muted mb-sp-5">
+          All button variants, form elements, chips, cards, badges,
+          image placeholders, texture overlays, and WP block button styles.
+        </p>
+        <span class="btn btn-gold-outline btn-md">Open →</span>
+      </a>
+
+      <!-- 04 Sections -->
+      <a href="./04-sections.html" class="card bg-espresso" style="text-decoration:none;border:1px solid rgba(255,255,255,.07)">
+        <p class="micro color-gold mb-sp-4">04</p>
+        <h2 class="h4 color-white mb-sp-3">Section Pattern Library</h2>
+        <p class="body text-muted mb-sp-5">
+          Full-width production-ready section specimens: hero variants,
+          How I Help, About dark, Testimonials, and Newsletter strip.
+        </p>
+        <span class="btn btn-gold-outline btn-md">Open →</span>
+      </a>
+
+      <!-- 05 Patterns -->
+      <a href="./05-block-patterns.html" class="card bg-espresso" style="text-decoration:none;border:1px solid rgba(255,255,255,.07)">
+        <p class="micro color-gold mb-sp-4">05</p>
+        <h2 class="h4 color-white mb-sp-3">Block Pattern Factory</h2>
+        <p class="body text-muted mb-sp-5">
+          Gutenberg-ready patterns with live rendered previews and
+          block comment markup for registration in WordPress.
+        </p>
+        <span class="btn btn-gold-outline btn-md">Open →</span>
+      </a>
+
+      <!-- 06 Cheat Sheet -->
+      <a href="./06-cheat-sheet.html" class="card bg-espresso" style="text-decoration:none;border:1px solid rgba(255,255,255,.07)">
+        <p class="micro color-gold mb-sp-4">06</p>
+        <h2 class="h4 color-white mb-sp-3">Designer Cheat Sheet</h2>
+        <p class="body text-muted mb-sp-5">
+          All utility classes at a glance, color reference, spacing table,
+          breakpoint helpers, and 8 copy-paste HTML snippets.
+        </p>
+        <span class="btn btn-gold-outline btn-md">Open →</span>
+      </a>
+
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ── Footer ── -->
+<footer class="db-footer">
+  <p>HS2026 Design Book · tokens.css + style-guide.css + _shared.css · Do not deploy to WordPress</p>
+</footer>
+
+
+<script>
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); } });
+  },{threshold:.05});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

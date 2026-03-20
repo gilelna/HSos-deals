@@ -1,0 +1,444 @@
+/* ══════════════════════════════════════════════
+   HS2026 Design Book — _shared.css
+   DS VIEWER ONLY — Not loaded in WordPress production.
+   Classes used exclusively in _design-book/ HTML files
+   to render the design-book viewer UI.
+   They serve no role in WordPress theme output and are
+   not referenced by any production template or block.
+
+   Design Book v1.0 · HS2026 · March 2026
+══════════════════════════════════════════════ */
+
+
+/* ── Design Book Navigation ──────────────────── */
+.db-nav {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: var(--c-espresso);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding-block: var(--space-4);
+}
+
+.db-nav__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.db-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.db-nav__brand-mark {
+  font-family: var(--font-display);
+  font-size: var(--text-label);
+  font-weight: 900;
+  color: var(--c-gold);
+  letter-spacing: var(--tracking-normal);
+  text-transform: none;
+  line-height: 1;
+}
+
+.db-nav__brand-label {
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+
+.db-nav__links {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.db-nav__link {
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  text-decoration: none;
+  transition: color .18s ease;
+  white-space: nowrap;
+}
+.db-nav__link:hover,
+.db-nav__link.is-active { color: var(--c-gold); }
+
+/* ── Page backgrounds ── */
+.page-bg   { background: #FAFAF8; }
+.page-dark {
+  background-color: var(--c-espresso);
+  color: rgba(255, 255, 255, 0.85);
+  min-height: 100vh;
+}
+.page-dark .h1,
+.page-dark .h2,
+.page-dark .h3,
+.page-dark .h4,
+.page-dark .display { color: var(--c-white); }
+
+/* ── Section divider label ── */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding-block: var(--space-5);
+  border-bottom: 1px solid #EEEDE9;
+  margin-bottom: var(--space-6);
+}
+.section-label h2 {
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: #AAA7A0;
+  white-space: nowrap;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #EEEDE9;
+}
+
+/* Dark section-label variant */
+.section-label--dark {
+  border-color: rgba(255,255,255,0.08);
+}
+.section-label--dark h2 { color: rgba(255,255,255,0.3); }
+.section-label--dark::after { background: rgba(255,255,255,0.08); }
+
+/* ── Token row ── */
+.token-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  padding-block: var(--space-4);
+  border-bottom: 1px solid #F5F4F1;
+  flex-wrap: wrap;
+}
+
+.token-name {
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-wider);
+  color: #c65252;
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.token-code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: var(--text-micro);
+  color: #BBB;
+  margin-left: auto;
+}
+
+/* ── Color swatch ── */
+.swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+}
+
+/* ── Spacing visualization bar ── */
+.sp-bar {
+  height: var(--space-3);
+  border-radius: 2px;
+  background: var(--c-gold);
+  opacity: .7;
+  flex-shrink: 0;
+}
+
+/* ── Formula / equation code block ── */
+.equation {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: var(--text-micro);
+  background: #F7F5F0;
+  border: 1px solid #EDE9E0;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-5);
+  color: #7A7065;
+  line-height: 1.7;
+}
+
+/* ── Annotation note text ── */
+.note {
+  font-size: var(--text-micro);
+  color: #AAA7A0;
+  line-height: var(--leading-loose);
+}
+
+/* ── Philosophical note callout ── */
+.callout {
+  padding: var(--space-5);
+  background: var(--c-warm-cream);
+  border-radius: var(--radius-card);
+  border-left: 3px solid var(--c-gold);
+  margin-block: var(--space-6);
+}
+.callout--dark {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 3px solid rgba(193,168,104,0.5);
+}
+
+/* ── Staggered scroll reveal animation ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity .55s ease, transform .55s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+[data-delay="1"] { transition-delay: .08s; }
+[data-delay="2"] { transition-delay: .16s; }
+[data-delay="3"] { transition-delay: .24s; }
+[data-delay="4"] { transition-delay: .32s; }
+[data-delay="5"] { transition-delay: .40s; }
+[data-delay="6"] { transition-delay: .48s; }
+[data-delay="7"] { transition-delay: .56s; }
+[data-delay="8"] { transition-delay: .64s; }
+
+/* ── Demo layout grids (design book layout helpers) ── */
+.demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+
+/* ── Breakpoint indicator badge ── */
+.db-bp-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+
+/* ── Pattern code panel ── */
+.pattern-panel {
+  margin-top: var(--space-5);
+}
+.pattern-panel summary {
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--c-gold);
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(193,168,104,0.08);
+  border: 1px solid rgba(193,168,104,0.2);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  list-style: none;
+  user-select: none;
+}
+.pattern-panel summary::marker,
+.pattern-panel summary::-webkit-details-marker { display: none; }
+.pattern-panel summary::before {
+  content: '▶';
+  font-size: 0.6em;
+  transition: transform .18s;
+}
+.pattern-panel[open] summary::before { transform: rotate(90deg); }
+
+.pattern-panel__code {
+  margin-top: var(--space-3);
+  padding: var(--space-5);
+  background: var(--c-espresso);
+  border-radius: var(--radius-card);
+  overflow-x: auto;
+}
+.pattern-panel__code pre {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: var(--text-micro);
+  color: rgba(255,255,255,0.75);
+  line-height: 1.8;
+  white-space: pre;
+  margin: 0;
+}
+
+/* ── Section header (design-book page headers) ── */
+.db-header {
+  background: var(--c-espresso);
+  padding-block: var(--space-8) var(--space-7);
+}
+
+.db-header--light {
+  background: var(--c-light-blue);
+  padding-block: var(--space-7);
+}
+
+/* ── Bp reference table ── */
+.bp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+}
+.bp-table th {
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: #999;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid #EEEDE9;
+}
+.bp-table td {
+  padding: var(--space-4);
+  border-bottom: 1px solid #F5F4F1;
+  vertical-align: top;
+}
+.bp-table td:first-child {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: var(--text-micro);
+  color: var(--c-gold);
+  font-weight: 700;
+}
+
+/* ── Container width ruler ── */
+.container-ruler {
+  position: relative;
+  height: 80px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--c-light-blue);
+}
+.container-ruler__zone {
+  position: absolute;
+  top: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Page footer ── */
+.db-footer {
+  background: var(--c-espresso);
+  padding-block: var(--space-6);
+  text-align: center;
+}
+.db-footer p {
+  font-family: var(--font-body);
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+}
+
+/* ── Section wrapper for design book specimens ── */
+.db-section {
+  padding-block: var(--space-8);
+}
+.db-section + .db-section {
+  border-top: 1px solid #F0EEE9;
+}
+
+/* ── Token row variants ── */
+.token-row--swatch {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.token-row--align-end  { align-items: flex-end; }
+
+.token-row--blue       { border-color: #D8E8EC; }
+.token-row--cream      { border-color: #EDE9E0; }
+
+/* ── Swatch size variants ── */
+.swatch--lg {
+  width: 100%;
+  height: 64px;
+  border-radius: var(--radius-card);
+}
+.swatch--md {
+  width: 100%;
+  height: 56px;
+  border-radius: var(--radius-card);
+}
+
+/* ── Section-label color variants ── */
+.section-label--blue {
+  border-color: #D8E8EC;
+}
+.section-label--blue::after { background: #D8E8EC; }
+
+.section-label--cream {
+  border-color: #EDE9E0;
+}
+.section-label--cream::after { background: #EDE9E0; }
+
+/* ── Equation dark variant (for use on dark headers/sections) ── */
+.equation--dark {
+  background: rgba(0,0,0,0.3);
+  border-color: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+}
+
+/* ── Callout variants ── */
+.callout--white {
+  background: #fff;
+}
+
+.callout--phi {
+  background: rgba(193,168,104,0.08);
+  border-color: rgba(193,168,104,0.2);
+}
+
+/* ── Spacing bar: full opacity anchor points ── */
+.sp-bar--full {
+  opacity: 1;
+}
+
+/* ── Font pairing specimens ── */
+.font-specimen--display {
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  font-weight: 700;
+  line-height: var(--leading-snug);
+}
+
+.font-specimen--body {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: var(--leading-prose);
+}
+
+/* ── Responsive collapse for demo grids ── */
+@media (max-width: 768px) {
+  .db-nav__links { gap: var(--space-4); }
+}
+
+@media (max-width: 600px) {
+  .db-nav__links { display: none; }
+}

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HS CRM — Operations & Portal</title>
+
+  <!-- HS2026 Design System -->
+  <link rel="stylesheet" href="./_design-book/fonts/fonts.css">
+  <link rel="stylesheet" href="./_design-book/tokens.css">
+  <link rel="stylesheet" href="./_design-book/style-guide.css">
+  <link rel="stylesheet" href="./web-app.css">
+</head>
+
+<body class="bg-white">
+
+  <!-- ── Global Loader ── -->
+  <div id="loader" class="loader-overlay hide-lg">
+    <div class="micro color-gold">Loading Harmony...</div>
+  </div>
+
+  <!-- ── Login Screen ── -->
+  <section id="login-screen" class="section-shell flex items-center justify-center min-vh-100">
+    <div class="wrap-narrow text-center reveal visible">
+      <p class="micro color-gold mb-sp-3">HS CRM · Harmony Operations</p>
+      <h1 class="display color-espresso mb-sp-5">The <em class="color-gold" style="font-style:italic">Portal</em></h1>
+      <p class="body-lg text-muted mb-sp-7">Access your dashboard, manage clients, and log your sessions in one
+        beautiful interface.</p>
+      <button id="btn-login" class="btn btn-primary btn-lg">Sign in with Google</button>
+    </div>
+  </section>
+
+  <!-- ── Main App (Hidden until Auth) ── -->
+  <main id="app-main" class="hide">
+
+    <!-- ── Header ── -->
+    <header class="bg-espresso py-sp-4">
+      <div class="wrap flex justify-between items-center">
+        <a href="#" class="flex items-center gap-3" style="text-decoration:none">
+          <span class="h4 color-gold" style="font-family:var(--font-display);font-weight:900">HS</span>
+          <span class="micro color-white opacity-1" id="app-title">Operations</span>
+        </a>
+        <div class="flex items-center gap-4">
+          <span id="user-email" class="micro color-white opacity-1 show-lg"></span>
+          <button id="btn-logout" class="btn btn-ghost btn-md"
+            style="font-size:0.6rem;padding:0.4rem 0.8rem">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Navigation Tabs ── -->
+    <nav class="bg-light-blue border-bottom">
+      <div class="wrap flex gap-6">
+        <button class="nav-tab active" data-tab="dashboard" id="tab-admin">Admin Dashboard</button>
+        <button class="nav-tab" data-tab="vendor-portal" id="tab-vendor">Vendor Portal</button>
+      </div>
+    </nav>
+
+    <!-- ── Content Panels ── -->
+    <div class="wrap py-sp-7">
+
+      <!-- Panel: Admin Dashboard -->
+      <div id="panel-dashboard" class="tab-panel active">
+        <div class="section-label">
+          <h2>At a Glance</h2>
+        </div>
+        <div class="grid-auto-280 mb-sp-8" id="dashboard-stats">
+          <!-- KPI cards injected here -->
+          <div class="card bg-warm-cream shadow-subtle flex flex-col gap-2">
+            <span class="micro color-gold">Active Clients</span>
+            <span class="h2" id="stat-clients">--</span>
+          </div>
+          <div class="card bg-white shadow-subtle flex flex-col gap-2">
+            <span class="micro color-teal">Pending Revenue</span>
+            <span class="h2" id="stat-revenue">--</span>
+          </div>
+          <div class="card bg-light-blue shadow-subtle flex flex-col gap-2">
+            <span class="micro color-slate">Recent Sessions</span>
+            <span class="h2" id="stat-sessions">--</span>
+          </div>
+        </div>
+
+        <div class="section-label">
+          <h2>Recent Activity Log</h2>
+        </div>
+        <div class="card-grid" id="dashboard-recent-log">
+          <!-- Activity entries injected here -->
+        </div>
+      </div>
+
+      <!-- Panel: Vendor Portal -->
+      <div id="panel-vendor-portal" class="tab-panel">
+        <div class="section-label">
+          <h2>Daily Log</h2>
+        </div>
+        <div class="golden-grid mb-sp-8">
+
+          <!-- Column 1: Log Form -->
+          <div class="card bg-white shadow-card">
+            <h3 class="h4 mb-sp-4">Record Session</h3>
+            <form id="form-log-session" class="content-stack">
+              <label class="label-text">Select Client</label>
+              <select id="field-client" class="input" required>
+                <option value="">-- Choose --</option>
+              </select>
+
+              <label class="label-text">Session Type</label>
+              <select id="field-type" class="input" required>
+                <option value="">-- Choose --</option>
+              </select>
+
+              <label class="label-text">Date</label>
+              <input type="date" id="field-date" class="input" required>
+
+              <label class="label-text">Notes</label>
+              <input type="text" id="field-notes" class="input" placeholder="What did you cover?">
+
+              <button type="submit" class="btn btn-primary btn-md mt-sp-4">Submit Session 🚀</button>
+            </form>
+          </div>
+
+          <!-- Column 2: Roster Snapshot -->
+          <div class="stack gap-5">
+            <div class="card bg-light-blue border">
+              <h3 class="h4 mb-sp-3">My Roster</h3>
+              <div id="vendor-roster-list" class="content-stack">
+                <!-- Roster chips here -->
+              </div>
+            </div>
+
+            <div class="card bg-warm-cream">
+              <p class="micro color-gold">Monthly Summary</p>
+              <div class="flex justify-between items-end mt-sp-3">
+                <span class="body-lg" id="vendor-month-total">--</span>
+                <span class="label">Completed</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="section-label">
+          <h2>My Recent History</h2>
+        </div>
+        <div id="vendor-history-list" class="card-grid">
+          <!-- Vendor history items here -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Success Modal (Toast) ── -->
+    <div id="toast" class="toast hide micro">✅ Logged Successfully</div>
+
+  </main>
+
+  <!-- Apps Script API Config -->
+  <script>
+    // Replace this with your deployed App Script URL!
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzJUIZ3bwYX8q_O_MtswE5zKVviB7H5tqANeLQbuJL2CHVZij2UbFvO_UC0BppR4EePFw/exec';
+  </script>
+
+  <script src="./app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HS2026 Design Book · 03 · Component System</title>
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <link rel="stylesheet" href="./style-guide.css">
+  <link rel="stylesheet" href="./_shared.css">
+</head>
+<body class="page-bg">
+
+<!-- ── Navigation ── -->
+<nav class="db-nav">
+  <div class="wrap db-nav__inner">
+    <a href="./index.html" class="db-nav__brand">
+      <span class="db-nav__brand-mark">HS</span>
+      <span class="db-nav__brand-label">Design Book</span>
+    </a>
+    <div class="db-nav__links">
+      <a href="./01-constitution.html" class="db-nav__link">01 · Constitution</a>
+      <a href="./02-grid-breakpoints.html" class="db-nav__link">02 · Grid</a>
+      <a href="./03-components.html" class="db-nav__link is-active">03 · Components</a>
+      <a href="./04-sections.html" class="db-nav__link">04 · Sections</a>
+      <a href="./05-block-patterns.html" class="db-nav__link">05 · Patterns</a>
+      <a href="./06-cheat-sheet.html" class="db-nav__link">06 · Cheat Sheet</a>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ── Header ── -->
+<header class="db-header">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="micro color-gold mb-sp-4">HS2026 · Design Book · 03</p>
+      <h1 class="h1 color-white">Component System</h1>
+      <p class="body-lg mt-sp-4 text-muted" style="max-width:44ch">
+        All interactive and visual components — buttons, inputs, chips, cards, badges, placeholders, textures.
+      </p>
+    </div>
+  </div>
+</header>
+
+
+<main>
+
+  <!-- ══════════════════════════════════════════════
+       §1  Buttons
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§1 · Buttons — All Variants</h2>
+      </div>
+
+      <div class="callout reveal">
+        <p class="note">
+          Base: <strong class="color-espresso">.btn</strong> + size modifier (<strong class="color-espresso">.btn-md</strong> or <strong class="color-espresso">.btn-lg</strong>) + variant.
+          Font: Effra Bold · uppercase · +0.08em tracking · pill radius.
+          MD: padding space-3 / space-5 &nbsp;|&nbsp; LG: padding space-4 / space-6.
+          Minimum touch target: 44px height.
+        </p>
+      </div>
+
+      <!-- Standard variants MD + LG -->
+      <div class="grid-auto-240 reveal mt-sp-6">
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">primary · gold fill</p>
+          <div class="inline-actions">
+            <a class="btn btn-primary btn-lg">Primary LG</a>
+            <a class="btn btn-primary btn-md">Primary MD</a>
+          </div>
+          <p class="equation">bg: --c-gold<br>hover: --c-gold-deep<br>shadow: --shadow-gold</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">outline · espresso border</p>
+          <div class="inline-actions">
+            <a class="btn btn-outline btn-lg">Outline LG</a>
+            <a class="btn btn-outline btn-md">Outline MD</a>
+          </div>
+          <p class="equation">border: 2px --c-espresso<br>hover: bg --c-espresso, color #fff</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">soft · soft-blue fill</p>
+          <div class="inline-actions">
+            <a class="btn btn-soft btn-lg">Soft LG</a>
+            <a class="btn btn-soft btn-md">Soft MD</a>
+          </div>
+          <p class="equation">bg: --c-soft-blue<br>hover: bg --c-teal, color #fff</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">dark · espresso fill</p>
+          <div class="inline-actions">
+            <a class="btn btn-dark btn-lg">Dark LG</a>
+            <a class="btn btn-dark btn-md">Dark MD</a>
+          </div>
+          <p class="equation">bg: --c-espresso<br>hover: bg --c-amber</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">teal · green-dark fill</p>
+          <div class="inline-actions">
+            <a class="btn btn-teal btn-lg">Teal LG</a>
+            <a class="btn btn-teal btn-md">Teal MD</a>
+          </div>
+          <p class="equation">bg: --c-green-dark<br>hover: bg --c-deep-teal</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">berry · berry fill</p>
+          <div class="inline-actions">
+            <a class="btn btn-berry btn-lg">Berry LG</a>
+            <a class="btn btn-berry btn-md">Berry MD</a>
+          </div>
+          <p class="equation">bg: --c-berry<br>hover: bg --c-espresso</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">terracotta · warm fill</p>
+          <div class="inline-actions">
+            <a class="btn btn-terracotta btn-lg">Terracotta LG</a>
+            <a class="btn btn-terracotta btn-md">Terracotta MD</a>
+          </div>
+          <p class="equation">bg: --c-terracotta<br>hover: bg --c-amber</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-2">gold-outline · gold border</p>
+          <div class="inline-actions">
+            <a class="btn btn-gold-outline btn-lg">Gold Outline LG</a>
+            <a class="btn btn-gold-outline btn-md">Gold Outline MD</a>
+          </div>
+          <p class="equation">border: 2px --c-gold<br>hover: bg --c-gold, color #fff</p>
+        </div>
+
+      </div>
+
+      <!-- Dark bg row -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Buttons on Dark Background</p>
+      <div class="bg-espresso radius-section py-sp-6 px-sp-6 reveal" data-delay="1">
+        <div class="inline-actions">
+          <a class="btn btn-primary btn-lg">Gold Primary</a>
+          <a class="btn btn-ghost btn-lg">Ghost</a>
+          <a class="btn btn-gold-outline btn-lg">Gold Outline</a>
+          <a class="btn btn-soft btn-lg">Soft</a>
+        </div>
+      </div>
+
+      <!-- Arrow button -->
+      <p class="label reveal mt-sp-7 mb-sp-4">Arrow Button</p>
+      <div class="reveal inline-actions" data-delay="1">
+        <button class="arrow-btn">→</button>
+        <p class="body" style="color:#777">
+          <code class="token-code" style="font-size:inherit">.arrow-btn</code> — 40×40px gold circle.
+          Hover: translateX(3px) + darker gold.
+          Used on cards for "read more" / "view" actions.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §2  Form Elements
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-light-blue">
+    <div class="wrap">
+
+      <div class="section-label reveal" style="border-color:#D8E8EC">
+        <h2>§2 · Form Elements — Input + Email + Submit</h2>
+      </div>
+
+      <div class="col-2 reveal">
+
+        <!-- Inputs -->
+        <div class="card">
+          <p class="label mb-sp-5">Text Inputs</p>
+          <div class="content-stack">
+            <div>
+              <p class="micro mb-sp-2" style="color:#AAA">Label · text-label · uppercase · --tracking-wide</p>
+              <label style="display:block;font-family:var(--font-body);font-size:var(--text-label);font-weight:700;letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--c-espresso);margin-bottom:var(--space-2)">Your Name</label>
+              <input class="input" type="text" placeholder="Hadar Shemesh">
+            </div>
+            <div>
+              <label style="display:block;font-family:var(--font-body);font-size:var(--text-label);font-weight:700;letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--c-espresso);margin-bottom:var(--space-2)">Email Address</label>
+              <input class="input" type="email" placeholder="hadar@example.com">
+            </div>
+            <div class="col-2" style="gap:var(--space-3)">
+              <input class="input" type="text" placeholder="First name">
+              <input class="input" type="text" placeholder="Last name">
+            </div>
+          </div>
+          <div class="equation mt-sp-5">
+border:  1.5px · #E5E5E0<br>
+radius:  --radius-sm = 6px<br>
+padding: --space-3 --space-5<br>
+focus:   gold ring · 3px · 14% opacity<br>
+min-h:   44px
+          </div>
+        </div>
+
+        <!-- Submit form -->
+        <div class="card">
+          <p class="label mb-sp-5">Email Subscribe Form</p>
+          <div class="content-stack">
+            <p class="h4">Get weekly English tips</p>
+            <p class="body" style="color:#777">Free resources, lessons, and pronunciation guides delivered every week.</p>
+            <div>
+              <label style="display:block;font-family:var(--font-body);font-size:var(--text-label);font-weight:700;letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--c-espresso);margin-bottom:var(--space-2)">Your Email</label>
+              <input class="input" type="email" placeholder="your@email.com">
+            </div>
+            <button class="btn btn-primary btn-lg w-full justify-center">Yes! Send me lessons →</button>
+            <p class="note text-center">No spam. Unsubscribe anytime.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §3  Chips + Badges
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§3 · Chips · Pills · Badges</h2>
+      </div>
+
+      <div class="grid-auto-280 reveal" data-delay="1">
+
+        <!-- Filter Chips -->
+        <div class="card">
+          <p class="label mb-sp-4">Filter Chips (click to activate)</p>
+          <div class="inline-actions">
+            <button class="chip active">All</button>
+            <button class="chip">Pronunciation</button>
+            <button class="chip">Fluency</button>
+            <button class="chip">Grammar</button>
+            <button class="chip">Confidence</button>
+          </div>
+          <div class="equation mt-sp-5">
+font:    text-micro · bold · +0.08em<br>
+padding: space-2 space-4<br>
+radius:  --radius-pill<br>
+border:  1.5px solid --c-gold<br>
+active:  bg --c-gold, color #fff
+          </div>
+        </div>
+
+        <!-- Category Labels -->
+        <div class="card">
+          <p class="label mb-sp-4">Category Labels (eyebrow)</p>
+          <div class="inline-actions">
+            <span class="label">Free Downloads</span>
+            <span class="label color-teal">App Access</span>
+            <span class="label color-berry">Courses</span>
+            <span class="label color-green-dark">New</span>
+          </div>
+          <p class="note mt-sp-4">
+            .label class — Effra Bold, uppercase, +0.08em tracking, 12→14px fluid.
+            Default color: --c-gold. Can be overridden with .color-* utilities.
+          </p>
+        </div>
+
+        <!-- Status Badges -->
+        <div class="card">
+          <p class="label mb-sp-4">Status Badges</p>
+          <div class="inline-actions mb-sp-3">
+            <span class="badge badge--gold">New</span>
+            <span class="badge badge--soft-blue">Free</span>
+            <span class="badge badge--peach">Popular</span>
+            <span class="badge badge--espresso">Pro</span>
+            <span class="badge badge--green-dark">Live</span>
+          </div>
+          <div class="equation">
+class:   .badge + .badge--{variant}<br>
+font:    text-micro · bold · uppercase<br>
+padding: space-1 space-3<br>
+radius:  --radius-pill
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §4  Cards
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-light-purple">
+    <div class="wrap">
+
+      <div class="section-label reveal" style="border-color:#E0D8E8">
+        <h2>§4 · Cards — Tight / Standard / Loose + Dark Variant</h2>
+      </div>
+
+      <div class="grid-auto-280 reveal" data-delay="1">
+
+        <div>
+          <p class="micro mb-sp-3" style="color:#999">Compact · .card-tight · space-5 padding</p>
+          <div class="card card-tight">
+            <p class="label mb-sp-3">Grammar</p>
+            <p class="h4 mb-sp-3">The perfect lesson</p>
+            <p class="body mb-sp-4" style="color:#777">Short body copy. Hover to see shadow-raised + translateY(-3px).</p>
+            <a class="btn btn-primary btn-md">Learn →</a>
+          </div>
+        </div>
+
+        <div>
+          <p class="micro mb-sp-3" style="color:#999">Standard · .card · space-6 padding ← recommended</p>
+          <div class="card">
+            <p class="label mb-sp-4">Grammar</p>
+            <p class="h4 mb-sp-4">The perfect lesson</p>
+            <p class="body mb-sp-5" style="color:#777">Standard card padding. This is the go-to for most use cases.</p>
+            <a class="btn btn-primary btn-md">Learn →</a>
+          </div>
+        </div>
+
+        <div>
+          <p class="micro mb-sp-3" style="color:#999">Generous · .card-loose · space-7 padding</p>
+          <div class="card card-loose">
+            <p class="label mb-sp-5">Grammar</p>
+            <p class="h4 mb-sp-4">The perfect lesson</p>
+            <p class="body mb-sp-6" style="color:#777">Loose padding for featured/hero cards needing extra air.</p>
+            <a class="btn btn-primary btn-md">Learn →</a>
+          </div>
+        </div>
+
+        <div>
+          <p class="micro mb-sp-3" style="color:#999">Dark variant · .card.bg-espresso</p>
+          <div class="card bg-espresso">
+            <p class="label mb-sp-4" style="color:rgba(193,168,104,.7)">Courses</p>
+            <p class="h4 mb-sp-4 color-white">Transform your English</p>
+            <p class="body mb-sp-5 text-muted color-white">Pronunciation, mindset, fluency programs that deliver results quickly.</p>
+            <a class="btn btn-primary btn-md">Explore →</a>
+          </div>
+        </div>
+
+        <div>
+          <p class="micro mb-sp-3" style="color:#999">Card with image placeholder</p>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="img-ph img-ph--landscape">Image 16:9</div>
+            <div class="py-sp-5 px-sp-5">
+              <p class="label mb-sp-3">Category</p>
+              <p class="h4 mb-sp-3">Card with Image</p>
+              <p class="body" style="color:#777">Shadow-card at rest, shadow-raised on hover.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="micro mb-sp-3" style="color:#999">Teal dark variant</p>
+          <div class="card bg-green-dark">
+            <p class="label mb-sp-4" style="color:rgba(193,168,104,.7)">App Access</p>
+            <p class="h4 mb-sp-4 color-white">Free 14-day Plan</p>
+            <p class="body mb-sp-5 text-muted color-white">Daily video lessons and practice sheets.</p>
+            <a class="btn btn-primary btn-md">Get Plan →</a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §5  Image Placeholders
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§5 · Image Placeholders — .img-ph Aspect Ratios</h2>
+      </div>
+
+      <div class="grid-auto-200 reveal" data-delay="1">
+        <div>
+          <div class="img-ph img-ph--sq">1 : 1</div>
+          <p class="note mt-sp-3">.img-ph--sq<br>Aspect ratio 1/1<br>Avatar, logo, thumbnail</p>
+        </div>
+        <div>
+          <div class="img-ph img-ph--portrait">3 : 4</div>
+          <p class="note mt-sp-3">.img-ph--portrait<br>Aspect ratio 3/4<br>Person portrait, mobile hero</p>
+        </div>
+        <div>
+          <div class="img-ph img-ph--hero">4 : 5</div>
+          <p class="note mt-sp-3">.img-ph--hero<br>Aspect ratio 4/5<br>Hero column image</p>
+        </div>
+        <div>
+          <div class="img-ph img-ph--landscape">16 : 9</div>
+          <p class="note mt-sp-3">.img-ph--landscape<br>Aspect ratio 16/9<br>Card image, video thumb</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §6  Texture Overlays
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-warm-cream">
+    <div class="wrap">
+
+      <div class="section-label reveal" style="border-color:#EDE9E0">
+        <h2>§6 · Texture Overlays — Gold-Tinted Patterns</h2>
+      </div>
+
+      <div class="col-3 reveal" data-delay="1">
+        <div>
+          <div class="tex-dots radius-card" style="height:200px"></div>
+          <p class="note mt-sp-3">.tex-dots<br>Radial gradient circles<br>Gold 20% opacity · 22px grid</p>
+        </div>
+        <div>
+          <div class="tex-cross radius-card" style="height:200px"></div>
+          <p class="note mt-sp-3">.tex-cross<br>SVG inline crosshatch<br>Gold 22% opacity · 28px grid</p>
+        </div>
+        <div>
+          <div class="tex-grid radius-card" style="height:200px"></div>
+          <p class="note mt-sp-3">.tex-grid<br>Double linear gradient grid<br>Gold 9% opacity · 30px grid</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       §7  WP Block Buttons
+  ══════════════════════════════════════════════ -->
+  <section class="db-section bg-white">
+    <div class="wrap">
+
+      <div class="section-label reveal">
+        <h2>§7 · WP Block Buttons — is-style-* Variants</h2>
+      </div>
+
+      <p class="body reveal mb-sp-6" style="color:#777;max-width:52ch">
+        These styles target <code class="token-code" style="font-size:inherit">.wp-block-button</code> wrappers as used
+        in the Gutenberg block editor. Add the is-style class to the block's additional CSS class field.
+      </p>
+
+      <div class="grid-auto-280 reveal" data-delay="1">
+
+        <div class="content-stack">
+          <p class="micro mb-sp-3">is-style-outline-gold</p>
+          <div class="wp-block-button is-style-outline-gold">
+            <a class="wp-block-button__link" href="#">Outline Gold</a>
+          </div>
+          <p class="note">Gold border + text. Hover fills gold.</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-3">is-style-ghost (on dark bg)</p>
+          <div class="bg-espresso radius-card py-sp-5 px-sp-5">
+            <div class="wp-block-button is-style-ghost">
+              <a class="wp-block-button__link" href="#">Ghost Button</a>
+            </div>
+          </div>
+          <p class="note">White text, rgba white border. For dark/image sections.</p>
+        </div>
+
+        <div class="content-stack">
+          <p class="micro mb-sp-3">is-style-chip</p>
+          <div class="inline-actions">
+            <div class="wp-block-button is-style-chip">
+              <a class="wp-block-button__link" href="#">Filter Chip</a>
+            </div>
+            <div class="wp-block-button is-style-chip is-active">
+              <a class="wp-block-button__link" href="#">Active Chip</a>
+            </div>
+          </div>
+          <p class="note">Gold border chip. .is-active state fills gold.</p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+
+<footer class="db-footer">
+  <p>HS2026 Design Book · 03 · Component System · Do not deploy to WordPress</p>
+</footer>
+
+
+<script>
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); } });
+  },{threshold:.05});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Chip click interaction
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const group = chip.closest('.inline-actions');
+      if (group) {
+        group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      }
+      chip.classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
