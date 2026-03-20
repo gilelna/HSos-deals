@@ -61,14 +61,14 @@ async function handleCredentialResponse(response) {
                 email: data.email,
                 person_id: data.person_id || 'ADMIN',
                 name: data.name || 'User',
-                idToken: idToken
+                idToken: idToken // Cache for later requests
             };
             localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
             showApp();
         } else {
-            // FALLBACK: If Google works but they aren't in the sheet, 
-            // offer the "Force Admin" hack for convenience.
-            if (confirm("Identity verified, but you aren't in the People sheet. Do you want to 'Force Admin' for testing?")) {
+            // FALLBACK: If Google works but they aren't in the sheet
+            const msg = `Google says your email is: "${data.email}".\n\nHowever, this is not in the People sheet.\n(Did you forget to select "New Version" when redeploying the Apps Script?)\n\nDo you want to use "Force Admin" for now?`;
+            if (confirm(msg)) {
                 currentUser = { role: 'admin', email: 'Admin (Manual)', person_id: 'ADMIN', name: 'Manager' };
                 localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
                 showApp();
