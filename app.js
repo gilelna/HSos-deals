@@ -135,9 +135,16 @@ function showApp() {
                 <option value="P002">View as Bob (P002)</option>
             `;
             select.onchange = (e) => {
-                currentUser.person_id = e.target.value;
-                if (e.target.value === 'ADMIN') currentUser.role = 'admin';
-                else currentUser.role = 'vendor';
+                const pid = e.target.value;
+                currentUser.person_id = pid;
+                if (pid === 'ADMIN') {
+                    currentUser.role = 'admin';
+                    currentUser.name = 'Manager';
+                } else {
+                    currentUser.role = 'vendor';
+                    currentUser.name = e.target.selectedOptions[0].text.split('(')[0].trim();
+                }
+                document.getElementById('user-email').textContent = `${currentUser.name} (${currentUser.role})`;
                 loadVendorPortal();
             };
             headerAction.prepend(select);
@@ -147,6 +154,7 @@ function showApp() {
         loadAdminDashboard();
     } else {
         document.getElementById('tab-admin').classList.add('hide');
+        document.getElementById('user-email').textContent = `${currentUser.name} (${currentUser.role})`;
         switchTab('vendor-portal');
         loadVendorPortal();
     }
