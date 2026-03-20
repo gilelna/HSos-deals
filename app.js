@@ -67,7 +67,8 @@ async function handleCredentialResponse(response) {
             showApp();
         } else {
             // FALLBACK: If Google works but they aren't in the sheet
-            const msg = `Google says your email is: "${data.email}".\n\nHowever, this is not in the People sheet.\n(Did you forget to select "New Version" when redeploying the Apps Script?)\n\nDo you want to use "Force Admin" for now?`;
+            const payloadDump = JSON.stringify(data);
+            const msg = `API URL: ${API_URL.substring(0,40)}...\n\nRaw API Response:\n${payloadDump}\n\nGoogle Token Email: ${data.email}\n\nDo you want to use "Force Admin" for now?`;
             if (confirm(msg)) {
                 currentUser = { role: 'admin', email: 'Admin (Manual)', person_id: 'ADMIN', name: 'Manager' };
                 localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
