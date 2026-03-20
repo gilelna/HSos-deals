@@ -18,10 +18,7 @@ function initApp() {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
 
-    // 2. Initialize Google Identity Button securely
-    initGSI();
-
-    // 3. User & Session Logic
+    // 2. User & Session Logic
     const btnLogout = document.getElementById('btn-logout');
     btnLogout.addEventListener('click', () => handleLogout());
 
@@ -33,14 +30,8 @@ function initApp() {
     }
 }
 
-function initGSI() {
-    // Poll until the GSI script is fully loaded
-    if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
-        setTimeout(initGSI, 100);
-        return;
-    }
-    
-    // Once loaded, configure without auto_select or prompt to avoid "stacking" bugs
+// Called directly by the Google script tag's onload attribute
+window.initGSI = function() {
     google.accounts.id.initialize({
         client_id: CLIENT_ID,
         callback: handleCredentialResponse,
@@ -52,7 +43,7 @@ function initGSI() {
         document.getElementById("g-signin-button"),
         { theme: "outline", size: "large", type: "standard", shape: "pill" }
     );
-}
+};
 
 /**
  * Handle the secure token from Google
