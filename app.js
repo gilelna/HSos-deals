@@ -18,27 +18,29 @@ function initApp() {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
 
-    // 2. Initialize Google Identity
+    // 2. Initialize Google Identity & Render Official Button
     if (typeof google !== 'undefined') {
         google.accounts.id.initialize({
             client_id: CLIENT_ID,
-            callback: handleCredentialResponse
+            callback: handleCredentialResponse,
+            auto_select: true // Try auto-login if possible
         });
-        // Try One Tap automatically
+        
+        // Render the official, high-quality sign-in button
+        google.accounts.id.renderButton(
+            document.getElementById("g-signin-button"),
+            { theme: "outline", size: "large", type: "standard", shape: "pill" }
+        );
+
+        // Try One Tap (the floating selector)
         google.accounts.id.prompt();
     }
 
-    // 3. Authentication UI Buttons
-    const btnLogin = document.getElementById('btn-login');
+    // 3. User & Session Logic
     const btnLogout = document.getElementById('btn-logout');
-
-    btnLogin.addEventListener('click', () => {
-        setLoading(true);
-        google.accounts.id.prompt();
-    });
     btnLogout.addEventListener('click', () => handleLogout());
 
-    // Check if session exists (simplified)
+    // Check for a saved login session
     const storedUser = localStorage.getItem('hs_crm_user');
     if (storedUser) {
         currentUser = JSON.parse(storedUser);
@@ -56,22 +58,27 @@ async function handleCredentialResponse(response) {
     try {
         const data = await fetchJSONP('getRole', { id_token: idToken });
         
-        if (data.status === 'success') {
+        if (data.status === 'success' && data.role !== 'guest') {
             currentUser = {
                 role: data.role,
                 email: data.email,
                 person_id: data.person_id || 'ADMIN',
                 name: data.name || 'User',
-                idToken: idToken // Cache for later requests
+                idToken: idToken
             };
             localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
             showApp();
         } else {
-            alert('Access Denied: You are not in the spreadsheet yet.');
+            // FALLBACK: If Google works but they aren't in the sheet, 
+            // offer the "Force Admin" hack for convenience.
+            if (confirm("Identity verified, but you aren't in the People sheet. Do you want to 'Force Admin' for testing?")) {
+                currentUser = { role: 'admin', email: 'Admin (Manual)', person_id: 'ADMIN', name: 'Manager' };
+                localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
+                showApp();
+            }
         }
     } catch (err) {
         console.error('Login failed:', err);
-        alert('Verification failed. Try refreshing.');
     } finally {
         setLoading(false);
     }
