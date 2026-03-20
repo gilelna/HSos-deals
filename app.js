@@ -18,25 +18,7 @@ function initApp() {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
 
-    // 2. Initialize Google Identity & Render Official Button
-    if (typeof google !== 'undefined') {
-        google.accounts.id.initialize({
-            client_id: CLIENT_ID,
-            callback: handleCredentialResponse,
-            auto_select: true // Try auto-login if possible
-        });
-        
-        // Render the official, high-quality sign-in button
-        google.accounts.id.renderButton(
-            document.getElementById("g-signin-button"),
-            { theme: "outline", size: "large", type: "standard", shape: "pill" }
-        );
-
-        // Try One Tap (the floating selector)
-        google.accounts.id.prompt();
-    }
-
-    // 3. User & Session Logic
+    // 2. Authentication UI Buttons
     const btnLogout = document.getElementById('btn-logout');
     btnLogout.addEventListener('click', () => handleLogout());
 

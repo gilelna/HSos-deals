@@ -67,13 +67,25 @@ function _jsonResponse(data, callback) {
 function _getUserRole(ss, email) {
   var sheet = ss.getSheetByName('People');
   var data = sheet.getDataRange().getValues();
-  var ownerEmail = ss.getOwner().getEmail();
-  if (email && email === ownerEmail) return { role: 'admin', person_id: 'ADMIN', name: 'Admin' };
-  if (email) {
+  var checkingEmail = String(email || '').trim().toLowerCase();
+  
+  if (checkingEmail) {
+    // Check the spreadsheet first
     for (var i = 1; i < data.length; i++) {
-        if (data[i][2] === email) return { role: 'vendor', person_id: data[i][0], name: data[i][1] };
+        var sheetEmail = String(data[i][2] || '').trim().toLowerCase();
+        if (sheetEmail === checkingEmail) {
+           var sheetRole = String(data[i][3] || '').trim().toLowerCase() === 'admin' ? 'admin' : 'vendor';
+           return { role: sheetRole, person_id: data[i][0], name: data[i][1] };
+        }
     }
   }
+
+  // Fallback to Owner Check
+  var ownerEmail = ss.getOwner().getEmail();
+  if (checkingEmail && checkingEmail === String(ownerEmail).trim().toLowerCase()) {
+      return { role: 'admin', person_id: 'ADMIN', name: 'Admin' };
+  }
+  
   return { role: 'guest', email: email || '' };
 }
 
