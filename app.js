@@ -90,7 +90,10 @@ function fetchJSONP(action, params = {}) {
         };
         const script = document.createElement('script');
         
-        // Add the 'allow_debug' flag if we are in force-admin mode
+        // Add security tokens/debug flags
+        if (currentUser && currentUser.idToken) {
+            params.id_token = currentUser.idToken;
+        }
         if (currentUser && currentUser.email === 'Admin (Manual)') {
             params.allow_debug = 'true';
         }
