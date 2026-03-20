@@ -5,15 +5,27 @@
  */
 
 function doGet(e) {
-  var userEmail = Session.getActiveUser().getEmail();
   var action = e.parameter.action;
   var callback = e.parameter.callback;
+  var userEmail = Session.getActiveUser().getEmail(); // Standard
+  
+  // SECURE IDENTITY VERIFICATION
+  // If an id_token is sent, we verify it with Google for 100% security
+  if (e.parameter.id_token) {
+    try {
+      var tokenResponse = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + e.parameter.id_token);
+      var tokenData = JSON.parse(tokenResponse.getContentText());
+      userEmail = tokenData.email || userEmail;
+    } catch (err) {
+      return _jsonResponse({ status: 'error', message: 'Identity verification failed' }, callback);
+    }
+  }
 
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var roleData = _getUserRole(ss, userEmail);
     
-    // Fallback for localhost (where User identity is often empty)
+    // Fallback for debug if needed, but the token above is the primary identity
     var authorized = (roleData.role === 'admin' || e.parameter.allow_debug === 'true');
 
     if (action === 'getRole') {

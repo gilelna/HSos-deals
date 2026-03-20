@@ -18,11 +18,24 @@ function initApp() {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
 
-    // 2. Authentication Logic
+    // 2. Initialize Google Identity
+    if (typeof google !== 'undefined') {
+        google.accounts.id.initialize({
+            client_id: CLIENT_ID,
+            callback: handleCredentialResponse
+        });
+        // Try One Tap automatically
+        google.accounts.id.prompt();
+    }
+
+    // 3. Authentication UI Buttons
     const btnLogin = document.getElementById('btn-login');
     const btnLogout = document.getElementById('btn-logout');
 
-    btnLogin.addEventListener('click', () => handleLogin());
+    btnLogin.addEventListener('click', () => {
+        setLoading(true);
+        google.accounts.id.prompt();
+    });
     btnLogout.addEventListener('click', () => handleLogout());
 
     // Check if session exists (simplified)
@@ -33,51 +46,35 @@ function initApp() {
     }
 }
 
-// ── Authentication ──────────────────────────────────────────
-
-async function handleLogin() {
+/**
+ * Handle the secure token from Google
+ */
+async function handleCredentialResponse(response) {
     setLoading(true);
+    const idToken = response.credential;
     
-    // We create a one-time global callback for JSONP
-    const callbackName = 'googleRoleCallback';
-    window[callbackName] = (data) => {
-        setLoading(false);
-        console.log('API Response:', data); 
+    try {
+        const data = await fetchJSONP('getRole', { id_token: idToken });
         
         if (data.status === 'success') {
-            // If the script is 'Execute as Me / Anyone', we might not get the email 
-            // unless the user is logged into their browser.
-            if (!data.email && data.role === 'guest') {
-                if (confirm("Google is blocking your identity (common on localhost). Do you want to try 'Force Admin' mode to see your data?")) {
-                    data.role = 'admin';
-                    data.email = 'Admin (Manual)';
-                } else {
-                    alert("Please log into Google in another tab and refresh.");
-                    return;
-                }
-            }
-            
             currentUser = {
                 role: data.role,
-                email: data.email || 'Admin',
+                email: data.email,
                 person_id: data.person_id || 'ADMIN',
-                name: data.name || 'Manager'
+                name: data.name || 'User',
+                idToken: idToken // Cache for later requests
             };
             localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
             showApp();
         } else {
-            alert('Error connecting: ' + (data.message || 'Unknown error'));
+            alert('Access Denied: You are not in the spreadsheet yet.');
         }
-        delete window[callbackName];
-    };
-
-    const script = document.createElement('script');
-    script.src = `${API_URL}?action=getRole&callback=${callbackName}&t=${Date.now()}`;
-    script.onerror = () => {
+    } catch (err) {
+        console.error('Login failed:', err);
+        alert('Verification failed. Try refreshing.');
+    } finally {
         setLoading(false);
-        alert('Could not connect. Ensure you are logged into Google and the App is deployed as "Anyone".');
-    };
-    document.body.appendChild(script);
+    }
 }
 
 /**
