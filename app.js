@@ -59,7 +59,7 @@ async function handleCredentialResponse(response) {
             currentUser = {
                 role: data.role,
                 email: data.email,
-                person_id: data.person_id || 'ADMIN',
+                vendor_id: data.vendor_id || 'ADMIN',
                 name: data.name || 'User',
                 idToken: idToken // Cache for later requests
             };
@@ -70,7 +70,7 @@ async function handleCredentialResponse(response) {
             const payloadDump = JSON.stringify(data);
             const msg = `API URL: ${API_URL.substring(0,40)}...\n\nRaw API Response:\n${payloadDump}\n\nGoogle Token Email: ${data.email}\n\nDo you want to use "Force Admin" for now?`;
             if (confirm(msg)) {
-                currentUser = { role: 'admin', email: 'Admin (Manual)', person_id: 'ADMIN', name: 'Manager' };
+                currentUser = { role: 'admin', email: 'Admin (Manual)', vendor_id: 'ADMIN', name: 'Manager' };
                 localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
                 showApp();
             }
@@ -126,6 +126,7 @@ function showApp() {
     // Role-based UI visibility
     if (currentUser.role === 'admin') {
         document.getElementById('tab-admin').classList.remove('hide');
+        document.getElementById('tab-agreements').classList.remove('hide');
         
         // Add a "Switch View" tool for the admin
         const headerAction = document.querySelector('header .flex.items-center');
@@ -141,7 +142,7 @@ function showApp() {
             `;
             select.onchange = (e) => {
                 const pid = e.target.value;
-                currentUser.person_id = pid;
+                currentUser.vendor_id = pid;
                 if (pid === 'ADMIN') {
                     currentUser.role = 'admin';
                     currentUser.name = 'Manager';
@@ -174,6 +175,7 @@ function switchTab(tabId) {
 
     // Load fresh data if needed
     if (tabId === 'dashboard') loadAdminDashboard();
+    if (tabId === 'agreements') loadAgreementsDashboard();
     if (tabId === 'vendor-portal') loadVendorPortal();
 }
 
@@ -218,18 +220,72 @@ function renderActivityList(activities) {
     });
 }
 
+// ── Data Loading: Agreements ───────────────────────────────
+
+async function loadAgreementsDashboard() {
+    if (API_URL.includes('PASTE_YOUR')) return;
+    try {
+        const data = await fetchJSONP('getDashboard');
+        if (data.status === 'success') {
+            const clientSelect = document.getElementById('agr-client');
+            const vendorSelect = document.getElementById('agr-vendor');
+            
+            if (data.clientsList) {
+                clientSelect.innerHTML = '<option value="">-- Choose Client --</option>';
+                data.clientsList.forEach(c => {
+                    clientSelect.innerHTML += `<option value="${c[0]}" data-type="${c[1]}">${c[2] || c[3]}</option>`;
+                });
+            }
+            if (data.vendorsList) {
+                vendorSelect.innerHTML = '<option value="">-- Choose Vendor --</option>';
+                data.vendorsList.forEach(v => {
+                    vendorSelect.innerHTML += `<option value="${v[0]}">${v[1]}</option>`;
+                });
+            }
+            if (data.agreements) {
+                renderAgreementsList(data.agreements, 'agreements-list');
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load agreements:', err);
+    }
+}
+
+function renderAgreementsList(agreements, targetId) {
+    const list = document.getElementById(targetId);
+    list.innerHTML = '';
+    if (!agreements || agreements.length === 0) {
+        list.innerHTML = '<div class="micro text-muted">No agreements found.</div>';
+        return;
+    }
+    agreements.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'activity-item shadow-subtle bg-white';
+        div.innerHTML = `
+            <div class="stack">
+                <span class="body color-espresso" style="font-weight:700">${item[5]}</span>
+                <span class="micro text-muted">${item[14].toUpperCase()} · ${item[0]}</span>
+            </div>
+            <div class="amount h4 color-gold">
+                ${item[9]} <span class="micro">${item[10]}</span>
+            </div>
+        `;
+        list.appendChild(div);
+    });
+}
 // ── Data Loading: Vendor Portal ─────────────────────────────
 
 async function loadVendorPortal() {
     if (API_URL.includes('PASTE_YOUR')) return;
 
     try {
-        const data = await fetchJSONP('getVendorData', { personId: currentUser.person_id });
+        const data = await fetchJSONP('getVendorData', { vendorId: currentUser.vendor_id });
 
         if (data.status === 'success') {
             renderRoster(data.roster);
             populateFormDropdowns(data.roster, data.sessionTypes);
             if (data.recentActivity) renderVendorHistory(data.recentActivity);
+            if (data.agreements) renderAgreementsList(data.agreements, 'vendor-agreements-list');
         }
     } catch (err) {
         console.error('Failed to load vendor data:', err);
@@ -302,6 +358,44 @@ sessionForm.addEventListener('submit', async (e) => {
         setLoading(false);
     }
 });
+
+const agrForm = document.getElementById('form-add-agreement');
+if (agrForm) {
+    agrForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const clientOpt = document.getElementById('agr-client').selectedOptions[0];
+        
+        const payload = {
+            client_id: document.getElementById('agr-client').value,
+            client_type: clientOpt ? clientOpt.dataset.type : '',
+            vendor_id: document.getElementById('agr-vendor').value,
+            product_name: document.getElementById('agr-product').value,
+            units: document.getElementById('agr-units').value,
+            unit_type: document.getElementById('agr-unittype').value,
+            total_amount: document.getElementById('agr-amount').value,
+            currency: document.getElementById('agr-currency').value,
+            status: 'draft',
+            agreement_date: new Date().toISOString().split('T')[0]
+        };
+
+        setLoading(true);
+        try {
+            const resData = await fetchJSONP('createAgreement', { data: JSON.stringify(payload) });
+            if (resData.status === 'success') {
+                showToast('✅ Agreement Created!');
+                agrForm.reset();
+                loadAgreementsDashboard(); // Refresh
+            } else {
+                alert('Creation failed: ' + resData.message);
+            }
+        } catch (err) {
+            console.error('Failed to create agreement:', err);
+            alert('Could not submit data.');
+        } finally {
+            setLoading(false);
+        }
+    });
+}
 
 // ── Utils ────────────────────────────────────────────────────
 

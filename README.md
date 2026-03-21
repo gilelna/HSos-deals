@@ -44,7 +44,7 @@ A complete system for managing students, vendors, sessions, and finances using G
 2. Run `createVendorSpreadsheet`
 3. Open the new vendor spreadsheet
 4. Go to the **Settings** sheet and replace `<PASTE_MASTER_SPREADSHEET_ID_HERE>` with the Master ID from Step 1
-5. Update `person_id` and `person_name` to match this vendor's record in the Master People sheet
+5. Update `vendor_id` and `vendor_name` to match this vendor's record in the Master Vendors sheet
 
 ### Step 3: Attach Scripts to the Vendor Spreadsheet
 
@@ -183,7 +183,7 @@ When the vendor opens the spreadsheet, a **🔧 CRM Tools** menu appears:
 
 | Entity | Format | Example |
 |--------|--------|---------|
-| People | `P` + 3 digits | P001, P002 |
+| Vendors | `P` + 3 digits | P001, P002 |
 | Clients | `C` + 3 digits | C001, C002 |
 | Deals | `D` + 3 digits | D001, D002 |
 | Session Types | `ST` + 3 digits | ST001, ST002 |
@@ -208,8 +208,8 @@ For each new vendor:
 1. **Duplicate** the vendor template spreadsheet (File → Make a copy)
 2. Update the **Settings** sheet:
    - `master_spreadsheet_id` → same Master ID
-   - `person_id` → e.g. `P002`
-   - `person_name` → e.g. `Bob Chen`
+   - `vendor_id` → e.g. `P002`
+   - `vendor_name` → e.g. `Bob Chen`
    - `session_types` → adjust if this vendor teaches different types
 3. Update **Rates** sheet with this vendor's rates
 4. Run **Sync Roster** to pull their assigned clients

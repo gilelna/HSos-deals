@@ -39,7 +39,7 @@ function setupMaster() {
 
   // Now remove any leftover default sheets (Sheet1, etc.)
   var allSheets = ss.getSheets();
-  var validNames = ['Settings','People','Clients','Deals','Session Types','Activity Log','Monthly Payments'];
+  var validNames = ['Settings','Vendors','Clients','Deals','Session Types','Activity Log','Monthly Payments'];
   for (var i = 0; i < allSheets.length; i++) {
     if (validNames.indexOf(allSheets[i].getName()) === -1) {
       ss.deleteSheet(allSheets[i]);
@@ -87,9 +87,9 @@ function _createSettingsSheet(ss) {
 //  PEOPLE (vendors)
 // ════════════════════════════════════════════════════════════════
 function _createPeopleSheet(ss) {
-  var sheet = ss.insertSheet('People');
+  var sheet = ss.insertSheet('Vendors');
   var headers = [
-    'person_id', 'name', 'email', 'role_type', 'payment_method',
+    'vendor_id', 'name', 'email', 'role_type', 'payment_method',
     'currency', 'hiring_type', 'status', 'notes'
   ];
   var sample = [
@@ -150,7 +150,7 @@ function _createClientsSheet(ss) {
 function _createDealsSheet(ss) {
   var sheet = ss.insertSheet('Deals');
   var headers = [
-    'deal_id', 'client_id', 'client_type', 'linked_company_id', 'person_id',
+    'deal_id', 'client_id', 'client_type', 'linked_company_id', 'vendor_id',
     'deal_type', 'description', 'units_sold', 'unit_label', 'amount',
     'currency', 'invoice_sent_date', 'due_date', 'paid_date',
     'receipt_sent_date', 'status', 'document_link', 'document_number',
@@ -213,7 +213,7 @@ function _createSessionTypesSheet(ss) {
 function _createActivityLogSheet(ss) {
   var sheet = ss.insertSheet('Activity Log');
   var headers = [
-    'activity_id', 'entry_type', 'person_id', 'person_name',
+    'activity_id', 'entry_type', 'vendor_id', 'vendor_name',
     'client_id', 'client_name', 'linked_company_id', 'session_type',
     'activity_date', 'quantity', 'unit_type', 'source_file_id',
     'source_sheet', 'source_cell', 'status', 'notes',
@@ -245,7 +245,7 @@ function _createActivityLogSheet(ss) {
 function _createMonthlyPaymentsSheet(ss) {
   var sheet = ss.insertSheet('Monthly Payments');
   var headers = [
-    'person_id', 'name', 'month', 'total_due', 'currency',
+    'vendor_id', 'name', 'month', 'total_due', 'currency',
     'status', 'payment_date', 'notes'
   ];
   var sample = [

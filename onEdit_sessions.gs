@@ -121,14 +121,14 @@ function onEditSessionsLog(e) {
     }
 
     // Build the Activity Log row
-    // activity_id | entry_type | person_id | person_name | client_id | client_name |
+    // activity_id | entry_type | vendor_id | vendor_name | client_id | client_name |
     // linked_company_id | session_type | activity_date | quantity | unit_type |
     // source_file_id | source_sheet | source_cell | status | notes | created_at | updated_at
     var logRow = [
       activityId,
       'session',
-      vendorConfig.personId,
-      vendorConfig.personName,
+      vendorConfig.vendorId,
+      vendorConfig.vendorName,
       clientId,
       clientName,
       linkedCompanyId,
@@ -180,7 +180,7 @@ function onEditSessionsLog(e) {
 function _getVendorConfig(ss) {
   var settingsSheet = ss.getSheetByName('Settings');
   if (!settingsSheet) {
-    return { masterSpreadsheetId: '', personId: '', personName: '' };
+    return { masterSpreadsheetId: '', vendorId: '', vendorName: '' };
   }
   var data = settingsSheet.getDataRange().getValues();
   var config = {};
@@ -188,8 +188,8 @@ function _getVendorConfig(ss) {
     var key = String(data[i][0]).trim();
     var val = String(data[i][1]).trim();
     if (key === 'master_spreadsheet_id') config.masterSpreadsheetId = val;
-    if (key === 'person_id')             config.personId = val;
-    if (key === 'person_name')           config.personName = val;
+    if (key === 'vendor_id')             config.vendorId = val;
+    if (key === 'vendor_name')           config.vendorName = val;
   }
   return config;
 }

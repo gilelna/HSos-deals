@@ -45,7 +45,7 @@ function setupVendor() {
   Logger.log('🎉 Vendor setup complete!');
   SpreadsheetApp.getUi().alert(
     '✅ Vendor Setup Complete',
-    'Your Vendor spreadsheet is ready.\n\nNext steps:\n1. Go to the Settings sheet\n2. Paste your Master Spreadsheet ID\n3. Update person_id and person_name',
+    'Your Vendor spreadsheet is ready.\n\nNext steps:\n1. Go to the Settings sheet\n2. Paste your Master Spreadsheet ID\n3. Update vendor_id and vendor_name',
     SpreadsheetApp.getUi().ButtonSet.OK
   );
 }
@@ -58,8 +58,8 @@ function _createVendorSettings(ss) {
   var data = [
     ['Key',                'Value'],
     ['master_spreadsheet_id', '<PASTE_MASTER_SPREADSHEET_ID_HERE>'],
-    ['person_id',          'P001'],
-    ['person_name',        'Alice Martin'],
+    ['vendor_id',          'P001'],
+    ['vendor_name',        'Alice Martin'],
     ['session_types',      'English 1-on-1, English Group, Math Tutoring'],
     ['work_types',         'Prep, Admin, Meeting, Content Creation, Other'],
   ];

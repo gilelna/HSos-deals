@@ -50,13 +50,13 @@ function syncRosterFromMaster() {
     if (dealsSheet) {
       var dealsData = dealsSheet.getDataRange().getValues();
       // Deals headers: deal_id(0), client_id(1), client_type(2), linked_company_id(3),
-      //   person_id(4), deal_type(5), description(6) ...
+      //   vendor_id(4), deal_type(5), description(6) ...
       for (var d = 1; d < dealsData.length; d++) {
         var dealPersonId = String(dealsData[d][4]).trim();
         var dealClientId = String(dealsData[d][1]).trim();
         var dealStatus   = String(dealsData[d][15]).trim();
 
-        if (dealPersonId === vendorConfig.personId && dealStatus !== 'cancelled') {
+        if (dealPersonId === vendorConfig.vendorId && dealStatus !== 'cancelled') {
           assignedClientIds[dealClientId] = true;
           // Use description as a rough session type indicator
           clientSessionTypes[dealClientId] = String(dealsData[d][6]).trim();
@@ -134,14 +134,14 @@ function syncRosterFromMaster() {
 
 function _getSyncConfig(ss) {
   var s = ss.getSheetByName('Settings');
-  if (!s) return { masterSpreadsheetId: '', personId: '', personName: '' };
+  if (!s) return { masterSpreadsheetId: '', vendorId: '', vendorName: '' };
   var data = s.getDataRange().getValues();
   var cfg = {};
   for (var i = 0; i < data.length; i++) {
     var k = String(data[i][0]).trim(), v = String(data[i][1]).trim();
     if (k === 'master_spreadsheet_id') cfg.masterSpreadsheetId = v;
-    if (k === 'person_id') cfg.personId = v;
-    if (k === 'person_name') cfg.personName = v;
+    if (k === 'vendor_id') cfg.vendorId = v;
+    if (k === 'vendor_name') cfg.vendorName = v;
   }
   return cfg;
 }

@@ -1,7 +1,7 @@
 /**
  * monthly_summary.gs
  * Recalculates the Monthly Summary sheet from the
- * Master Activity Log, filtered by person_id + month + status=active.
+ * Master Activity Log, filtered by vendor_id + month + status=active.
  *
  * Called via custom menu: 🔧 CRM Tools → Recalculate Monthly Summary
  */
@@ -57,24 +57,24 @@ function recalculateMonthlySummary() {
 
     var logData = activityLog.getDataRange().getValues();
     // Activity Log headers (row 0):
-    // 0:activity_id 1:entry_type 2:person_id 3:person_name
+    // 0:activity_id 1:entry_type 2:vendor_id 3:vendor_name
     // 4:client_id 5:client_name 6:linked_company_id 7:session_type
     // 8:activity_date 9:quantity 10:unit_type 11:source_file_id
     // 12:source_sheet 13:source_cell 14:status 15:notes 16:created_at 17:updated_at
 
-    // Filter: person_id matches AND month matches AND status = 'active'
+    // Filter: vendor_id matches AND month matches AND status = 'active'
     var sessions = {};  // key: session_type + '|' + client_name → { count, hours, unit }
     var workEntries = {}; // key: work_type → { count, hours }
 
     for (var i = 1; i < logData.length; i++) {
       var row = logData[i];
-      var personId   = String(row[2]).trim();
+      var vendorId   = String(row[2]).trim();
       var entryType  = String(row[1]).trim();
       var dateStr    = '';
       var status     = String(row[14]).trim();
 
       // Only include 'active' entries for this vendor
-      if (personId !== vendorConfig.personId) continue;
+      if (vendorId !== vendorConfig.vendorId) continue;
       if (status !== 'active') continue;
 
       // Parse date to check month
@@ -166,14 +166,14 @@ function recalculateMonthlySummary() {
 
 function _getSummaryConfig(ss) {
   var s = ss.getSheetByName('Settings');
-  if (!s) return { masterSpreadsheetId: '', personId: '', personName: '' };
+  if (!s) return { masterSpreadsheetId: '', vendorId: '', vendorName: '' };
   var data = s.getDataRange().getValues();
   var cfg = {};
   for (var i = 0; i < data.length; i++) {
     var k = String(data[i][0]).trim(), v = String(data[i][1]).trim();
     if (k === 'master_spreadsheet_id') cfg.masterSpreadsheetId = v;
-    if (k === 'person_id') cfg.personId = v;
-    if (k === 'person_name') cfg.personName = v;
+    if (k === 'vendor_id') cfg.vendorId = v;
+    if (k === 'vendor_name') cfg.vendorName = v;
   }
   return cfg;
 }

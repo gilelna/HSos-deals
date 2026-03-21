@@ -56,6 +56,7 @@
     <nav class="bg-light-blue border-bottom">
       <div class="wrap flex gap-6">
         <button class="nav-tab active" data-tab="dashboard" id="tab-admin">Admin Dashboard</button>
+        <button class="nav-tab hide" data-tab="agreements" id="tab-agreements">Agreements</button>
         <button class="nav-tab" data-tab="vendor-portal" id="tab-vendor">Vendor Portal</button>
       </div>
     </nav>
@@ -89,6 +90,69 @@
         </div>
         <div class="card-grid" id="dashboard-recent-log">
           <!-- Activity entries injected here -->
+        </div>
+      </div>
+
+      <!-- Panel: Agreements -->
+      <div id="panel-agreements" class="tab-panel">
+        <div class="section-label">
+           <h2>Manage Agreements</h2>
+        </div>
+        <div class="golden-grid mb-sp-8">
+           <!-- Column 1: Add Agreement Form -->
+           <div class="card bg-white shadow-card">
+              <h3 class="h4 mb-sp-4">New Agreement</h3>
+              <form id="form-add-agreement" class="content-stack">
+                 <div class="flex gap-4">
+                     <div class="flex flex-col flex-1">
+                         <label class="label-text">Select Client</label>
+                         <select id="agr-client" class="input" required><option value="">-- Choose --</option></select>
+                     </div>
+                     <div class="flex flex-col flex-1">
+                         <label class="label-text">Assign Vendor</label>
+                         <select id="agr-vendor" class="input" required><option value="">-- Choose --</option></select>
+                     </div>
+                 </div>
+
+                 <label class="label-text mt-sp-2">Product / Package Name</label>
+                 <input type="text" id="agr-product" class="input" required placeholder="e.g. 10 English Sessions">
+                 
+                 <div class="flex gap-4 mt-sp-2">
+                     <div class="flex flex-col flex-1">
+                         <label class="label-text">Units</label>
+                         <input type="number" id="agr-units" class="input" required placeholder="10">
+                     </div>
+                     <div class="flex flex-col flex-1">
+                         <label class="label-text">Unit Type</label>
+                         <input type="text" id="agr-unittype" class="input" required value="session">
+                     </div>
+                 </div>
+
+                 <div class="flex gap-4 mt-sp-2">
+                     <div class="flex flex-col flex-1">
+                         <label class="label-text">Total Amount</label>
+                         <input type="number" id="agr-amount" class="input" required placeholder="500">
+                     </div>
+                     <div class="flex flex-col flex-1">
+                         <label class="label-text">Currency</label>
+                         <select id="agr-currency" class="input" required>
+                             <option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="ILS">ILS</option>
+                         </select>
+                     </div>
+                 </div>
+
+                 <button type="submit" class="btn btn-primary btn-md mt-sp-4">Create Agreement ✅</button>
+              </form>
+           </div>
+           
+           <!-- Column 2: Dashboard/Dummy List -->
+           <div class="card bg-warm-cream shadow-subtle flex flex-col gap-2 relative">
+               <h3 class="h4 mb-sp-3 color-espresso">Recent Agreements</h3>
+               <div id="agreements-list" class="content-stack text-sm">
+                   <!-- Injected dynamically -->
+                   <div class="roster-chip micro">Will refresh when loaded...</div>
+               </div>
+           </div>
         </div>
       </div>
 
@@ -137,6 +201,13 @@
               <div class="flex justify-between items-end mt-sp-3">
                 <span class="body-lg" id="vendor-month-total">--</span>
                 <span class="label">Completed</span>
+              </div>
+            </div>
+            
+            <div class="card bg-white mt-sp-4 shadow-subtle">
+              <h3 class="h4 mb-sp-2">My Agreements</h3>
+              <div id="vendor-agreements-list" class="content-stack mt-sp-2 micro text-muted">
+                 Loading...
               </div>
             </div>
           </div>

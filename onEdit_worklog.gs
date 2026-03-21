@@ -65,7 +65,7 @@ function onEditWorkLog(e) {
     if (entryStatus === 'deleted' && oldValue) formattedDate = String(oldValue);
 
     var logRow = [
-      activityId, 'work', vendorConfig.personId, vendorConfig.personName,
+      activityId, 'work', vendorConfig.vendorId, vendorConfig.vendorName,
       '', '', '', workType, formattedDate,
       hours || 0, 'hour', ss.getId(), 'Work Log', 'A' + editedRow,
       entryStatus, notes, now, now
@@ -102,14 +102,14 @@ function onEditInstallable(e) {
 
 function _getVendorConfigWL(ss) {
   var s = ss.getSheetByName('Settings');
-  if (!s) return { masterSpreadsheetId: '', personId: '', personName: '' };
+  if (!s) return { masterSpreadsheetId: '', vendorId: '', vendorName: '' };
   var data = s.getDataRange().getValues();
   var cfg = {};
   for (var i = 0; i < data.length; i++) {
     var k = String(data[i][0]).trim(), v = String(data[i][1]).trim();
     if (k === 'master_spreadsheet_id') cfg.masterSpreadsheetId = v;
-    if (k === 'person_id') cfg.personId = v;
-    if (k === 'person_name') cfg.personName = v;
+    if (k === 'vendor_id') cfg.vendorId = v;
+    if (k === 'vendor_name') cfg.vendorName = v;
   }
   return cfg;
 }
