@@ -22,12 +22,15 @@ function initApp() {
     const btnLogout = document.getElementById('btn-logout');
     btnLogout.addEventListener('click', () => handleLogout());
 
-    // Check for a saved login session
+    // Bypass login for testing
     const storedUser = localStorage.getItem('hs_crm_user');
     if (storedUser) {
         currentUser = JSON.parse(storedUser);
-        showApp();
+    } else {
+        currentUser = { role: 'admin', email: 'test@example.com', vendor_id: 'ADMIN', name: 'Test Manager' };
+        localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
     }
+    showApp();
 }
 
 // Called directly by the Google script tag's onload attribute
@@ -123,46 +126,47 @@ function showApp() {
     document.getElementById('app-main').classList.remove('hide');
     document.getElementById('user-email').textContent = `${currentUser.name} (${currentUser.role})`;
 
+    // Global testing switcher
+    const headerAction = document.querySelector('header .flex.items-center');
+    if (!document.getElementById('admin-switcher')) {
+        const select = document.createElement('select');
+        select.id = 'admin-switcher';
+        select.className = 'micro border-gold bg-transparent color-white';
+        select.style.padding = '0.2rem';
+        select.style.marginRight = '1rem';
+        select.innerHTML = `
+            <option value="ADMIN">View as Admin</option>
+            <option value="V001">View as Alice (V001)</option>
+            <option value="V002">View as Bob (V002)</option>
+        `;
+        select.onchange = (e) => {
+            const pid = e.target.value;
+            currentUser.vendor_id = pid;
+            if (pid === 'ADMIN') {
+                currentUser.role = 'admin';
+                currentUser.name = 'Test Manager';
+            } else {
+                currentUser.role = 'vendor';
+                currentUser.name = e.target.selectedOptions[0].text.split('(')[0].trim();
+            }
+            localStorage.setItem('hs_crm_user', JSON.stringify(currentUser));
+            showApp();
+        };
+        headerAction.prepend(select);
+    }
+    
+    // Sync switcher state
+    document.getElementById('admin-switcher').value = currentUser.vendor_id;
+
     // Role-based UI visibility
     if (currentUser.role === 'admin') {
         document.getElementById('tab-admin').classList.remove('hide');
         document.getElementById('tab-agreements').classList.remove('hide');
-        
-        // Add a "Switch View" tool for the admin
-        const headerAction = document.querySelector('header .flex.items-center');
-        if (!document.getElementById('admin-switcher')) {
-            const select = document.createElement('select');
-            select.id = 'admin-switcher';
-            select.className = 'micro border-gold bg-transparent color-white';
-            select.style.padding = '0.2rem';
-            select.innerHTML = `
-                <option value="ADMIN">View as Admin</option>
-                <option value="P001">View as Alice (P001)</option>
-                <option value="P002">View as Bob (P002)</option>
-            `;
-            select.onchange = (e) => {
-                const pid = e.target.value;
-                currentUser.vendor_id = pid;
-                if (pid === 'ADMIN') {
-                    currentUser.role = 'admin';
-                    currentUser.name = 'Manager';
-                } else {
-                    currentUser.role = 'vendor';
-                    currentUser.name = e.target.selectedOptions[0].text.split('(')[0].trim();
-                }
-                document.getElementById('user-email').textContent = `${currentUser.name} (${currentUser.role})`;
-                loadVendorPortal();
-            };
-            headerAction.prepend(select);
-        }
-
         switchTab('dashboard');
-        loadAdminDashboard();
     } else {
         document.getElementById('tab-admin').classList.add('hide');
-        document.getElementById('user-email').textContent = `${currentUser.name} (${currentUser.role})`;
+        document.getElementById('tab-agreements').classList.add('hide');
         switchTab('vendor-portal');
-        loadVendorPortal();
     }
 }
 
