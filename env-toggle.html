@@ -1,0 +1,246 @@
+<!-- env-toggle.html -->
+<!-- Environment toggle component - switches between demo and production Supabase databases -->
+
+<style>
+.env-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--sf2);
+  border: 1px solid var(--b);
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.env-toggle:hover {
+  background: var(--sf3);
+  border-color: var(--mu);
+}
+
+.env-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.env-label {
+  font-family: 'DM Mono', monospace;
+  font-weight: 500;
+  color: var(--mu);
+}
+
+.env-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--sf);
+  border: 1px solid var(--b);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  min-width: 220px;
+  display: none;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.env-dropdown.open {
+  display: block;
+}
+
+.env-dd-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--b);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--mu2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.env-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid var(--b);
+}
+
+.env-option:last-child {
+  border-bottom: none;
+}
+
+.env-option:hover {
+  background: var(--sf2);
+}
+
+.env-option.active {
+  background: var(--sf3);
+}
+
+.env-option-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.env-option-content {
+  flex: 1;
+}
+
+.env-option-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tx);
+  margin-bottom: 2px;
+}
+
+.env-option-desc {
+  font-size: 10px;
+  color: var(--mu2);
+}
+
+.env-option-check {
+  font-size: 14px;
+  color: var(--mu);
+}
+
+.env-warning {
+  padding: 10px 12px;
+  background: rgba(224, 160, 64, 0.1);
+  border-top: 1px solid var(--b);
+  font-size: 10px;
+  color: var(--mu);
+  line-height: 1.4;
+}
+
+.env-warning-icon {
+  color: var(--am);
+  margin-right: 4px;
+}
+</style>
+
+<div style="position: relative">
+  <div class="env-toggle" onclick="toggleEnvDropdown()">
+    <div class="env-indicator" id="env-indicator"></div>
+    <span class="env-label" id="env-label">Loading...</span>
+    <span style="font-size:10px;color:var(--mu2)">▾</span>
+  </div>
+
+  <div class="env-dropdown" id="env-dropdown">
+    <div class="env-dd-header">Database</div>
+
+    <div class="env-option" onclick="selectEnvironment('production')" id="env-opt-production">
+      <div class="env-option-dot" style="background: #4caf82"></div>
+      <div class="env-option-content">
+        <div class="env-option-label">Production</div>
+        <div class="env-option-desc">Live business data</div>
+      </div>
+      <div class="env-option-check"></div>
+    </div>
+
+    <div class="env-option" onclick="selectEnvironment('demo')" id="env-opt-demo">
+      <div class="env-option-dot" style="background: #e0a040"></div>
+      <div class="env-option-content">
+        <div class="env-option-label">Demo</div>
+        <div class="env-option-desc">Sample data for testing</div>
+      </div>
+      <div class="env-option-check"></div>
+    </div>
+
+    <div class="env-warning">
+      <span class="env-warning-icon">⚠</span>
+      Switching database will reload the page
+    </div>
+  </div>
+</div>
+
+<script>
+// Initialize environment toggle
+function initEnvToggle() {
+  if (!window.getEnvConfig) {
+    console.error('[HSos] env-config.js not loaded')
+    return
+  }
+
+  updateEnvToggle()
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.env-toggle') && !e.target.closest('.env-dropdown')) {
+      document.getElementById('env-dropdown').classList.remove('open')
+    }
+  })
+}
+
+function updateEnvToggle() {
+  const config = window.getEnvConfig()
+  const currentEnv = window.getCurrentEnv()
+
+  // Update toggle display
+  const indicator = document.getElementById('env-indicator')
+  const label = document.getElementById('env-label')
+
+  if (indicator) indicator.style.background = config.color
+  if (label) label.textContent = config.label
+
+  // Update dropdown options
+  document.querySelectorAll('.env-option').forEach(opt => {
+    const env = opt.id.replace('env-opt-', '')
+    const check = opt.querySelector('.env-option-check')
+
+    if (env === currentEnv) {
+      opt.classList.add('active')
+      if (check) check.textContent = '✓'
+    } else {
+      opt.classList.remove('active')
+      if (check) check.textContent = ''
+    }
+  })
+}
+
+function toggleEnvDropdown() {
+  document.getElementById('env-dropdown').classList.toggle('open')
+}
+
+function selectEnvironment(env) {
+  const currentEnv = window.getCurrentEnv()
+
+  if (env === currentEnv) {
+    // Already on this environment, just close dropdown
+    document.getElementById('env-dropdown').classList.remove('open')
+    return
+  }
+
+  // Confirm switch if going to production (write-safe guard)
+  if (env === 'production') {
+    const confirmed = confirm('Switch to Production database?\n\nYou will be connected to live business data. Writes will affect real records. The page will reload.')
+    if (!confirmed) {
+      document.getElementById('env-dropdown').classList.remove('open')
+      return
+    }
+  }
+
+  // Switch environment (will reload page)
+  window.switchEnvironment(env)
+}
+
+// Initialize on DOM load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initEnvToggle)
+} else {
+  initEnvToggle()
+}
+</script>

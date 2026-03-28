@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operations</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-config.js"></script>
+<script src="supabase-client.js"></script>
+<link rel="stylesheet" href="workload.css">
+
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div style="display:flex;align-items:center">
+    <span class="brand-mark">HSos</span>
+    <div class="logo-wrap" onclick="toggleMod()">
+      <span class="logo">Operations</span>
+      <span style="font-size:10px;color:var(--mu2)">▾</span>
+      <div class="mod-dd" id="mod-dd">
+        <div class="mod-item cur"><div class="mod-dot" style="background:var(--tl)"></div>Operations</div>
+        <div class="mod-item" onclick="goModule('deals')"><div class="mod-dot" style="background:var(--pu)"></div>Sales</div>
+        <div class="mod-item" onclick="goModule('payments')"><div class="mod-dot" style="background:var(--gn)"></div>Payments</div>
+        <div class="mod-item" onclick="goModule('portal')"><div class="mod-dot" style="background:var(--am)"></div>Clients Portal</div>
+      </div>
+    </div>
+    <div class="nav">
+      <button class="nav-btn cur" data-page="workload" onclick="switchPage('workload',this)">Operations</button>
+      <button class="nav-btn" data-page="clients" onclick="switchPage('clients',this)">Clients</button>
+      <button class="nav-btn" data-page="payments" onclick="switchPage('payments',this)">Payments</button>
+    </div>
+  </div>
+  <div class="topbar-r">
+    <div id="env-toggle-container"></div>
+    <div class="vendor-sel-wrap" id="vendor-sel-wrap" style="display:none">
+      <button class="vendor-sel-btn" id="vendor-sel-btn" onclick="toggleVendorSelDd()">
+        <span id="vendor-sel-label">—</span>
+        <span style="font-size:9px;color:var(--mu2);margin-left:3px">▾</span>
+      </button>
+      <div class="vendor-sel-dd" id="vendor-sel-dd"></div>
+    </div>
+    <span style="font-size:12px;color:var(--mu)" id="topbar-vendor-name">Hadar Shemesh</span>
+    <button class="icon-btn" onclick="openVendorProfile()" title="My Profile">⚙</button>
+    <div class="av-sm" onclick="openVendorProfile()" id="topbar-av">HS</div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- ═══════════════════ OPERATIONS VIEW ═══════════════════ -->
+  <div id="page-workload" style="display:flex;flex:1;overflow:hidden">
+
+    <!-- Left: entity picker → session form -->
+    <div class="panel-l">
+      <div class="ph">
+        <span class="ph-title">Log Session</span>
+        <span style="font-size:11px;color:var(--mu2);font-family:'DM Mono',monospace" id="wl-date-label"></span>
+      </div>
+      <div class="scroll-pane" style="display:flex;flex-direction:column">
+
+        <!-- 1 — Entity picker -->
+        <div class="entity-picker">
+          <div class="ep-header">
+            <span class="ep-title">Select</span>
+            <span class="ep-selected" id="ep-selected-label">—</span>
+          </div>
+          <div class="ep-tabs">
+            <button class="ep-tab cur" id="ep-tab-students" onclick="switchEntityTab('students',this)">Clients</button>
+            <button class="ep-tab" id="ep-tab-services" onclick="switchEntityTab('services',this)">Services</button>
+          </div>
+          <div id="ep-grid" class="ep-grid"></div>
+        </div>
+
+        <!-- 2 — Session form (enabled only when entity selected) -->
+        <div class="session-entry">
+          <div class="se-header">
+            <span class="se-title">Session Details</span>
+            <span id="se-chip" style="display:none"></span>
+          </div>
+          <div class="se-body" id="se-body">
+            <div class="se-row">
+              <div class="fg" style="flex:1.4">
+                <label class="fl">Date</label>
+                <input class="fi" type="date" id="lf-date">
+              </div>
+              <div class="fg" style="flex:1">
+                <label class="fl">Time</label>
+                <input class="fi" type="time" id="lf-time">
+              </div>
+              <div class="fg" style="flex:.8">
+                <label class="fl">Duration</label>
+                <select class="fsel" id="lf-dur">
+                  <option value="0.5">30 min</option>
+                  <option value="1" selected>1 hr</option>
+                  <option value="1.5">1.5 hr</option>
+                  <option value="2">2 hr</option>
+                  <option value="2.5">2.5 hr</option>
+                  <option value="3">3 hr</option>
+                </select>
+              </div>
+            </div>
+            <div class="se-row">
+              <div class="fg" style="flex:1">
+                <label class="fl">Session type</label>
+                <select class="fsel" id="lf-type">
+                  <option value="coaching">Private</option>
+                  <option value="consulting">Group</option>
+                  <option value="admin">Service</option>
+                </select>
+              </div>
+              <div class="fg" style="flex:1.4">
+                <label class="fl">Notes</label>
+                <input class="fi" type="text" id="lf-notes" placeholder="Optional">
+              </div>
+            </div>
+          </div>
+          <div class="se-footer" id="se-footer">
+            <button class="btn-primary" onclick="submitSession()">Log Session</button>
+            <button class="btn-ghost" onclick="clearEntity()">Clear</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right: monthly summary + session history -->
+    <div class="panel-r">
+      <div class="ph">
+        <span class="ph-title" id="wl-month-label">March 2026</span>
+        <span style="font-size:11px;color:var(--mu2)">This month</span>
+      </div>
+      <div class="scroll-pane" style="display:flex;flex-direction:column">
+
+        <div class="summary-row">
+          <div class="sum-pill"><div class="sum-val">18</div><div class="sum-lbl">Hours logged</div></div>
+          <div class="sum-pill"><div class="sum-val">6</div><div class="sum-lbl">Sessions</div></div>
+          <div class="sum-pill"><div class="sum-val">5</div><div class="sum-lbl">Clients</div></div>
+        </div>
+
+        <div class="block">
+          <div class="block-hd">
+            <span class="block-title">Recent Sessions</span>
+            <div class="view-toggle">
+              <button class="vt-btn cur" id="vt-table" onclick="setSessionsView('table',this)">Table</button>
+              <button class="vt-btn" id="vt-calendar" onclick="setSessionsView('calendar',this)">Calendar</button>
+            </div>
+          </div>
+          <div id="sessions-view-wrap">
+            <table class="tbl" id="sessions-table-view">
+              <thead><tr><th>Date</th><th>Entity</th><th>Type</th><th>Duration</th></tr></thead>
+              <tbody id="sessions-tbody"></tbody>
+            </table>
+            <div id="sessions-calendar-view" style="display:none"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /page-workload -->
+
+  <!-- ═══════════════════ CLIENTS VIEW ═══════════════════ -->
+  <div id="page-clients" class="hidden" style="display:flex;flex:1;overflow:hidden">
+
+    <div class="clients-pane-l">
+      <div class="ph">
+        <span class="ph-title">Clients <span style="color:var(--mu2);font-weight:400;margin-left:4px" id="ops-clients-count"></span></span>
+        <button class="btn-sm" onclick="openOpsClientModal()">+ New Client</button>
+      </div>
+      <div class="ops-clients-tools">
+        <div class="search-bar" style="margin:0">
+          <span style="color:var(--mu2);font-size:13px">⌕</span>
+          <input type="text" id="ops-clients-search" placeholder="Search clients..." oninput="setOpsClientsSearch(this.value)">
+        </div>
+        <div class="ops-filter-row">
+          <select class="fsel" id="ops-filter-vendor" onchange="setOpsVendorFilter(this.value)">
+            <option value="">All vendors</option>
+          </select>
+          <select class="fsel" id="ops-filter-active" onchange="setOpsActiveFilter(this.value)">
+            <option value="all">All status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <select class="fsel" id="ops-filter-payment" onchange="setOpsPaymentFilter(this.value)">
+            <option value="all">All payment</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </div>
+      </div>
+      <div class="scroll-pane" style="padding:0">
+        <div class="ops-client-list" id="ops-clients-list"></div>
+      </div>
+    </div>
+
+    <div class="clients-pane-r">
+      <div id="ops-client-empty" style="flex:1;display:flex">
+        <div class="empty-state">
+          <div class="empty-icon">👤</div>
+          <div style="font-size:12px">Select a client to view profile and assignments</div>
+        </div>
+      </div>
+      <div id="ops-client-detail" class="hidden" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div class="scroll-pane" id="ops-client-detail-body" style="display:flex;flex-direction:column"></div>
+      </div>
+    </div>
+
+  </div><!-- /page-clients -->
+
+  <!-- ═══════════════════ PAYMENTS VIEW ═══════════════════ -->
+  <div id="page-payments" class="hidden" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px">
+
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:14px;font-weight:600">My Payments</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="pay-gen-btn-wrap" style="display:none">
+          <button class="btn-primary" onclick="handleGeneratePaycheck()">Generate Report</button>
+        </div>
+        <span style="font-size:11px;color:var(--mu2)">Read-only — managed by your admin</span>
+      </div>
+    </div>
+
+    <!-- summary pills -->
+    <div style="display:flex;gap:8px" id="pay-summary"></div>
+
+    <!-- paycheck table -->
+    <div class="block">
+      <div class="block-hd">
+        <span class="block-title">Paycheck History</span>
+      </div>
+      <table class="tbl" id="pay-table">
+        <thead><tr>
+          <th>Month</th><th>Hours</th><th>Amount</th><th>Currency</th><th>Status</th><th>Paid on</th><th></th>
+        </tr></thead>
+        <tbody id="pay-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-payments -->
+
+</div><!-- /main -->
+
+<!-- Client profile panel (overlay) -->
+<div class="panel-ov" id="cp-ov" onclick="closeCp()"></div>
+<div class="side-panel" id="cp-panel">
+  <div class="sp-top">
+    <span class="sp-top-title">Client Profile</span>
+    <button class="close-btn" onclick="closeCp()">✕</button>
+  </div>
+  <div class="sp-body" id="cp-body"></div>
+</div>
+
+<!-- Vendor profile panel (separate overlay / panel) -->
+<div class="panel-ov" id="vp-ov" onclick="closeVendorProfile()" style="z-index:170"></div>
+<div class="side-panel" id="vp-panel" style="z-index:180;width:400px">
+  <div class="sp-top">
+    <span class="sp-top-title">My Profile</span>
+    <button class="close-btn" onclick="closeVendorProfile()">✕</button>
+  </div>
+  <div class="sp-body" id="vp-body"></div>
+</div>
+
+<!-- New Client Modal -->
+<div class="ov" id="ops-client-modal">
+  <div class="modal" style="width:460px">
+    <div class="mh">
+      <span class="mt">Create Client</span>
+      <button class="mx" onclick="closeOpsClientModal()">✕</button>
+    </div>
+    <div class="form" style="display:grid;grid-template-columns:1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">Full name *</label>
+        <input class="fi" id="ops-new-full-name" type="text" placeholder="Full name">
+      </div>
+      <div class="fg">
+        <label class="fl">Email</label>
+        <input class="fi" id="ops-new-email" type="email" placeholder="Email">
+      </div>
+      <div class="fg">
+        <label class="fl">Phone</label>
+        <input class="fi" id="ops-new-phone" type="text" placeholder="Phone">
+      </div>
+      <div class="fg">
+        <label class="fl">Client kind</label>
+        <select class="fsel" id="ops-new-kind" onchange="toggleOpsNewCompany(this.value)">
+          <option value="private">Private</option>
+          <option value="corporate">Corporate</option>
+        </select>
+      </div>
+      <div class="fg" id="ops-new-company-wrap" style="display:none">
+        <label class="fl">Company</label>
+        <input class="fi" id="ops-new-company" type="text" placeholder="Company (if corporate)">
+      </div>
+      <div class="fg">
+        <label class="fl">Source</label>
+        <select class="fsel" id="ops-new-source">
+          <option value="">Select source</option>
+          <option value="Referral">Referral</option>
+          <option value="Website">Website</option>
+          <option value="ActiveCampaign">ActiveCampaign</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Notes</label>
+        <textarea class="fi" id="ops-new-notes" style="min-height:72px;resize:vertical" placeholder="Notes"></textarea>
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-ghost" onclick="closeOpsClientModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitOpsClient()">Create Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Session detail modal -->
+<div class="modal-overlay" id="session-modal-ov" onclick="closeSessionModal()"></div>
+<div class="modal-panel" id="session-modal">
+  <div class="modal-header">
+    <span>Session Details</span>
+    <button onclick="closeSessionModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="field-group">
+      <label>Client / Entity</label>
+      <div id="edit-entity-label" class="field-static"></div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Date</label>
+        <input type="date" id="edit-date" class="fi">
+      </div>
+      <div class="field-group">
+        <label>Time</label>
+        <input type="time" id="edit-time" class="fi">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Duration</label>
+        <select id="edit-duration" class="fsel">
+          <option value="0.5">30 min</option>
+          <option value="1">1 hr</option>
+          <option value="1.5">1.5 hr</option>
+          <option value="2">2 hr</option>
+          <option value="2.5">2.5 hr</option>
+          <option value="3">3 hr</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Type</label>
+        <select id="edit-type" class="fsel"></select>
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Status</label>
+      <select id="edit-status" class="fsel">
+        <option value="planned">Planned</option>
+        <option value="done">Done</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="no_show">No-show</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Notes</label>
+      <textarea id="edit-notes" class="fi" style="min-height:72px;resize:vertical"></textarea>
+    </div>
+  </div>
+  <div class="modal-footer" id="session-modal-footer">
+    <button class="btn-ghost" onclick="closeSessionModal()">Cancel</button>
+    <button class="btn-primary" onclick="saveSessionEdit()">Save</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"><span class="td"></span><span id="toast-msg"></span></div>
+
+<script src="workload.js"></script>
+<script>
+  // Load environment toggle
+  fetch('env-toggle.html')
+    .then(r => r.text())
+    .then(html => {
+      const container = document.getElementById('env-toggle-container');
+      container.innerHTML = html;
+
+      // Scripts inside innerHTML do not execute automatically.
+      container.querySelectorAll('script').forEach(oldScript => {
+        const script = document.createElement('script');
+        if (oldScript.src) {
+          script.src = oldScript.src;
+        } else {
+          script.textContent = oldScript.textContent;
+        }
+        document.body.appendChild(script);
+        oldScript.remove();
+      });
+    })
+    .catch(err => {
+      console.error('[HSos] Failed to load env-toggle.html', err);
+    });
+</script>
+</body>
+</html>

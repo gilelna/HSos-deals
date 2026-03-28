@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clients Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-config.js"></script>
+<script src="supabase-client.js"></script>
+<link rel="stylesheet" href="deals.css">
+<style>
+/* ── Clients Portal local styles ─────────────────────────── */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.page{display:none;flex:1;overflow:hidden}
+.page.active{display:flex}
+
+/* read-only banner */
+.ro-banner{display:flex;align-items:center;gap:8px;padding:6px 20px;background:var(--am-b);border-bottom:1px solid rgba(107,79,42,0.18);flex-shrink:0;font-size:11px;color:var(--am)}
+
+/* split panels */
+.panel-l{width:50%;border-right:1px solid var(--b);display:flex;flex-direction:column;flex-shrink:0}
+.panel-r-cp{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--b);flex-shrink:0}
+.ph-title{font-size:13px;font-weight:600}
+.scroll-pane{flex:1;overflow-y:auto}
+.scroll-pane::-webkit-scrollbar{width:3px}
+.scroll-pane::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* search bar */
+.search-bar{display:flex;align-items:center;gap:6px;margin:10px 12px;background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);padding:0 10px;height:32px}
+.search-bar input{background:none;border:none;outline:none;font-size:12px;color:var(--tx);font-family:inherit;width:100%}
+.search-bar input::placeholder{color:var(--mu2)}
+
+/* client list cards */
+.client-card{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--b);cursor:pointer;transition:background .12s}
+.client-card:hover{background:var(--sf2)}
+.client-card.selected{background:var(--sf2)}
+.client-card.selected{border-left:3px solid var(--ac2);padding-left:11px}
+.cc-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.cc-info{flex:1;min-width:0}
+.cc-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-co{font-size:10px;color:var(--mu);margin-top:1px}
+.cc-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.cc-chev{font-size:10px;color:var(--mu2)}
+
+/* status badge inline styles via class */
+.st-badge{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.st-active{background:var(--gn-b);color:var(--gn)}
+.st-inactive{background:var(--sf2);color:var(--mu2);border:1px solid var(--b)}
+.st-paused{background:var(--am-b);color:var(--am)}
+.st-overdue{background:var(--rd-b);color:var(--rd)}
+.st-pending{background:var(--bl-b);color:var(--bl)}
+.st-paid{background:var(--gn-b);color:var(--gn)}
+.st-invoiced{background:var(--pu-b);color:var(--pu)}
+.st-closed{background:var(--sf2);color:var(--mu2)}
+
+/* empty state */
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--mu2);padding:40px}
+.empty-icon{font-size:28px;opacity:.5}
+
+/* detail panel header */
+.detail-header{padding:18px 16px 14px;border-bottom:1px solid var(--b);flex-shrink:0}
+.det-av-row{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.det-av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0}
+.det-name{font-size:15px;font-weight:600;line-height:1.2}
+.det-co{font-size:11px;color:var(--mu);margin-top:2px}
+.det-email{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu2);margin-top:2px}
+.det-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag-chip{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;background:var(--sf2);border:1px solid var(--b)}
+
+/* detail tabs */
+.det-tabs{display:flex;gap:1px;padding:0 16px;border-bottom:1px solid var(--b);flex-shrink:0;background:var(--sf)}
+.det-tab{padding:9px 11px;font-size:11px;font-weight:500;color:var(--mu);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-family:inherit}
+.det-tab:hover{color:var(--tx)}
+.det-tab.cur{color:var(--ac);border-bottom-color:var(--ac)}
+
+/* detail tab body */
+.det-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.det-body::-webkit-scrollbar{width:3px}
+.det-body::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* content blocks inside detail */
+.block{background:var(--sf);border:1px solid var(--b);border-radius:var(--r);overflow:hidden;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.06)}
+.block-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--b)}
+.block-title{font-size:11px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em}
+.block-body{padding:12px 14px}
+
+/* progress bar */
+.prog-wrap{margin-bottom:10px}
+.prog-labels{display:flex;justify-content:space-between;margin-bottom:5px;font-size:11px}
+.prog-bar{height:6px;background:var(--sf3);border-radius:3px;overflow:hidden;border:1px solid var(--b)}
+.prog-fill{height:100%;border-radius:3px;background:var(--gn)}
+
+/* stat pills row */
+.stat-pills{display:flex;gap:7px}
+.stat-pill{flex:1;padding:10px 12px;background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);text-align:center}
+.stat-pill-val{font-size:16px;font-weight:600;font-family:'DM Mono',monospace;color:var(--tx)}
+.stat-pill-lbl{font-size:9px;color:var(--mu2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+
+/* active deal card */
+.deal-mini{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;gap:8px}
+.deal-mini-name{font-size:12px;font-weight:600}
+.deal-mini-amt{font-family:'DM Mono',monospace;font-size:13px;color:var(--ac)}
+.deal-mini-sub{font-size:10px;color:var(--mu);margin-top:1px}
+
+/* mini session table */
+.mini-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.mini-tbl th{text-align:left;padding:6px 10px;font-size:9px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b)}
+.mini-tbl td{padding:8px 10px;border-bottom:1px solid var(--b)}
+.mini-tbl tr:last-child td{border-bottom:none}
+
+/* integration grid */
+.intg-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px}
+.intg-card{background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);padding:12px}
+.intg-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.intg-name-row{display:flex;align-items:center;gap:7px}
+.intg-icon{font-size:16px}
+.intg-name{font-size:12px;font-weight:600}
+.intg-desc{font-size:10px;color:var(--mu);margin-bottom:8px}
+.intg-btn{width:100%;padding:5px 0;border-radius:var(--rx);border:1px solid var(--b);background:none;color:var(--mu);font-size:10px;cursor:pointer;font-family:inherit;transition:all .15s}
+.intg-btn:hover{border-color:var(--b2);color:var(--tx)}
+.conn-pill{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase}
+.conn-pill.connected{background:var(--gn-b);color:var(--gn)}
+.conn-pill.notset{background:var(--sf);color:var(--mu2);border:1px solid var(--b)}
+
+/* billing tab */
+.billing-placeholder{padding:30px;text-align:center;color:var(--mu2);font-size:12px}
+.billing-placeholder .big-icon{font-size:28px;margin-bottom:10px;opacity:.4}
+
+/* sessions tab */
+.sessions-full-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.sessions-full-tbl th{text-align:left;padding:9px 12px;font-size:10px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b);background:var(--sf2)}
+.sessions-full-tbl td{padding:10px 12px;border-bottom:1px solid var(--b)}
+.sessions-full-tbl tr:last-child td{border-bottom:none}
+
+/* ── Profiles page ───────────────────────────────────────── */
+.profiles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px;overflow-y:auto;align-content:start}
+.profile-card{background:var(--sf);border:1px solid var(--b);border-radius:var(--r);padding:16px;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.06);display:flex;flex-direction:column;gap:10px}
+.profile-card-top{display:flex;align-items:center;gap:10px}
+.pc-av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.pc-info{flex:1;min-width:0}
+.pc-name{font-size:13px;font-weight:600}
+.pc-co{font-size:10px;color:var(--mu);margin-top:1px}
+.pc-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.level-badge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--bl-b);color:var(--bl)}
+.sessions-badge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;background:var(--tl-b);color:var(--tl);font-family:'DM Mono',monospace}
+.pc-tags{display:flex;gap:4px;flex-wrap:wrap}
+.open-btn{width:100%;padding:6px 0;border-radius:var(--rx);border:1px solid var(--b);background:none;color:var(--mu);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s}
+.open-btn:hover{border-color:var(--ac2);color:var(--ac);background:rgba(200,184,122,.04)}
+
+/* ── Memberships page ────────────────────────────────────── */
+.memberships-layout{flex:1;overflow:hidden;display:flex}
+.mb-tiers{width:44%;border-right:1px solid var(--b);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.mb-table-side{flex:1;overflow-y:auto;padding:14px}
+.tier-card{background:var(--sf);border:1px solid var(--b);border-radius:var(--r);overflow:hidden;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.06)}
+.tier-hd{padding:12px 14px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between}
+.tier-accent{width:4px;height:100%;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:16px}
+.tier-hd-l{display:flex;align-items:center;gap:10px}
+.tier-name{font-size:13px;font-weight:600}
+.tier-cnt{font-size:10px;color:var(--mu)}
+.tier-price{font-family:'DM Mono',monospace;font-size:12px;color:var(--ac)}
+.tier-features{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.tier-feat{font-size:11px;color:var(--mu);display:flex;align-items:center;gap:7px}
+.tier-feat::before{content:'✓';color:var(--gn);font-size:10px;font-weight:700;flex-shrink:0}
+.mb-tbl-title{font-size:13px;font-weight:600;margin-bottom:12px}
+.mb-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.mb-tbl th{text-align:left;padding:9px 10px;font-size:10px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b);background:var(--sf2)}
+.mb-tbl td{padding:10px;border-bottom:1px solid var(--b)}
+.mb-tbl tr:last-child td{border-bottom:none}
+
+/* ── Tags page ───────────────────────────────────────────── */
+.tags-layout{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.active-tags-block{background:var(--sf);border:1px solid var(--b);border-radius:var(--r);padding:14px;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.06)}
+.tags-wrap-area{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.tag-big-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;background:var(--sf2);border:1px solid var(--b);cursor:pointer;transition:all .15s}
+.tag-big-chip:hover{border-color:var(--b2);background:var(--sf3)}
+.tag-big-chip.active-filter{background:var(--am-b);border-color:var(--am);color:var(--am)}
+.tags-tbl-block{background:var(--sf);border:1px solid var(--b);border-radius:var(--r);overflow:hidden;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.06)}
+.tags-tbl-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--b)}
+.tags-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tags-tbl th{text-align:left;padding:9px 12px;font-size:10px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b);background:var(--sf2)}
+.tags-tbl td{padding:10px 12px;border-bottom:1px solid var(--b)}
+.tags-tbl tr:last-child td{border-bottom:none}
+.tags-tbl-chips{display:flex;gap:4px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div style="display:flex;align-items:center">
+    <span class="brand-mark">HSos</span>
+    <div class="logo-wrap" onclick="toggleMod()">
+      <span class="logo">Clients Portal</span>
+      <span style="font-size:10px;color:var(--mu2)">▾</span>
+      <div class="mod-dd" id="mod-dd">
+        <div class="mod-item" onclick="goModule('workload')"><div class="mod-dot" style="background:var(--tl)"></div>Operations</div>
+        <div class="mod-item" onclick="goModule('deals')"><div class="mod-dot" style="background:var(--pu)"></div>Sales</div>
+        <div class="mod-item" onclick="goModule('payments')"><div class="mod-dot" style="background:var(--bl)"></div>Payments</div>
+        <div class="mod-item cur"><div class="mod-dot" style="background:var(--am)"></div>Clients Portal</div>
+      </div>
+    </div>
+    <div class="nav" id="main-nav">
+      <button class="nav-btn cur" onclick="switchPage('clients',this)">Clients</button>
+      <button class="nav-btn" onclick="switchPage('profiles',this)">Profiles</button>
+      <button class="nav-btn" onclick="switchPage('memberships',this)">Memberships</button>
+      <button class="nav-btn" onclick="switchPage('tags',this)">Tags</button>
+    </div>
+  </div>
+  <div class="topbar-r">
+    <div id="env-toggle-container"></div>
+    <span style="font-size:12px;color:var(--mu)">Admin</span>
+    <div class="av-sm">HS</div>
+  </div>
+</div>
+
+<!-- Read-only banner -->
+<div class="ro-banner">
+  <span>👁</span>
+  <span>Read-only view — Client Portal is in planning phase. No live data.</span>
+</div>
+
+<!-- Main content area -->
+<div class="main">
+
+  <!-- ══════════════ CLIENTS PAGE ══════════════ -->
+  <div id="page-clients" class="page active">
+    <!-- Left panel -->
+    <div class="panel-l">
+      <div class="ph">
+        <span class="ph-title">All Clients <span id="clients-count" style="font-size:11px;color:var(--mu2);font-weight:400;margin-left:4px"></span></span>
+      </div>
+      <div class="search-bar">
+        <span style="color:var(--mu2);font-size:13px">⌕</span>
+        <input type="text" placeholder="Search clients…">
+      </div>
+      <div class="scroll-pane" id="client-list"></div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="panel-r-cp">
+      <div id="rp-empty" style="flex:1;display:flex">
+        <div class="empty-state">
+          <div class="empty-icon">👤</div>
+          <div style="font-size:12px;color:var(--mu)">Select a client to view their profile</div>
+        </div>
+      </div>
+      <div id="rp-detail" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div class="detail-header" id="det-header"></div>
+        <div class="det-tabs" id="det-tabs">
+          <button class="det-tab cur" onclick="switchDetailTab('overview',this)">Overview</button>
+          <button class="det-tab" onclick="switchDetailTab('sessions',this)">Sessions</button>
+          <button class="det-tab" onclick="switchDetailTab('billing',this)">Billing</button>
+          <button class="det-tab" onclick="switchDetailTab('integrations',this)">Integrations</button>
+        </div>
+        <div class="det-body" id="det-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ PROFILES PAGE ══════════════ -->
+  <div id="page-profiles" class="page" style="overflow-y:auto">
+    <div class="profiles-grid" id="profiles-grid"></div>
+  </div>
+
+  <!-- ══════════════ MEMBERSHIPS PAGE ══════════════ -->
+  <div id="page-memberships" class="page">
+    <div class="memberships-layout">
+      <!-- Tiers -->
+      <div class="mb-tiers" id="mb-tiers"></div>
+      <!-- Client memberships table -->
+      <div class="mb-table-side">
+        <div class="mb-tbl-title">Client Memberships</div>
+        <table class="mb-tbl">
+          <thead><tr>
+            <th>Client</th><th>Tier</th><th>Renewal</th><th>Status</th>
+          </tr></thead>
+          <tbody id="mb-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAGS PAGE ══════════════ -->
+  <div id="page-tags" class="page" style="overflow-y:auto">
+    <div class="tags-layout">
+      <div class="active-tags-block">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;font-weight:600">Active Tags</span>
+          <button class="btn-new" style="height:28px;font-size:11px" onclick="showToast('New tag — coming soon','info')">+ New Tag</button>
+        </div>
+        <div class="tags-wrap-area" id="tags-wrap"></div>
+      </div>
+      <div class="tags-tbl-block">
+        <div class="tags-tbl-hd">
+          <span style="font-size:13px;font-weight:600">Clients by Tag</span>
+          <span id="tag-filter-label" style="font-size:11px;color:var(--mu2)">Showing all</span>
+        </div>
+        <table class="tags-tbl">
+          <thead><tr>
+            <th>Client</th><th>Tags</th><th>Last Session</th><th>Status</th>
+          </tr></thead>
+          <tbody id="tags-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- Toast -->
+<div class="toast" id="toast"><span class="td"></span><span id="toast-msg"></span></div>
+
+<script>
+/* ── Mock data ──────────────────────────────────────────── */
+const MOCK_CLIENTS = [
+  { id:1, name:'Avi Cohen', company:'Cohen Consulting', email:'avi@cohen.com', level:'B2',
+    initials:'AC', color:'#026360', colorBg:'#E6F4F1', status:'active',
+    tags:['B2','Corporate'], packageSize:10, sessionsUsed:4, paymentStatus:'paid',
+    deal:'English Private Package', dealAmt:'₪1,755', dealStatus:'invoiced' },
+  { id:2, name:'Dana Shapiro', company:'', email:'dana@shapiro.io', level:'C1',
+    initials:'DS', color:'#4A6E7A', colorBg:'#EBF3F6', status:'active',
+    tags:['C1','VIP'], packageSize:20, sessionsUsed:12, paymentStatus:'pending',
+    deal:'English Private Package', dealAmt:'₪3,510', dealStatus:'paid' },
+  { id:3, name:'Tom Goldberg', company:'Goldberg Ltd.', email:'tom@goldberg.com', level:'A2',
+    initials:'TG', color:'#C4622D', colorBg:'#FDEEE6', status:'paused',
+    tags:['A2','Trial'], packageSize:5, sessionsUsed:5, paymentStatus:'overdue',
+    deal:'Business English Workshop', dealAmt:'$800', dealStatus:'pending' },
+  { id:4, name:'Liora Ben-David', company:'Tech Solutions', email:'liora@techsol.com', level:'B1',
+    initials:'LB', color:'#8B3A52', colorBg:'#F7EAEE', status:'active',
+    tags:['B1','Corporate'], packageSize:15, sessionsUsed:7, paymentStatus:'paid',
+    deal:'English Private Package', dealAmt:'₪2,632', dealStatus:'active' },
+  { id:5, name:'Eyal Dror', company:'', email:'eyal@example.com', level:'C2',
+    initials:'ED', color:'#A8904F', colorBg:'#FAF5EC', status:'active',
+    tags:['C2','VIP','High Value'], packageSize:30, sessionsUsed:18, paymentStatus:'paid',
+    deal:'Intensive Program', dealAmt:'€3,200', dealStatus:'paid' },
+  { id:6, name:'Noa Levi', company:'StartupX', email:'noa@startupx.io', level:'B2',
+    initials:'NL', color:'#409690', colorBg:'#E6F3F3', status:'inactive',
+    tags:['B2','Renewal'], packageSize:10, sessionsUsed:10, paymentStatus:'inactive',
+    deal:'English Private Package', dealAmt:'₪1,755', dealStatus:'closed' },
+];
+
+const MOCK_SESSIONS = {
+  1: [
+    { date:'2026-03-20', type:'Private', status:'completed', duration:'1h', notes:'Present perfect focus' },
+    { date:'2026-03-13', type:'Private', status:'completed', duration:'1h', notes:'Conditionals review' },
+    { date:'2026-03-06', type:'Private', status:'completed', duration:'1h', notes:'Business vocabulary' },
+    { date:'2026-02-27', type:'Private', status:'completed', duration:'1h', notes:'Email writing workshop' },
+  ],
+  2: [
+    { date:'2026-03-22', type:'Private', status:'completed', duration:'1h', notes:'Academic writing' },
+    { date:'2026-03-15', type:'Private', status:'completed', duration:'1h', notes:'Presentations skills' },
+    { date:'2026-03-08', type:'Private', status:'completed', duration:'1.5h', notes:'Advanced grammar' },
+    { date:'2026-03-01', type:'Group', status:'completed', duration:'1h', notes:'Idioms & expressions' },
+    { date:'2026-02-22', type:'Private', status:'completed', duration:'1h', notes:'Reading comprehension' },
+  ],
+  3: [
+    { date:'2026-02-10', type:'Private', status:'completed', duration:'1h', notes:'Basics session 5' },
+    { date:'2026-02-03', type:'Private', status:'completed', duration:'1h', notes:'Alphabet & pronunciation' },
+    { date:'2026-01-27', type:'Private', status:'completed', duration:'1h', notes:'Numbers and greetings' },
+    { date:'2026-01-20', type:'Private', status:'completed', duration:'1h', notes:'Intro session' },
+    { date:'2026-01-13', type:'Private', status:'completed', duration:'1h', notes:'Assessment session' },
+  ],
+  4: [
+    { date:'2026-03-21', type:'Private', status:'completed', duration:'1h', notes:'Job interview prep' },
+    { date:'2026-03-14', type:'Private', status:'completed', duration:'1h', notes:'Negotiation language' },
+    { date:'2026-03-07', type:'Private', status:'completed', duration:'1h', notes:'Meeting facilitation' },
+    { date:'2026-02-28', type:'Private', status:'completed', duration:'1h', notes:'Report writing' },
+    { date:'2026-02-21', type:'Group', status:'completed', duration:'1h', notes:'Corporate expressions' },
+    { date:'2026-02-14', type:'Private', status:'completed', duration:'1h', notes:'Email etiquette' },
+    { date:'2026-02-07', type:'Private', status:'completed', duration:'1h', notes:'Formal vs informal tone' },
+  ],
+  5: [
+    { date:'2026-03-23', type:'Private', status:'completed', duration:'1.5h', notes:'Advanced discourse' },
+    { date:'2026-03-16', type:'Private', status:'completed', duration:'1.5h', notes:'Academic argument' },
+    { date:'2026-03-09', type:'Private', status:'completed', duration:'1h', notes:'Nuance in writing' },
+    { date:'2026-03-02', type:'Private', status:'completed', duration:'1.5h', notes:'Public speaking' },
+    { date:'2026-02-23', type:'Private', status:'completed', duration:'1h', notes:'Idiomatic precision' },
+  ],
+  6: [
+    { date:'2025-12-18', type:'Private', status:'completed', duration:'1h', notes:'Final session' },
+    { date:'2025-12-11', type:'Private', status:'completed', duration:'1h', notes:'Review & wrap-up' },
+    { date:'2025-12-04', type:'Private', status:'completed', duration:'1h', notes:'Startup pitch language' },
+  ],
+};
+
+const MOCK_TAGS = ['B2','C1','A2','B1','C2','Corporate','Trial','VIP','Priority','Renewal','Paused','High Value','New'];
+
+const MOCK_TIERS = [
+  {
+    name:'Basic', color:'var(--bl)', clients:2, price:'₪500–₪800/mo',
+    features:['Up to 4 sessions per month','Email support within 48h','Session recordings (30 days)']
+  },
+  {
+    name:'Standard', color:'var(--tl)', clients:3, price:'₪900–₪1,400/mo',
+    features:['Up to 8 sessions per month','Priority email & WhatsApp support','Unlimited session recordings']
+  },
+  {
+    name:'Premium', color:'var(--am)', clients:1, price:'₪1,800+/mo',
+    features:['Unlimited sessions','Dedicated account manager','Custom curriculum & materials']
+  }
+];
+
+const MOCK_MB_CLIENTS = [
+  { name:'Avi Cohen', tier:'Standard', renewal:'2026-04-01', status:'active' },
+  { name:'Dana Shapiro', tier:'Premium', renewal:'2026-04-15', status:'active' },
+  { name:'Tom Goldberg', tier:'Basic', renewal:'2026-02-10', status:'paused' },
+  { name:'Liora Ben-David', tier:'Standard', renewal:'2026-05-01', status:'active' },
+  { name:'Eyal Dror', tier:'Premium', renewal:'2026-06-01', status:'active' },
+];
+
+/* ── State ───────────────────────────────────────────────── */
+let selectedClientId = null;
+let currentDetailTab = 'overview';
+let activeTagFilter = null;
+
+/* ── Page switching ──────────────────────────────────────── */
+function switchPage(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('cur'));
+  const el = document.getElementById('page-' + page);
+  if (el) el.classList.add('active');
+  if (btn) btn.classList.add('cur');
+
+  if (page === 'profiles') renderProfiles();
+  if (page === 'memberships') renderMemberships();
+  if (page === 'tags') renderTags();
+}
+
+/* ── Module dropdown ─────────────────────────────────────── */
+function toggleMod() {
+  document.getElementById('mod-dd').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.logo-wrap');
+  if (!wrap.contains(e.target)) document.getElementById('mod-dd').classList.remove('open');
+});
+function goModule(m) {
+  const map = { workload:'workload.html', deals:'deals.html', payments:'payments.html' };
+  if (map[m]) window.location.href = map[m];
+}
+
+/* ── Toast ───────────────────────────────────────────────── */
+let toastTimer;
+function showToast(msg, type='info') {
+  const el = document.getElementById('toast');
+  const msgEl = document.getElementById('toast-msg');
+  el.className = 'toast ' + type;
+  msgEl.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* ── Helpers ─────────────────────────────────────────────── */
+function statusBadge(status) {
+  const map = {
+    active:'st-active', inactive:'st-inactive', paused:'st-paused',
+    overdue:'st-overdue', pending:'st-pending', paid:'st-paid',
+    invoiced:'st-invoiced', closed:'st-closed'
+  };
+  const cls = map[status] || 'st-inactive';
+  return `<span class="st-badge ${cls}">${status}</span>`;
+}
+
+function tagChip(tag) {
+  const colors = {
+    B2:'#E6F3F3', C1:'#EBF3F6', A2:'#FDEEE6', B1:'#F7EAEE', C2:'#FAF5EC',
+    Corporate:'#E6F4F1', Trial:'#FBF3E8', VIP:'#F7EAEE', Priority:'#FDEEE6',
+    Renewal:'#E6F3F3', Paused:'#FAF5EC', 'High Value':'#F7EAEE', New:'#EBF3F6'
+  };
+  const bg = colors[tag] || 'var(--sf2)';
+  return `<span class="tag-chip" style="background:${bg}">${tag}</span>`;
+}
+
+/* ── Clients view ────────────────────────────────────────── */
+function renderClientList() {
+  const list = document.getElementById('client-list');
+  const count = document.getElementById('clients-count');
+  count.textContent = `(${MOCK_CLIENTS.length})`;
+  list.innerHTML = MOCK_CLIENTS.map(c => `
+    <div class="client-card${selectedClientId === c.id ? ' selected' : ''}" onclick="selectClient(${c.id})">
+      <div class="cc-av" style="background:${c.colorBg};color:${c.color}">${c.initials}</div>
+      <div class="cc-info">
+        <div class="cc-name">${c.name}</div>
+        <div class="cc-co">${c.company || '<span style="color:var(--mu2);font-style:italic">No company</span>'}</div>
+      </div>
+      <div class="cc-right">
+        ${statusBadge(c.status)}
+        <span class="cc-chev">›</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectClient(id) {
+  selectedClientId = id;
+  currentDetailTab = 'overview';
+  renderClientList();
+  renderClientDetail();
+}
+
+function renderClientDetail() {
+  const c = MOCK_CLIENTS.find(x => x.id === selectedClientId);
+  if (!c) return;
+
+  const empty = document.getElementById('rp-empty');
+  const detail = document.getElementById('rp-detail');
+  empty.style.display = 'none';
+  detail.style.display = 'flex';
+
+  // header
+  const hdr = document.getElementById('det-header');
+  hdr.innerHTML = `
+    <div class="det-av-row">
+      <div class="det-av" style="background:${c.colorBg};color:${c.color}">${c.initials}</div>
+      <div>
+        <div class="det-name">${c.name}</div>
+        <div class="det-co">${c.company || ''}</div>
+        <div class="det-email">${c.email}</div>
+      </div>
+    </div>
+    <div class="det-tags">${c.tags.map(tagChip).join('')}${statusBadge(c.status)}</div>
+  `;
+
+  // reset tab highlights
+  document.querySelectorAll('.det-tab').forEach(t => t.classList.remove('cur'));
+  const tabs = document.querySelectorAll('.det-tab');
+  const tabMap = ['overview','sessions','billing','integrations'];
+  const idx = tabMap.indexOf(currentDetailTab);
+  if (tabs[idx]) tabs[idx].classList.add('cur');
+
+  renderDetailTabBody(c);
+}
+
+function switchDetailTab(tab, btn) {
+  document.querySelectorAll('.det-tab').forEach(t => t.classList.remove('cur'));
+  if (btn) btn.classList.add('cur');
+  currentDetailTab = tab;
+  const c = MOCK_CLIENTS.find(x => x.id === selectedClientId);
+  if (c) renderDetailTabBody(c);
+}
+
+function renderDetailTabBody(c) {
+  const body = document.getElementById('det-body');
+  if (currentDetailTab === 'overview') {
+    const remaining = c.packageSize - c.sessionsUsed;
+    const pct = Math.round((c.sessionsUsed / c.packageSize) * 100);
+    const sessions = (MOCK_SESSIONS[c.id] || []).slice(0, 3);
+    body.innerHTML = `
+      <div class="block">
+        <div class="block-hd"><span class="block-title">Package Progress</span></div>
+        <div class="block-body">
+          <div class="prog-wrap">
+            <div class="prog-labels">
+              <span style="font-size:12px;font-weight:500">${c.sessionsUsed} of ${c.packageSize} sessions used</span>
+              <span style="font-size:11px;color:var(--mu2)">${remaining} remaining</span>
+            </div>
+            <div class="prog-bar">
+              <div class="prog-fill" style="width:${pct}%;background:${pct >= 100 ? 'var(--rd)' : pct >= 80 ? 'var(--am)' : 'var(--gn)'}"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-pills">
+        <div class="stat-pill">
+          <div class="stat-pill-val">${c.sessionsUsed}</div>
+          <div class="stat-pill-lbl">Sessions done</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-pill-val">${c.packageSize}</div>
+          <div class="stat-pill-lbl">Package size</div>
+        </div>
+        <div class="stat-pill">
+          ${statusBadge(c.paymentStatus)}
+          <div class="stat-pill-lbl" style="margin-top:4px">Payment</div>
+        </div>
+      </div>
+      <div class="block">
+        <div class="block-hd"><span class="block-title">Active Deal</span></div>
+        <div class="deal-mini">
+          <div>
+            <div class="deal-mini-name">${c.deal}</div>
+            <div class="deal-mini-sub">Deal status: ${statusBadge(c.dealStatus)}</div>
+          </div>
+          <div class="deal-mini-amt">${c.dealAmt}</div>
+        </div>
+      </div>
+      <div class="block">
+        <div class="block-hd"><span class="block-title">Recent Sessions</span></div>
+        <table class="mini-tbl">
+          <thead><tr><th>Date</th><th>Type</th><th>Status</th></tr></thead>
+          <tbody>
+            ${sessions.length ? sessions.map(s => `
+              <tr>
+                <td style="font-family:'DM Mono',monospace;font-size:10px">${s.date}</td>
+                <td>${s.type}</td>
+                <td>${statusBadge(s.status)}</td>
+              </tr>`).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--mu2);padding:14px">No sessions logged</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (currentDetailTab === 'sessions') {
+    const sessions = MOCK_SESSIONS[c.id] || [];
+    body.innerHTML = `
+      <div class="block" style="overflow:hidden">
+        <div class="block-hd">
+          <span class="block-title">All Sessions</span>
+          <span style="font-size:10px;color:var(--mu2);font-family:'DM Mono',monospace">${sessions.length} total</span>
+        </div>
+        <table class="sessions-full-tbl">
+          <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Notes</th><th>Status</th></tr></thead>
+          <tbody>
+            ${sessions.length ? sessions.map(s => `
+              <tr>
+                <td style="font-family:'DM Mono',monospace;font-size:10px">${s.date}</td>
+                <td>${s.type}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:10px">${s.duration}</td>
+                <td style="color:var(--mu)">${s.notes}</td>
+                <td>${statusBadge(s.status)}</td>
+              </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--mu2);padding:18px">No sessions logged</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (currentDetailTab === 'billing') {
+    body.innerHTML = `
+      <div class="block">
+        <div class="block-hd"><span class="block-title">Billing Summary</span></div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--b)">
+            <span style="color:var(--mu)">Package</span>
+            <span style="font-weight:500">${c.deal}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--b)">
+            <span style="color:var(--mu)">Amount</span>
+            <span style="font-family:'DM Mono',monospace;color:var(--ac)">${c.dealAmt}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--b)">
+            <span style="color:var(--mu)">Deal Status</span>
+            ${statusBadge(c.dealStatus)}
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0">
+            <span style="color:var(--mu)">Payment Status</span>
+            ${statusBadge(c.paymentStatus)}
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px;background:var(--am-b);border:1px solid rgba(107,79,42,0.15);border-radius:var(--rs);font-size:11px;color:var(--am);text-align:center">
+        💬 Full billing history and invoice management will be available in the live version.
+      </div>
+    `;
+  } else if (currentDetailTab === 'integrations') {
+    body.innerHTML = `
+      <div class="block">
+        <div class="block-hd"><span class="block-title">Integrations</span></div>
+        <div class="intg-grid">
+          <div class="intg-card">
+            <div class="intg-top">
+              <div class="intg-name-row">
+                <span class="intg-icon">📧</span>
+                <span class="intg-name">ActiveCampaign</span>
+              </div>
+              <span class="conn-pill connected">Connected</span>
+            </div>
+            <div class="intg-desc">Contact synced, 3 tags active</div>
+            <button class="intg-btn" onclick="showToast('Opening ActiveCampaign — coming soon','info')">Open</button>
+          </div>
+          <div class="intg-card">
+            <div class="intg-top">
+              <div class="intg-name-row">
+                <span class="intg-icon">🛒</span>
+                <span class="intg-name">ThriveCart</span>
+              </div>
+              <span class="conn-pill connected">Connected</span>
+            </div>
+            <div class="intg-desc">2 products linked</div>
+            <button class="intg-btn" onclick="showToast('Opening ThriveCart — coming soon','info')">Open</button>
+          </div>
+          <div class="intg-card">
+            <div class="intg-top">
+              <div class="intg-name-row">
+                <span class="intg-icon">🌐</span>
+                <span class="intg-name">Mighty Networks</span>
+              </div>
+              <span class="conn-pill notset">Not set</span>
+            </div>
+            <div class="intg-desc" style="color:var(--mu2)">No connection configured</div>
+            <button class="intg-btn" onclick="showToast('Configure Mighty Networks — coming soon','info')">Set up</button>
+          </div>
+          <div class="intg-card">
+            <div class="intg-top">
+              <div class="intg-name-row">
+                <span class="intg-icon">🧾</span>
+                <span class="intg-name">Green Invoice</span>
+              </div>
+              <span class="conn-pill connected">Connected</span>
+            </div>
+            <div class="intg-desc">Client profile linked</div>
+            <button class="intg-btn" onclick="showToast('Opening Green Invoice — coming soon','info')">Open</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+/* ── Profiles view ───────────────────────────────────────── */
+function renderProfiles() {
+  const grid = document.getElementById('profiles-grid');
+  grid.innerHTML = MOCK_CLIENTS.map(c => {
+    const remaining = c.packageSize - c.sessionsUsed;
+    return `
+      <div class="profile-card">
+        <div class="profile-card-top">
+          <div class="pc-av" style="background:${c.colorBg};color:${c.color}">${c.initials}</div>
+          <div class="pc-info">
+            <div class="pc-name">${c.name}</div>
+            <div class="pc-co">${c.company || '<span style="font-style:italic;color:var(--mu2)">—</span>'}</div>
+          </div>
+        </div>
+        <div class="pc-badges">
+          <span class="level-badge">${c.level}</span>
+          <span class="sessions-badge">${remaining} left</span>
+          ${statusBadge(c.status)}
+        </div>
+        <div class="pc-tags">${c.tags.map(tagChip).join('')}</div>
+        <button class="open-btn" onclick="showToast('Opening ${c.name.replace(/'/g, "\\'")} — read-only view','info')">Open Profile</button>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ── Memberships view ────────────────────────────────────── */
+function renderMemberships() {
+  const tiersEl = document.getElementById('mb-tiers');
+  tiersEl.innerHTML = MOCK_TIERS.map(t => `
+    <div class="tier-card">
+      <div class="tier-hd">
+        <div class="tier-hd-l">
+          <div class="tier-accent" style="background:${t.color};display:inline-block;width:4px;height:32px;border-radius:2px;margin-right:4px"></div>
+          <div>
+            <div class="tier-name">${t.name}</div>
+            <div class="tier-cnt">${t.clients} client${t.clients !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <div class="tier-price">${t.price}</div>
+      </div>
+      <div class="tier-features">
+        ${t.features.map(f => `<div class="tier-feat">${f}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  const tbody = document.getElementById('mb-tbody');
+  tbody.innerHTML = MOCK_MB_CLIENTS.map(m => {
+    const c = MOCK_CLIENTS.find(x => x.name === m.name);
+    const tierColor = {Basic:'var(--bl)',Standard:'var(--tl)',Premium:'var(--am)'}[m.tier] || 'var(--mu)';
+    return `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${c ? `<div style="width:26px;height:26px;border-radius:50%;background:${c.colorBg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600">${c.initials}</div>` : ''}
+            <span style="font-weight:500">${m.name}</span>
+          </div>
+        </td>
+        <td><span style="font-weight:600;color:${tierColor}">${m.tier}</span></td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu)">${m.renewal}</td>
+        <td>${statusBadge(m.status)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/* ── Tags view ───────────────────────────────────────────── */
+function renderTags(filter) {
+  activeTagFilter = filter || null;
+
+  const wrap = document.getElementById('tags-wrap');
+  wrap.innerHTML = MOCK_TAGS.map(tag => `
+    <span class="tag-big-chip${activeTagFilter === tag ? ' active-filter' : ''}" onclick="filterByTag('${tag}')">${tag}</span>
+  `).join('');
+
+  const label = document.getElementById('tag-filter-label');
+  label.textContent = activeTagFilter ? `Filtered: ${activeTagFilter}` : 'Showing all';
+
+  const tbody = document.getElementById('tags-tbody');
+  const filtered = activeTagFilter
+    ? MOCK_CLIENTS.filter(c => c.tags.includes(activeTagFilter))
+    : MOCK_CLIENTS;
+
+  const lastSessionMap = {};
+  MOCK_CLIENTS.forEach(c => {
+    const s = MOCK_SESSIONS[c.id];
+    lastSessionMap[c.id] = s && s.length ? s[0].date : '—';
+  });
+
+  tbody.innerHTML = filtered.map(c => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:26px;height:26px;border-radius:50%;background:${c.colorBg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600">${c.initials}</div>
+          <span style="font-weight:500">${c.name}</span>
+        </div>
+      </td>
+      <td><div class="tags-tbl-chips">${c.tags.map(tagChip).join('')}</div></td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu)">${lastSessionMap[c.id]}</td>
+      <td>${statusBadge(c.status)}</td>
+    </tr>
+  `).join('');
+}
+
+function filterByTag(tag) {
+  if (activeTagFilter === tag) {
+    renderTags(null);
+  } else {
+    renderTags(tag);
+  }
+}
+
+/* ── Init ────────────────────────────────────────────────── */
+renderClientList();
+renderTags();
+</script>
+<script>
+  // Load environment toggle
+  fetch('env-toggle.html')
+    .then(r => r.text())
+    .then(html => {
+      const container = document.getElementById('env-toggle-container');
+      container.innerHTML = html;
+
+      // Scripts inside innerHTML do not execute automatically.
+      container.querySelectorAll('script').forEach(oldScript => {
+        const script = document.createElement('script');
+        if (oldScript.src) {
+          script.src = oldScript.src;
+        } else {
+          script.textContent = oldScript.textContent;
+        }
+        document.body.appendChild(script);
+        oldScript.remove();
+      });
+    })
+    .catch(err => {
+      console.error('[HSos] Failed to load env-toggle.html', err);
+    });
+</script>
+</body>
+</html>

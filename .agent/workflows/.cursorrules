@@ -1,0 +1,23 @@
+# Cursor rules for Lessons OS
+
+Read docs/CLAUDE.md before making any changes.
+
+## Rules
+- Plain HTML + Vanilla JS only. No React, no Vue, no Tailwind.
+- All DB operations go in supabase-client.js — never call sb.from() in HTML files
+- Never rewrite CSS or the design system unless explicitly asked
+- Never rewrite working UI — only touch data layer
+- All async calls: try/catch + showToast() for errors
+- After changes: verify no alert() calls remain, no broken references
+
+## Design system
+CSS variables defined in every HTML file. Use them — never hardcode colors.
+Fonts: DM Sans + DM Mono via Google Fonts CDN.
+Dark theme: --bg #0f0f11, --surface #18181c, --accent #c8b87a
+
+## File structure
+deals.html, workload.html — built
+invoicing.html, reporting.html, vendor-portal.html, login.html — to build
+supabase-client.js — shared DB client
+schema.sql, schema-seed.sql — database setup
+docs/ — all markdown context files

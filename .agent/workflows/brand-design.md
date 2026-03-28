@@ -1,10 +1,14 @@
 ---
-description: HS2026 Brand Design System — apply to all web pages and apps
+description: HSos Brand Design System — apply to all web pages and apps
 ---
 
-# HS2026 Brand Design System
+# HSos Brand Design System
 
-All web pages and apps built in this project MUST follow the HS2026 Design Book located at `_design-book/`.
+All web pages and apps built in this project MUST follow the HSos design system and the design book located at `_design-book/`.
+
+This file is the execution layer for Claude Code and any agent workflow.
+Use it when updating existing screens, creating new pages, or refactoring UI.
+It applies to the current HTML app as well as future modules.
 
 ## Quick Reference
 
@@ -16,10 +20,11 @@ All web pages and apps built in this project MUST follow the HS2026 Design Book 
   - Regular (400) for prose  
   - Bold (700) for labels, micro, buttons
 
-> **Note**: If Quincy/Effra are not available as hosted font files, use Google Fonts equivalents:
-> - Quincy → **Playfair Display** (closest serif with ink-trap display character)
-> - Effra → **Inter** or **DM Sans** (clean geometric sans-serif)
-> Always declare the brand fonts first in the stack so they work if/when available.
+> **Fallback note**: If Quincy/Effra are not available as hosted font files, use Google Fonts equivalents:
+> - Quincy → **Playfair Display**
+> - Effra → **DM Sans**
+> Keep the brand fonts first in the stack so they work if/when available.
+> For the current internal app, DM Sans is the preferred fallback body/UI font.
 
 ### Color Palette (use these exact hex values)
 | Token              | Hex       | Usage                         |
@@ -124,3 +129,41 @@ All web pages and apps built in this project MUST follow the HS2026 Design Book 
 2. Use the token CSS variables (e.g., `var(--c-gold)`, `var(--space-5)`)
 3. Use utility classes when available (`.bg-gold`, `.h2`, `.btn-primary`, etc.)
 4. Reference `_design-book/style-guide.css` for the full class inventory
+
+---
+
+## App-Specific UI Guidance
+
+Use the brand system on internal app screens too, not only marketing pages.
+
+### App interpretation rules
+1. Keep the structural app UI clean and functional first
+2. Use brand color intentionally, not everywhere at once
+3. Prefer light backgrounds with strong typography and restrained accents
+4. Reserve gold for primary actions, highlights, and active emphasis
+5. Use green-dark / teal for secondary actions, status accents, and navigation emphasis
+6. Use warm neutral surfaces for cards, panels, and section separation
+7. Do not turn operational screens into decorative landing pages
+
+### Recommended mapping for the current app
+- top bar / navigation: deep green or white with strong contrast
+- page background: light blue, warm cream, or white
+- cards and side panels: white with warm shadow
+- primary CTA: gold
+- secondary CTA: deep green / teal
+- destructive actions: use restrained contrast, do not invent bright red unless defined later
+- headings: display font where appropriate, but keep dense data views primarily in body/UI font
+
+### Data-heavy screen rule
+For dashboards, tables, kanban boards, lists, filters, and forms:
+- readability wins over decoration
+- use body/UI font for dense controls
+- use display font sparingly for page titles, section titles, and major headers only
+- keep spacing generous and consistent with the token scale
+
+### Implementation note for existing pages
+When updating existing HTML screens:
+- align them to this brand system gradually
+- do not break existing layout logic just to force visual styling
+- first apply tokens, typography, buttons, panels, and spacing
+- then refine cards, filters, badges, tables, and modals
