@@ -1,723 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Payments</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="env-config.js"></script>
-<script src="supabase-client.js"></script>
-<link rel="stylesheet" href="deals.css">
-<style>
-  /* ── Payments-specific layout ─────────────────────────── */
-  .main{flex:1;overflow:hidden;display:flex;flex-direction:column}
-  .page{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px}
-  .page::-webkit-scrollbar{width:3px}
-  .page::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
-  .page-hidden{display:none!important}
-
-  /* section card */
-  .sec-card{background:#FFFFFF;border:1px solid var(--b);border-radius:var(--r);overflow:hidden;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.08)}
-  .sec-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--b)}
-  .sec-title{font-size:12px;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.06em}
-
-  /* summary row */
-  .sum-row{display:flex;gap:10px}
-  .sum-row .vp-sum-card{flex:1}
-
-  /* tables */
-  .pay-tbl{width:100%;border-collapse:collapse;font-size:12px}
-  .pay-tbl th{text-align:left;padding:8px 16px;font-size:10px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b);background:var(--sf2);white-space:nowrap}
-  .pay-tbl td{padding:11px 16px;border-bottom:1px solid var(--b);vertical-align:middle}
-  .pay-tbl tr:last-child td{border-bottom:none}
-  .pay-tbl tr:hover td{background:var(--sf2);transition:background .12s}
-
-  /* type badge */
-  .type-badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500}
-  .type-badge.income{background:var(--gn-b);color:var(--gn)}
-  .type-badge.expense{background:var(--rd-b);color:var(--rd)}
-  .type-badge.payout{background:var(--bl-b);color:var(--bl)}
-  .type-badge.transfer{background:var(--am-b);color:var(--am)}
-
-  /* upcoming reminder row */
-  .remind-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--b);font-size:12px}
-  .remind-row:last-child{border-bottom:none}
-  .remind-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-  .remind-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2);white-space:nowrap;min-width:70px}
-  .remind-desc{flex:1;color:var(--tx)}
-  .remind-amt{font-family:'DM Mono',monospace;font-size:12px;color:var(--tx);white-space:nowrap}
-
-  /* filter chips */
-  .chip-bar{display:flex;gap:6px;flex-wrap:wrap}
-  .chip{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid var(--b);background:none;color:var(--mu);cursor:pointer;font-family:inherit;transition:all .15s}
-  .chip:hover{color:var(--tx);border-color:var(--b2)}
-  .chip.on{background:var(--sf2);color:var(--tx);border-color:var(--b2)}
-
-  /* view button */
-  .view-btn{padding:3px 9px;border-radius:var(--rx);border:1px solid var(--b);background:none;color:var(--mu);font-size:10px;cursor:pointer;font-family:inherit;transition:all .15s}
-  .view-btn:hover{color:var(--tx);border-color:var(--b2);background:var(--sf2)}
-
-  /* receipt status */
-  .receipt-yes{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--gn)}
-  .receipt-no{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--mu2)}
-
-  /* accounts grid */
-  .accounts-grid{display:flex;gap:16px;flex-wrap:wrap}
-  .account-card{background:#FFFFFF;border:1px solid var(--b);border-radius:var(--r);padding:20px;flex:1;min-width:240px;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.08)}
-  .account-name{font-size:14px;font-weight:600;color:var(--tx)}
-  .account-balance{font-family:'DM Mono',monospace;font-size:26px;font-weight:300;color:var(--tx)}
-  .account-iban{font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2);background:var(--sf2);border:1px solid var(--b);border-radius:var(--rx);padding:5px 10px;letter-spacing:.05em}
-  .account-sync{font-size:11px;color:var(--mu2)}
-  .account-footer{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--b)}
-  .accounts-note{display:flex;align-items:center;gap:8px;padding:11px 16px;background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);font-size:11px;color:var(--mu)}
-
-  /* cards grid */
-  .cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .pay-card{background:#FFFFFF;border:1px solid var(--b);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 2px 6px rgba(26,20,16,0.06),0 8px 24px rgba(26,20,16,0.08);transition:border-color .15s}
-  .pay-card:hover{border-color:var(--b2)}
-  .pay-card.muted{opacity:.55}
-  .pay-card-top{display:flex;align-items:center;justify-content:space-between}
-  .pay-card-icon{font-size:24px;line-height:1}
-  .pay-card-status-badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
-  .pay-card-status-badge.connected{background:var(--gn-b);color:var(--gn)}
-  .pay-card-status-badge.configured{background:var(--bl-b);color:var(--bl)}
-  .pay-card-status-badge.active{background:var(--gn-b);color:var(--gn)}
-  .pay-card-status-badge.not-connected{background:var(--sf3);color:var(--mu2)}
-  .pay-card-name{font-size:13px;font-weight:600;color:var(--tx)}
-  .pay-card-desc{font-size:11px;color:var(--mu)}
-  .pay-card-footer{display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--b)}
-  .configure-btn{padding:4px 12px;border-radius:var(--rx);border:1px solid var(--b);background:none;color:var(--mu);font-size:11px;cursor:pointer;font-family:inherit;transition:all .15s}
-  .configure-btn:hover{color:var(--tx);border-color:var(--b2);background:var(--sf2)}
-
-  /* payout toolbar */
-  .payout-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
-  .payout-meta{font-size:11px;color:var(--mu)}
-
-  /* amount cells */
-  .amt-pos{font-family:'DM Mono',monospace;color:var(--gn)}
-  .amt-neg{font-family:'DM Mono',monospace;color:var(--rd)}
-  .amt-neu{font-family:'DM Mono',monospace;color:var(--tx)}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Payments V2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
 </head>
 <body>
+<div class="app">
 
-<!-- Topbar -->
-<div class="topbar">
-  <div style="display:flex;align-items:center">
-    <span class="brand-mark">HSos</span>
-    <div class="logo-wrap" onclick="toggleMod()">
-      <span class="logo">Payments</span>
-      <span style="font-size:10px;color:var(--mu2)">▾</span>
-      <div class="mod-dd" id="mod-dd">
-        <div class="mod-item" onclick="goModule('workload')"><div class="mod-dot" style="background:var(--tl)"></div>Operations</div>
-        <div class="mod-item" onclick="goModule('deals')"><div class="mod-dot" style="background:var(--pu)"></div>Sales</div>
-        <div class="mod-item cur"><div class="mod-dot" style="background:var(--gn)"></div>Payments</div>
-        <div class="mod-item" onclick="goModule('clients-portal')"><div class="mod-dot" style="background:var(--am)"></div>Clients Portal</div>
+  <!-- Topbar -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <div class="mod-wrap">
+        <div class="mod-trigger" onclick="toggleModDD()">
+          PAYMENTS <span style="font-size:9px">▾</span>
+        </div>
+        <div class="mod-dd" id="mod-dd">
+          <div class="mod-item" onclick="window.location.href=Router.pathForPage('operations')">
+            <div class="mod-dot" style="background:var(--green)"></div>Operations
+          </div>
+          <div class="mod-item" onclick="window.location.href=Router.pathForPage('sales')">
+            <div class="mod-dot" style="background:var(--gold)"></div>Sales
+          </div>
+          <div class="mod-item cur">
+            <div class="mod-dot" style="background:var(--blue)"></div>Payments
+          </div>
+        </div>
       </div>
+      <nav class="tb-nav" style="margin-left:8px">
+        <a class="cur" id="nav-vendor-bills" onclick="switchTab('vendor-bills')">Vendor Bills</a>
+        <a id="nav-history" onclick="switchTab('history')">History</a>
+        <a href="import.html">Import</a>
+        <a id="nav-registry" onclick="switchTab('registry')">Registry</a>
+      </nav>
     </div>
-    <div class="nav" id="main-nav">
-      <button class="nav-btn cur" onclick="switchPage('overview',this)">Overview</button>
-      <button class="nav-btn" onclick="switchPage('payouts',this)">Pending Payments</button>
-      <button class="nav-btn" onclick="switchPage('expenses',this)">Expenses</button>
-      <button class="nav-btn" onclick="switchPage('accounts',this)">Accounts</button>
-      <button class="nav-btn" onclick="switchPage('cards',this)">Cards</button>
+    <div class="tb-right">
+      <div class="role-selector" id="role-selector"></div>
+      <div class="tb-mode">DEMO</div>
+      <div class="tb-av">HS</div>
     </div>
   </div>
-  <div class="topbar-r">
-    <div id="env-toggle-container"></div>
-    <span style="font-size:12px;color:var(--mu)">Admin</span>
-    <div class="av-sm">HS</div>
+
+  <!-- App body -->
+  <div class="app-body" id="app-body">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VENDOR BILLS TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-vendor-bills" class="main">
+      
+      <!-- Vendor list view -->
+      <div id="vendor-list-view" class="scroll" style="padding:20px">
+        <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">Vendor Bills</div>
+        
+        <!-- Needs Review -->
+        <div style="margin-bottom:28px">
+          <div style="font-size:13px;font-weight:600;color:var(--red-text);margin-bottom:12px">🔴 NEEDS REVIEW (<span id="review-count">0</span>)</div>
+          <div id="review-list"></div>
+        </div>
+
+        <!-- Unpaid Work (no bill) -->
+        <div style="margin-bottom:28px">
+          <div style="font-size:13px;font-weight:600;color:var(--mu);margin-bottom:12px">⚪ UNPAID WORK — NO BILL YET (<span id="nobill-count">0</span>)</div>
+          <div id="nobill-list"></div>
+        </div>
+
+        <!-- Ready to Pay -->
+        <div style="margin-bottom:28px">
+          <div style="font-size:13px;font-weight:600;color:var(--green-text);margin-bottom:12px">✅ APPROVED — READY TO PAY (<span id="ready-count">0</span>)</div>
+          <div id="ready-list"></div>
+        </div>
+      </div>
+
+      <!-- Vendor detail view -->
+      <div id="vendor-detail-view" class="main hidden" style="background:var(--bg)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px;flex-shrink:0">
+          <button class="btn btn-sm btn-ghost" onclick="backToVendorList()">← Back</button>
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:600;color:var(--ink)" id="vendor-detail-name"></div>
+            <div style="font-size:11px;color:var(--mu);font-family:var(--font-mono)" id="vendor-detail-email"></div>
+          </div>
+        </div>
+
+        <div class="scroll" style="padding:20px">
+          
+          <!-- Draft bill review -->
+          <div id="draft-bill-section" style="display:none;margin-bottom:24px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:15px;font-weight:600;color:var(--amber-text)">📄 Draft Bill</div>
+              <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--amber-text)" id="draft-total"></div>
+            </div>
+            <div style="font-size:11px;color:var(--mu);margin-bottom:12px" id="draft-meta"></div>
+            
+            <div class="block" style="margin-bottom:12px">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th style="width:30px"></th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Task type</th>
+                    <th>Hours</th>
+                    <th style="text-align:right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="draft-sessions"></tbody>
+              </table>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+              <button class="btn btn-sm" onclick="selectAllDraft()">Select all</button>
+              <button class="btn btn-sm" onclick="unselectAllDraft()">Unselect all</button>
+              <button class="btn btn-sm" onclick="addMoreSessions()">Add more sessions</button>
+            </div>
+
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="approveBill()">Approve Bill</button>
+              <button class="btn" onclick="rejectBill()">Reject & Return</button>
+            </div>
+          </div>
+
+          <!-- Unbilled sessions -->
+          <div id="unbilled-section" style="display:none;margin-bottom:24px">
+            <div style="font-size:13px;font-weight:600;color:var(--mu);margin-bottom:12px">⚪ Unbilled Sessions</div>
+            <div class="block" style="margin-bottom:10px">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th style="width:30px" id="unbilled-check-col"></th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Task type</th>
+                    <th>Hours</th>
+                    <th style="text-align:right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="unbilled-sessions"></tbody>
+              </table>
+            </div>
+            <button class="btn btn-primary btn-sm" id="manager-create-draft-btn" onclick="managerCreateDraftBill()" style="display:none">Create Draft Bill</button>
+          </div>
+
+          <!-- History -->
+          <div id="vendor-history-section">
+            <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px">✅ Payment History</div>
+            <div id="vendor-history"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         HISTORY TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-history" class="main hidden scroll" style="padding:20px">
+      <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">Payment History</div>
+      <div id="all-history"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         REGISTRY TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-registry" class="main hidden scroll" style="padding:24px;max-width:900px;margin:0 auto">
+      <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:6px">Registry</div>
+      <div style="font-size:12px;color:var(--mu);margin-bottom:24px">Master data — companies, accounts, exchange rates, balances, settings</div>
+      <div id="reg-error-banner" class="hidden" style="background:var(--red-bg);color:var(--red-text);border:1px solid var(--red);border-radius:var(--r);padding:10px 14px;margin-bottom:16px;font-size:12px"></div>
+      <div id="reg-companies" style="margin-bottom:28px"></div>
+      <div id="reg-accounts" style="margin-bottom:28px"></div>
+      <div id="reg-exchange-rates" style="margin-bottom:28px"></div>
+      <div id="reg-opening-balances" style="margin-bottom:28px"></div>
+      <div id="reg-settings" style="margin-bottom:28px"></div>
+    </div>
+
   </div>
 </div>
 
-<!-- Main -->
-<div class="main">
-
-  <!-- ═══════════════ OVERVIEW ═══════════════ -->
-  <div id="page-overview" class="page">
-
-    <!-- Summary cards -->
-    <div class="sum-row">
-      <div class="vp-sum-card">
-        <div class="vp-sum-val" id="ov-received">—</div>
-        <div class="vp-sum-lbl" id="ov-received-lbl">Total received</div>
-      </div>
-      <div class="vp-sum-card">
-        <div class="vp-sum-val" id="ov-outstanding" style="color:var(--am)">—</div>
-        <div class="vp-sum-lbl">Outstanding</div>
-      </div>
-      <div class="vp-sum-card">
-        <div class="vp-sum-val" id="ov-vendors">—</div>
-        <div class="vp-sum-lbl">Vendors active</div>
-      </div>
-      <div class="vp-sum-card">
-        <div class="vp-sum-val" id="ov-overdue" style="color:var(--rd)">—</div>
-        <div class="vp-sum-lbl">Overdue deals</div>
-      </div>
+<!-- Reject Bill Modal -->
+<div class="overlay" id="reject-modal">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:480px;padding:24px">
+    <div style="font-size:17px;font-weight:600;margin-bottom:16px">Reject Bill</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:12px">This bill will be returned to the vendor. They will need to create a new draft.</div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Rejection notes (required)</label>
+      <textarea id="reject-notes" class="fi" rows="4" placeholder="Explain why you're rejecting this bill..."></textarea>
     </div>
-
-    <!-- Recent Transactions -->
-    <div class="sec-card">
-      <div class="sec-hd">
-        <span class="sec-title">Recent Transactions</span>
-        <span style="font-size:11px;color:var(--mu2);font-family:'DM Mono',monospace">Mar 2026</span>
-      </div>
-      <table class="pay-tbl">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Amount</th>
-            <th>Type</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2)">20 Mar</td>
-            <td>Client payment — Lior Katz (Package × 8)</td>
-            <td class="amt-pos">+ € 1,200</td>
-            <td><span class="type-badge income">Income</span></td>
-            <td><span class="pc-status paid">Paid</span></td>
-          </tr>
-          <tr>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2)">18 Mar</td>
-            <td>Vendor payout — Maya Levi (Feb payroll)</td>
-            <td class="amt-neg">− € 2,100</td>
-            <td><span class="type-badge payout">Payout</span></td>
-            <td><span class="pc-status paid">Paid</span></td>
-          </tr>
-          <tr>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2)">15 Mar</td>
-            <td>Zoom Business — monthly subscription</td>
-            <td class="amt-neg">− € 39</td>
-            <td><span class="type-badge expense">Expense</span></td>
-            <td><span class="pc-status paid">Paid</span></td>
-          </tr>
-          <tr>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2)">12 Mar</td>
-            <td>Client payment — Noa Shapira (Session × 4)</td>
-            <td class="amt-pos">+ € 480</td>
-            <td><span class="type-badge income">Income</span></td>
-            <td><span class="pc-status pending">Pending</span></td>
-          </tr>
-          <tr>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2)">08 Mar</td>
-            <td>Wise transfer — USD reserve fund</td>
-            <td class="amt-neu">$ 3,000</td>
-            <td><span class="type-badge transfer">Transfer</span></td>
-            <td><span class="pc-status paid">Paid</span></td>
-          </tr>
-        </tbody>
-      </table>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeRejectModal()">Cancel</button>
+      <button class="btn" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="confirmReject()">Reject Bill</button>
     </div>
+  </div>
+</div>
 
-    <!-- Upcoming -->
-    <div class="sec-card">
-      <div class="sec-hd">
-        <span class="sec-title">Upcoming</span>
-        <span style="font-size:11px;color:var(--mu2)">Next 14 days</span>
-      </div>
-      <div class="remind-row">
-        <div class="remind-dot" style="background:var(--rd)"></div>
-        <span class="remind-date">25 Mar</span>
-        <span class="remind-desc">Ron Bar — payout due (Mar payroll, 38 hrs)</span>
-        <span class="remind-amt">€ 1,900</span>
-      </div>
-      <div class="remind-row">
-        <div class="remind-dot" style="background:var(--am)"></div>
-        <span class="remind-date">28 Mar</span>
-        <span class="remind-desc">Invoice — Tamar Levi (overdue since Feb 28)</span>
-        <span class="remind-amt">€ 800</span>
-      </div>
-      <div class="remind-row">
-        <div class="remind-dot" style="background:var(--bl)"></div>
-        <span class="remind-date">01 Apr</span>
-        <span class="remind-desc">Slack Pro — subscription renewal</span>
-        <span class="remind-amt">€ 87</span>
-      </div>
-    </div>
-
-  </div><!-- /page-overview -->
-
-  <!-- ═══════════════ PENDING PAYMENTS ═══════════════ -->
-  <div id="page-payouts" class="page page-hidden">
-
-    <!-- Summary -->
-    <div class="sum-row">
-      <div class="vp-sum-card">
-        <div class="vp-sum-val" id="po-total">—</div>
-        <div class="vp-sum-lbl" id="po-total-lbl">Total pending</div>
-      </div>
-      <div class="vp-sum-card">
-        <div class="vp-sum-val" id="po-hours">—</div>
-        <div class="vp-sum-lbl">Hours logged</div>
-      </div>
-      <div class="vp-sum-card">
-        <div class="vp-sum-val" id="po-unpaid" style="color:var(--am)">—</div>
-        <div class="vp-sum-lbl">Awaiting payment</div>
-      </div>
-    </div>
-
-    <!-- Table -->
-    <div class="sec-card">
-      <div class="sec-hd">
-        <span class="sec-title" id="po-table-title">Pending Payments</span>
-      </div>
-      <table class="pay-tbl">
-        <thead>
-          <tr>
-            <th>Vendor</th>
-            <th>Month</th>
-            <th>Hours</th>
-            <th>Amount</th>
-            <th>Currency</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="po-tbody">
-          <!-- rendered by JS -->
-        </tbody>
-      </table>
-    </div>
-
-  </div><!-- /page-payouts -->
-
-  <!-- ═══════════════ EXPENSES ═══════════════ -->
-  <div id="page-expenses" class="page page-hidden">
-
-    <!-- Filter chips + add button -->
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div class="chip-bar" id="exp-chips">
-        <button class="chip on" onclick="filterExp('all',this)">All</button>
-        <button class="chip" onclick="filterExp('software',this)">Software</button>
-        <button class="chip" onclick="filterExp('freelance',this)">Freelance</button>
-        <button class="chip" onclick="filterExp('office',this)">Office</button>
-        <button class="chip" onclick="filterExp('other',this)">Other</button>
-      </div>
-      <button class="btn-new" style="height:28px;font-size:11px" onclick="showToast('Add expense — coming soon','info')">+ Add Expense</button>
-    </div>
-
-    <div class="sec-card">
-      <div class="sec-hd">
-        <span class="sec-title" id="exp-table-label">All Expenses</span>
-        <span style="font-size:11px;color:var(--mu2);font-family:'DM Mono',monospace">Mar 2026</span>
-      </div>
-      <table class="pay-tbl" id="exp-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Category</th>
-            <th>Amount</th>
-            <th>Currency</th>
-            <th>Paid by</th>
-            <th>Receipt</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="exp-tbody">
-          <!-- rendered by JS -->
-        </tbody>
-      </table>
-    </div>
-
-  </div><!-- /page-expenses -->
-
-  <!-- ═══════════════ ACCOUNTS ═══════════════ -->
-  <div id="page-accounts" class="page page-hidden">
-
-    <div class="accounts-grid">
-
-      <div class="account-card">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:20px">🏦</span>
-          <div>
-            <div class="account-name">Leumi Business</div>
-            <div style="font-size:11px;color:var(--mu)">ILS · Checking</div>
-          </div>
-        </div>
-        <div class="account-balance">₪ 84,320</div>
-        <div class="account-iban">IL62 0108 0000 0009 9999 220</div>
-        <div class="account-footer">
-          <span class="account-sync">Last synced: manual entry</span>
-          <button class="btn-sm" onclick="showToast('Transactions — coming soon','info')">Transactions</button>
-        </div>
-      </div>
-
-      <div class="account-card">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:20px">💳</span>
-          <div>
-            <div class="account-name">PayPal EUR</div>
-            <div style="font-size:11px;color:var(--mu)">EUR · Digital wallet</div>
-          </div>
-        </div>
-        <div class="account-balance">€ 4,870</div>
-        <div class="account-iban">paypal.me/hsosacademy</div>
-        <div class="account-footer">
-          <span class="account-sync">Last synced: manual entry</span>
-          <button class="btn-sm" onclick="showToast('Transactions — coming soon','info')">Transactions</button>
-        </div>
-      </div>
-
-      <div class="account-card">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:20px">🌐</span>
-          <div>
-            <div class="account-name">Wise USD</div>
-            <div style="font-size:11px;color:var(--mu)">USD · Multi-currency</div>
-          </div>
-        </div>
-        <div class="account-balance">$ 12,150</div>
-        <div class="account-iban">BE62 9670 3244 7775</div>
-        <div class="account-footer">
-          <span class="account-sync">Last synced: manual entry</span>
-          <button class="btn-sm" onclick="showToast('Transactions — coming soon','info')">Transactions</button>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="accounts-note">
-      <span>🔒</span>
-      <span>Account sync — Phase 2. Manual entry only.</span>
-    </div>
-
-  </div><!-- /page-accounts -->
-
-  <!-- ═══════════════ CARDS ═══════════════ -->
-  <div id="page-cards" class="page page-hidden">
-
-    <div class="cards-grid">
-
-      <div class="pay-card">
-        <div class="pay-card-top">
-          <span class="pay-card-icon">🟢</span>
-          <span class="pay-card-status-badge connected">Connected</span>
-        </div>
-        <div class="pay-card-name">Green Invoice</div>
-        <div class="pay-card-desc">Israeli invoicing &amp; tax reporting. Issues פחת-compliant invoices automatically.</div>
-        <div class="pay-card-footer">
-          <button class="configure-btn" onclick="showToast('Green Invoice — already configured','info')">Configure</button>
-        </div>
-      </div>
-
-      <div class="pay-card">
-        <div class="pay-card-top">
-          <span class="pay-card-icon">💜</span>
-          <span class="pay-card-status-badge connected">Connected</span>
-        </div>
-        <div class="pay-card-name">Stripe</div>
-        <div class="pay-card-desc">Payment links for one-time and recurring client billing in EUR / USD.</div>
-        <div class="pay-card-footer">
-          <button class="configure-btn" onclick="showToast('Stripe — already configured','info')">Configure</button>
-        </div>
-      </div>
-
-      <div class="pay-card">
-        <div class="pay-card-top">
-          <span class="pay-card-icon">🌐</span>
-          <span class="pay-card-status-badge connected">Connected</span>
-        </div>
-        <div class="pay-card-name">Wise Transfer</div>
-        <div class="pay-card-desc">IBAN bank transfers. Used for vendor payouts and international client billing.</div>
-        <div class="pay-card-footer">
-          <button class="configure-btn" onclick="showToast('Wise — already configured','info')">Configure</button>
-        </div>
-      </div>
-
-      <div class="pay-card">
-        <div class="pay-card-top">
-          <span class="pay-card-icon">🃏</span>
-          <span class="pay-card-status-badge configured">Configured</span>
-        </div>
-        <div class="pay-card-name">Thrive Card</div>
-        <div class="pay-card-desc">Custom payment flow with branded checkout. Configured but not yet live.</div>
-        <div class="pay-card-footer">
-          <button class="configure-btn" onclick="showToast('Thrive Card settings opened','info')">Configure</button>
-        </div>
-      </div>
-
-      <div class="pay-card muted">
-        <div class="pay-card-top">
-          <span class="pay-card-icon">💳</span>
-          <span class="pay-card-status-badge not-connected">Not connected</span>
-        </div>
-        <div class="pay-card-name">PayPal</div>
-        <div class="pay-card-desc">Collect payments from European clients via PayPal checkout (not yet linked).</div>
-        <div class="pay-card-footer">
-          <button class="configure-btn" onclick="showToast('Connect PayPal — coming soon','warn')">Connect</button>
-        </div>
-      </div>
-
-      <div class="pay-card">
-        <div class="pay-card-top">
-          <span class="pay-card-icon">🏛️</span>
-          <span class="pay-card-status-badge active">Active</span>
-        </div>
-        <div class="pay-card-name">Bank Transfer</div>
-        <div class="pay-card-desc">Direct wire transfers via Leumi Business account. Used for large invoices.</div>
-        <div class="pay-card-footer">
-          <button class="configure-btn" onclick="showToast('Bank transfer details copied','success')">Configure</button>
-        </div>
-      </div>
-
-    </div>
-
-  </div><!-- /page-cards -->
-
-</div><!-- /main -->
-
-<!-- Toast -->
-<div class="toast" id="toast"><span class="td"></span><span id="toast-msg"></span></div>
-
-<script>
-// ── Currency symbol helper ──────────────────────────────
-const SYM = { EUR:'€', USD:'$', GBP:'£', ILS:'₪', CHF:'₣' }
-function fmtAmt(amount, currency) {
-  const sym = SYM[currency] || currency
-  return `${sym} ${Number(amount).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-}
-function fmtMonth(m) {
-  if (!m) return '—'
-  const [y, mo] = m.split('-')
-  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${names[parseInt(mo, 10) - 1]} ${y}`
-}
-function initials(name) {
-  return (name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-}
-const AV_COLORS  = ['#c8b87a','#4caf82','#5a9de0','#a07de0','#e0a040','#3dbfb0','#e05a5a']
-const AV_BGS     = ['#2a2410','#1a2e24','#1a2233','#221a33','#2e2210','#0f2826','#2e1a1a']
-function avColor(name) {
-  const idx = (name || '').charCodeAt(0) % AV_COLORS.length
-  return { color: AV_COLORS[idx], bg: AV_BGS[idx] }
-}
-
-// ── Expense data (static demo) ──────────────────────────
-const EXPENSES = [
-  { date:'15 Mar', desc:'Zoom Business', cat:'software',  catLabel:'Software',   amt:'€ 39',  cur:'EUR', by:'Hadar S.',  receipt:true  },
-  { date:'14 Mar', desc:'Slack Pro',      cat:'software',  catLabel:'Software',   amt:'€ 87',  cur:'EUR', by:'Hadar S.',  receipt:true  },
-  { date:'12 Mar', desc:'Canva Pro',      cat:'software',  catLabel:'Software',   amt:'€ 14',  cur:'EUR', by:'Hadar S.',  receipt:false },
-  { date:'09 Mar', desc:'Design consult — Yael R.', cat:'freelance', catLabel:'Freelance', amt:'€ 350', cur:'EUR', by:'Hadar S.', receipt:true },
-  { date:'05 Mar', desc:'Office supplies — A4 reams, folders', cat:'office', catLabel:'Office', amt:'₪ 220', cur:'ILS', by:'Ron B.', receipt:true },
-  { date:'02 Mar', desc:'Domain renewal — hsosacademy.com', cat:'other', catLabel:'Other', amt:'$ 18', cur:'USD', by:'Hadar S.', receipt:false },
-]
-
-let activeExpFilter = 'all'
-
-function renderExpenses(filter) {
-  const tbody = document.getElementById('exp-tbody')
-  const rows = filter === 'all' ? EXPENSES : EXPENSES.filter(e => e.cat === filter)
-  const label = document.getElementById('exp-table-label')
-  const catMap = { all:'All Expenses', software:'Software', freelance:'Freelance', office:'Office', other:'Other' }
-  label.textContent = catMap[filter] || 'All Expenses'
-  tbody.innerHTML = rows.map(e => `
-    <tr>
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2)">${e.date}</td>
-      <td style="font-weight:500">${e.desc}</td>
-      <td><span class="type-pill ${e.cat === 'software' ? 'session' : e.cat === 'freelance' ? 'package' : e.cat === 'office' ? 'workshop' : 'custom'}">${e.catLabel}</span></td>
-      <td class="amt-neg">${e.amt}</td>
-      <td style="color:var(--mu)">${e.cur}</td>
-      <td style="color:var(--mu)">${e.by}</td>
-      <td>${e.receipt ? '<span class="receipt-yes">✓ Receipt</span>' : '<span class="receipt-no">— None</span>'}</td>
-      <td><button class="view-btn" onclick="showToast('Receipt preview — coming soon','info')">View</button></td>
-    </tr>
-  `).join('')
-}
-
-function filterExp(cat, btn) {
-  activeExpFilter = cat
-  document.querySelectorAll('#exp-chips .chip').forEach(c => c.classList.remove('on'))
-  btn.classList.add('on')
-  renderExpenses(cat)
-}
-
-// ── Stored paychecks (set on load) ──────────────────────
-let ALL_PAYCHECKS = []
-
-// ── Render pending payments table from live data ─────────
-function renderPayouts(paychecks) {
-  ALL_PAYCHECKS = paychecks || []
-  const tbody = document.getElementById('po-tbody')
-
-  // Show only non-paid paychecks in the pending view
-  const pending = (paychecks || []).filter(p => p.status !== 'paid')
-
-  if (!pending.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--mu2)">No pending payments</td></tr>`
-    document.getElementById('po-total').textContent = '—'
-    document.getElementById('po-hours').textContent = '0'
-    document.getElementById('po-unpaid').textContent = '0'
-    document.getElementById('po-table-title').textContent = 'Pending Payments'
-    return
-  }
-
-  // Summary stats for pending items
-  const totalHrs = pending.reduce((s, p) => s + (parseFloat(p.total_hours) || 0), 0)
-  const pendingCount = pending.length
-
-  // Group amounts by currency
-  const byCurrency = {}
-  pending.forEach(p => {
-    byCurrency[p.currency] = (byCurrency[p.currency] || 0) + (parseFloat(p.amount) || 0)
-  })
-  const totalLabel = Object.entries(byCurrency).map(([c, a]) => fmtAmt(a, c)).join(' + ') || '—'
-
-  document.getElementById('po-total').textContent = totalLabel
-  document.getElementById('po-total-lbl').textContent = 'Total pending'
-  document.getElementById('po-hours').textContent = totalHrs
-  document.getElementById('po-unpaid').textContent = pendingCount
-  document.getElementById('po-table-title').textContent = 'Pending Payments'
-
-  const PC_ACTIONS = { draft: 'Mark Ready', ready: 'Mark Pending', pending: 'Mark Paid' }
-
-  tbody.innerHTML = pending.map(pc => {
-    const vName = (pc.vendors && (pc.vendors.full_name || pc.vendors.name)) || 'Vendor'
-    const inits = initials(vName)
-    const av = avColor(vName)
-    const action = PC_ACTIONS[pc.status]
-    return `<tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="vnd-av" style="background:${av.bg};color:${av.color}">${inits}</div>
-          <span style="font-weight:500">${vName}</span>
-        </div>
-      </td>
-      <td style="color:var(--mu)">${fmtMonth(pc.month)}</td>
-      <td class="amt-neu">${pc.total_hours}</td>
-      <td class="amt-neu" style="font-weight:500">${fmtAmt(pc.amount, pc.currency)}</td>
-      <td style="color:var(--mu)">${pc.currency}</td>
-      <td><span class="pc-status ${pc.status}">${pc.status.charAt(0).toUpperCase() + pc.status.slice(1)}</span></td>
-      <td>${action
-        ? `<button class="pc-action${pc.status === 'pending' ? ' primary' : ''}" onclick="advancePaycheckStatus_payments('${pc.id}')">${action}</button>`
-        : ''
-      }</td>
-    </tr>`
-  }).join('')
-}
-
-async function advancePaycheckStatus_payments(id) {
-  try {
-    await advancePaycheckStatus(id)
-    const paychecks = await getPaychecks()
-    renderPayouts(paychecks)
-    showToast('Status updated', 'success')
-  } catch(err) {
-    showToast('Error: ' + err.message, 'warn')
-  }
-}
-
-// ── Render overview summary from deals + paychecks ──────
-function renderOverview(deals, paychecks) {
-  const now = new Date()
-  const curMonth = now.toISOString().slice(0, 7)
-
-  const paidDeals = (deals || []).filter(d => d.billing_status === 'paid')
-  const totalReceived = paidDeals.reduce((s, d) => s + (parseFloat(d.price) || 0), 0)
-  const receivedCurrency = paidDeals[0]?.currency || 'ILS'
-
-  const outstanding = (deals || [])
-    .filter(d => d.billing_status && d.billing_status !== 'paid')
-    .reduce((s, d) => s + (parseFloat(d.price) || 0), 0)
-  const outCurrency = (deals || []).find(d => d.billing_status && d.billing_status !== 'paid')?.currency || 'ILS'
-
-  const overdueCount = (deals || []).filter(d => d.billing_status === 'overdue').length
-  const activeVendors = new Set((paychecks || []).map(p => p.vendor_id)).size
-
-  const elReceived = document.getElementById('ov-received')
-  const elOutstanding = document.getElementById('ov-outstanding')
-  const elVendors = document.getElementById('ov-vendors')
-  const elOverdue = document.getElementById('ov-overdue')
-  const elLbl = document.getElementById('ov-received-lbl')
-
-  if (elReceived) elReceived.textContent = totalReceived > 0 ? fmtAmt(totalReceived, receivedCurrency) : '—'
-  if (elOutstanding) elOutstanding.textContent = outstanding > 0 ? fmtAmt(outstanding, outCurrency) : '—'
-  if (elVendors) elVendors.textContent = activeVendors || '—'
-  if (elOverdue) elOverdue.textContent = overdueCount || '0'
-  if (elLbl) elLbl.textContent = `Total received (${fmtMonth(curMonth)})`
-}
-
-// ── Page switching ──────────────────────────────────────
-function switchPage(page, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.add('page-hidden'))
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('cur'))
-  const target = document.getElementById('page-' + page)
-  if (target) target.classList.remove('page-hidden')
-  if (btn) btn.classList.add('cur')
-}
-
-// ── Module dropdown ─────────────────────────────────────
-function toggleMod() {
-  document.getElementById('mod-dd').classList.toggle('open')
-}
-
-function goModule(m) {
-  document.getElementById('mod-dd').classList.remove('open')
-  const map = { workload: 'workload.html', deals: 'deals.html', 'clients-portal': 'clients-portal.html' }
-  if (map[m]) window.location.href = map[m]
-  else showToast(m + ' — coming soon', 'info')
-}
-
-document.addEventListener('click', function(e) {
-  const dd = document.getElementById('mod-dd')
-  if (!e.target.closest('.logo-wrap')) dd.classList.remove('open')
-})
-
-// ── Toast ───────────────────────────────────────────────
-let toastTimer = null
-function showToast(msg, type) {
-  const t = document.getElementById('toast')
-  const m = document.getElementById('toast-msg')
-  t.className = 'toast ' + (type || 'info')
-  m.textContent = msg
-  t.classList.add('show')
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2800)
-}
-
-// ── Init: load live data ────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
-  renderExpenses('all')
-  try {
-    const [paychecks, deals] = await Promise.all([
-      getPaychecks(),
-      getDeals(),
-    ])
-    renderPayouts(paychecks)
-    renderOverview(deals, paychecks)
-  } catch (err) {
-    console.error('[Payments] Failed to load data:', err)
-    showToast('Failed to load payment data', 'warn')
-  }
-})
-</script>
-<script>
-  // Load environment toggle
-  fetch('env-toggle.html')
-    .then(r => r.text())
-    .then(html => {
-      const container = document.getElementById('env-toggle-container');
-      container.innerHTML = html;
-
-      // Scripts inside innerHTML do not execute automatically.
-      container.querySelectorAll('script').forEach(oldScript => {
-        const script = document.createElement('script');
-        if (oldScript.src) {
-          script.src = oldScript.src;
-        } else {
-          script.textContent = oldScript.textContent;
-        }
-        document.body.appendChild(script);
-        oldScript.remove();
-      });
-    })
-    .catch(err => {
-      console.error('[HSos] Failed to load env-toggle.html', err);
-    });
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="router.js"></script>
+<script src="payments.js"></script>
+<script src="registry.js"></script>
 </body>
 </html>

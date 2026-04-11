@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — CSV Canvas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <link rel="stylesheet" href="import.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+  <script src="adapters/supabase-adapter.js"></script>
+  <script src="lib/csv-parser.js"></script>
+  <script src="lib/schema-reader.js"></script>
+  <script src="lib/name-resolver.js"></script>
+  <script src="lib/importer-core.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Topbar ────────────────────────────────────────────────────── -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <nav class="tb-nav" style="margin-left:8px">
+        <a href="deals.html">Sales</a>
+        <a href="workload.html">Operations</a>
+        <a href="payments.html">Payments</a>
+        <a href="import.html" class="cur">Import</a>
+      </nav>
+    </div>
+    <div class="tb-right">
+      <div class="role-selector" id="role-selector"></div>
+      <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
+    </div>
+  </div>
+
+  <!-- ── Page body ─────────────────────────────────────────────────── -->
+  <div class="imp-page">
+    <div class="imp-body">
+
+      <!-- Page heading -->
+      <div class="imp-heading">
+        <div class="imp-title">CSV Canvas</div>
+        <div class="imp-sub">Paste a CSV to import data. Schema is read live — no column names are hardcoded.</div>
+      </div>
+
+      <!-- Error banner -->
+      <div id="error-banner" class="imp-error hidden"></div>
+
+      <!-- Step bar -->
+      <div class="step-bar">
+        <div class="step-item active" id="si-1" onclick="clickStep(1)">
+          <div class="step-num" id="sn-1">1</div>
+          <span>Paste</span>
+        </div>
+        <div class="step-sep"></div>
+        <div class="step-item" id="si-2" onclick="clickStep(2)">
+          <div class="step-num" id="sn-2">2</div>
+          <span>Map</span>
+        </div>
+        <div class="step-sep"></div>
+        <div class="step-item" id="si-3" onclick="clickStep(3)">
+          <div class="step-num" id="sn-3">3</div>
+          <span>Preview</span>
+        </div>
+        <div class="step-sep"></div>
+        <div class="step-item" id="si-4" onclick="clickStep(4)">
+          <div class="step-num" id="sn-4">4</div>
+          <span>Import</span>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           STEP 1 — Table picker + Paste
+           ══════════════════════════════════════════════════════ -->
+      <div id="step-1" class="imp-card">
+        <div class="imp-card-title">Choose table and paste CSV</div>
+
+        <div class="field-row" style="margin-bottom:16px">
+          <label class="fl">Import to table</label>
+          <select class="fi fsel imp-table-sel" id="table-select" style="max-width:260px">
+            <option value="">Loading tables…</option>
+          </select>
+          <div id="table-load-err" class="imp-field-err hidden"></div>
+        </div>
+
+        <div class="field-row">
+          <label class="fl">Paste CSV <span style="text-transform:none;letter-spacing:0;font-size:10px;color:var(--mu2)">(first row = column headers)</span></label>
+          <textarea
+            id="csv-textarea"
+            class="fi imp-textarea"
+            placeholder="name,email,payout_currency&#10;John Smith,john@example.com,USD&#10;Sara Lee,sara@example.com,GBP"
+            spellcheck="false"
+            rows="8"
+          ></textarea>
+        </div>
+
+        <div class="imp-btn-row">
+          <button class="btn btn-primary" id="btn-parse" onclick="onParse()">Parse →</button>
+          <span class="imp-hint" id="parse-hint"></span>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           STEP 2 — Column Mapper + DedupeBy
+           ══════════════════════════════════════════════════════ -->
+      <div id="step-2" class="imp-card hidden">
+        <div class="imp-card-title">Map columns</div>
+        <div class="imp-card-sub">Match each CSV column to a database field. Unmapped columns are ignored.</div>
+
+        <!-- Mapper table -->
+        <table class="imp-map-tbl">
+          <thead>
+            <tr>
+              <th style="width:180px">CSV column</th>
+              <th style="width:220px">Maps to</th>
+              <th style="width:80px">Type</th>
+              <th style="width:80px">Match</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="mapper-body"></tbody>
+        </table>
+
+        <!-- DedupeBy section -->
+        <div class="dedup-section">
+          <div class="dedup-title">Duplicate detection</div>
+          <div class="dedup-sub">Which fields identify a duplicate? If all checked fields match an existing row, it's a duplicate.</div>
+          <div id="dedup-checkboxes" class="dedup-checks"></div>
+          <div id="dedup-notice" class="dedup-notice hidden"></div>
+        </div>
+
+        <div class="imp-btn-row">
+          <button class="btn" onclick="goToStep(1)">← Back</button>
+          <button class="btn btn-primary" id="btn-preview" onclick="onPreview()">Preview →</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           STEP 3 — Preview + Dedup
+           ══════════════════════════════════════════════════════ -->
+      <div id="step-3" class="imp-card hidden">
+        <div class="imp-card-title">Preview</div>
+
+        <!-- Summary bar -->
+        <div id="summary-bar" class="imp-summary"></div>
+
+        <!-- Dupe batch panel -->
+        <div id="dupe-panel" class="imp-dupe-panel hidden">
+          <span id="dupe-panel-title" class="imp-dupe-label"></span>
+          <span class="imp-dupe-sep">Apply to all:</span>
+          <button class="btn btn-sm" id="btn-skip-all"   onclick="setBatchAction('skip')">Skip all</button>
+          <button class="btn btn-sm" id="btn-update-all" onclick="setBatchAction('update')">Update all</button>
+        </div>
+
+        <!-- Data table -->
+        <div class="imp-preview-wrap">
+          <table class="tbl imp-preview-tbl">
+            <thead id="preview-thead"></thead>
+            <tbody id="preview-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="imp-btn-row">
+          <button class="btn" onclick="goToStep(2)">← Back</button>
+          <button class="btn btn-primary" id="btn-import" onclick="onImport()">
+            Import <span id="btn-import-count">0</span> rows →
+          </button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           STEP 4 — Progress + Result
+           ══════════════════════════════════════════════════════ -->
+      <div id="step-4" class="imp-card hidden">
+        <div class="imp-card-title" id="step4-title">Importing…</div>
+
+        <div id="progress-area">
+          <div class="imp-progress-track">
+            <div class="imp-progress-fill" id="progress-bar" style="width:0%"></div>
+          </div>
+          <div class="imp-counters">
+            <span class="imp-cnt-ok"  id="pc-imported">✓ 0</span>
+            <span class="imp-cnt-sk"  id="pc-skipped">⊘ 0</span>
+            <span class="imp-cnt-err" id="pc-failed">✗ 0</span>
+          </div>
+        </div>
+
+        <div id="result-card" class="imp-result hidden">
+          <div class="imp-result-title">Import complete</div>
+          <div class="imp-result-stats" id="result-stats"></div>
+          <div class="imp-result-batch" id="result-batch"></div>
+        </div>
+
+        <div id="failed-area" class="hidden" style="margin-top:20px">
+          <div class="imp-failed-title" id="failed-title"></div>
+          <div id="failed-list" class="imp-failed-list"></div>
+          <div class="imp-btn-row" style="margin-top:10px">
+            <button class="btn" onclick="downloadFailed()">↓ Download failed rows as CSV</button>
+          </div>
+        </div>
+
+        <div class="imp-btn-row" id="step4-actions" style="display:none">
+          <button class="btn btn-primary" onclick="resetImporter()">Start new import</button>
+        </div>
+      </div>
+
+    </div><!-- /imp-body -->
+
+    <!-- ══════════════════════════════════════════════════════
+         Recent imports panel
+         ══════════════════════════════════════════════════════ -->
+    <div class="imp-recent">
+      <div class="imp-recent-label">Recent imports</div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Table</th>
+            <th>Total</th>
+            <th>Imported</th>
+            <th>Skipped</th>
+            <th>Failed</th>
+            <th>When</th>
+          </tr>
+        </thead>
+        <tbody id="recent-tbody">
+          <tr><td colspan="6" style="color:var(--mu2)">Loading…</td></tr>
+        </tbody>
+      </table>
+
+      <!-- Column mapping detail (expands on row click) -->
+      <div id="mapping-detail-wrap" class="hidden imp-map-detail-wrap">
+        <div class="imp-map-detail-label">Column mapping used for this import</div>
+        <div id="mapping-detail-content" class="imp-map-detail"></div>
+      </div>
+    </div>
+
+  </div><!-- /imp-page -->
+
+</div><!-- /app -->
+
+<script src="import.js"></script>
+</body>
+</html>

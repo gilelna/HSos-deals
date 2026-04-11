@@ -1,409 +1,347 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Operations</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="env-config.js"></script>
-<script src="supabase-client.js"></script>
-<link rel="stylesheet" href="workload.css">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Operations V2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
 </head>
 <body>
+<div class="app">
 
-<!-- Topbar -->
-<div class="topbar">
-  <div style="display:flex;align-items:center">
-    <span class="brand-mark">HSos</span>
-    <div class="logo-wrap" onclick="toggleMod()">
-      <span class="logo">Operations</span>
-      <span style="font-size:10px;color:var(--mu2)">▾</span>
-      <div class="mod-dd" id="mod-dd">
-        <div class="mod-item cur"><div class="mod-dot" style="background:var(--tl)"></div>Operations</div>
-        <div class="mod-item" onclick="goModule('deals')"><div class="mod-dot" style="background:var(--pu)"></div>Sales</div>
-        <div class="mod-item" onclick="goModule('payments')"><div class="mod-dot" style="background:var(--gn)"></div>Payments</div>
-        <div class="mod-item" onclick="goModule('portal')"><div class="mod-dot" style="background:var(--am)"></div>Clients Portal</div>
+  <!-- Topbar -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <div class="mod-wrap">
+        <div class="mod-trigger" onclick="toggleModDD()">
+          OPERATIONS <span style="font-size:9px">▾</span>
+        </div>
+        <div class="mod-dd" id="mod-dd">
+          <div class="mod-item cur">
+            <div class="mod-dot" style="background:var(--green)"></div>Operations
+          </div>
+          <div class="mod-item" onclick="window.location.href=Router.pathForPage('sales')">
+            <div class="mod-dot" style="background:var(--gold)"></div>Sales
+          </div>
+          <div class="mod-item" onclick="window.location.href=Router.pathForPage('payments')">
+            <div class="mod-dot" style="background:var(--blue)"></div>Payments
+          </div>
+        </div>
       </div>
+      <nav class="tb-nav" style="margin-left:8px">
+        <a class="cur" id="nav-log" onclick="switchTab('log')">Log session</a>
+        <a id="nav-work" onclick="switchTab('work')">My work</a>
+        <a id="nav-clients" onclick="switchTab('clients')">My clients</a>
+        <a id="nav-profile" onclick="switchTab('profile')">⚙ Profile</a>
+        <a href="import.html">Import</a>
+      </nav>
     </div>
-    <div class="nav">
-      <button class="nav-btn cur" data-page="workload" onclick="switchPage('workload',this)">Operations</button>
-      <button class="nav-btn" data-page="clients" onclick="switchPage('clients',this)">Clients</button>
-      <button class="nav-btn" data-page="payments" onclick="switchPage('payments',this)">Payments</button>
+    <div class="tb-right">
+      <div class="role-selector" id="role-selector"></div>
+      <span class="tb-user-name" id="topbar-name">Ariella Bloom</span>
+      <div class="tb-mode">DEMO</div>
+      <div class="tb-av" id="topbar-av">AB</div>
     </div>
   </div>
-  <div class="topbar-r">
-    <div id="env-toggle-container"></div>
-    <div class="vendor-sel-wrap" id="vendor-sel-wrap" style="display:none">
-      <button class="vendor-sel-btn" id="vendor-sel-btn" onclick="toggleVendorSelDd()">
-        <span id="vendor-sel-label">—</span>
-        <span style="font-size:9px;color:var(--mu2);margin-left:3px">▾</span>
-      </button>
-      <div class="vendor-sel-dd" id="vendor-sel-dd"></div>
-    </div>
-    <span style="font-size:12px;color:var(--mu)" id="topbar-vendor-name">Hadar Shemesh</span>
-    <button class="icon-btn" onclick="openVendorProfile()" title="My Profile">⚙</button>
-    <div class="av-sm" onclick="openVendorProfile()" id="topbar-av">HS</div>
-  </div>
-</div>
 
-<!-- Main -->
-<div class="main">
+  <!-- App body -->
+  <div class="app-body" id="app-body">
 
-  <!-- ═══════════════════ OPERATIONS VIEW ═══════════════════ -->
-  <div id="page-workload" style="display:flex;flex:1;overflow:hidden">
-
-    <!-- Left: entity picker → session form -->
-    <div class="panel-l">
-      <div class="ph">
-        <span class="ph-title">Log Session</span>
-        <span style="font-size:11px;color:var(--mu2);font-family:'DM Mono',monospace" id="wl-date-label"></span>
-      </div>
-      <div class="scroll-pane" style="display:flex;flex-direction:column">
-
-        <!-- 1 — Entity picker -->
-        <div class="entity-picker">
-          <div class="ep-header">
-            <span class="ep-title">Select</span>
-            <span class="ep-selected" id="ep-selected-label">—</span>
-          </div>
-          <div class="ep-tabs">
-            <button class="ep-tab cur" id="ep-tab-students" onclick="switchEntityTab('students',this)">Clients</button>
-            <button class="ep-tab" id="ep-tab-services" onclick="switchEntityTab('services',this)">Services</button>
-          </div>
-          <div id="ep-grid" class="ep-grid"></div>
+    <!-- ═══════════════════════════════════════════════════════════
+         TAB 1: LOG SESSION
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-log" class="main" style="flex-direction:row">
+      
+      <!-- Left: Client picker + Form -->
+      <div style="width:340px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+        
+        <!-- Client picker -->
+        <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border2);flex-shrink:0">
+          <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:8px">Select client <span style="color:var(--mu);font-size:9px;text-transform:none;letter-spacing:0">(optional for internal tasks)</span></div>
+          <div id="client-grid" class="client-grid" style="padding:0"></div>
         </div>
 
-        <!-- 2 — Session form (enabled only when entity selected) -->
-        <div class="session-entry">
-          <div class="se-header">
-            <span class="se-title">Session Details</span>
-            <span id="se-chip" style="display:none"></span>
+        <!-- Active package tracker -->
+        <div id="package-tracker" style="display:none;padding:12px 16px;background:var(--green-bg);border-bottom:1px solid var(--border2);flex-shrink:0">
+          <div style="font-size:11px;font-weight:500;color:var(--green-text);margin-bottom:6px">📦 Active Package</div>
+          <div style="font-size:12px;color:var(--ink);margin-bottom:4px" id="pkg-name"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <div style="flex:1;height:6px;background:rgba(0,0,0,0.1);border-radius:3px;overflow:hidden">
+              <div id="pkg-bar" style="height:100%;background:var(--green);transition:width .2s"></div>
+            </div>
           </div>
-          <div class="se-body" id="se-body">
-            <div class="se-row">
-              <div class="fg" style="flex:1.4">
-                <label class="fl">Date</label>
-                <input class="fi" type="date" id="lf-date">
+          <div style="font-size:10px;color:var(--mu)" id="pkg-progress"></div>
+        </div>
+
+        <!-- Session form -->
+        <div class="scroll" style="padding:16px">
+          <form id="session-form">
+            <div class="fg" style="margin-bottom:12px">
+              <label class="fl">Date</label>
+              <input type="date" id="f-date" class="fi" required>
+            </div>
+            <div class="form-row" style="margin-bottom:12px">
+              <div class="fg" style="flex:1">
+                <label class="fl">Start time</label>
+                <input type="time" id="f-time" class="fi">
               </div>
               <div class="fg" style="flex:1">
-                <label class="fl">Time</label>
-                <input class="fi" type="time" id="lf-time">
-              </div>
-              <div class="fg" style="flex:.8">
                 <label class="fl">Duration</label>
-                <select class="fsel" id="lf-dur">
+                <select id="f-duration" class="fi fsel">
                   <option value="0.5">30 min</option>
-                  <option value="1" selected>1 hr</option>
-                  <option value="1.5">1.5 hr</option>
-                  <option value="2">2 hr</option>
-                  <option value="2.5">2.5 hr</option>
-                  <option value="3">3 hr</option>
+                  <option value="1" selected>1 hour</option>
+                  <option value="1.5">1.5 hours</option>
+                  <option value="2">2 hours</option>
+                  <option value="2.5">2.5 hours</option>
+                  <option value="3">3 hours</option>
                 </select>
               </div>
             </div>
-            <div class="se-row">
-              <div class="fg" style="flex:1">
-                <label class="fl">Session type</label>
-                <select class="fsel" id="lf-type">
-                  <option value="coaching">Private</option>
-                  <option value="consulting">Group</option>
-                  <option value="admin">Service</option>
-                </select>
-              </div>
-              <div class="fg" style="flex:1.4">
-                <label class="fl">Notes</label>
-                <input class="fi" type="text" id="lf-notes" placeholder="Optional">
-              </div>
+            <div class="fg" style="margin-bottom:12px">
+              <label class="fl">Task type</label>
+              <select id="f-task-type" class="fi fsel" onchange="onTaskTypeChange()">
+                <option value="">— Select task type —</option>
+              </select>
             </div>
-          </div>
-          <div class="se-footer" id="se-footer">
-            <button class="btn-primary" onclick="submitSession()">Log Session</button>
-            <button class="btn-ghost" onclick="clearEntity()">Clear</button>
+            <div class="fg" style="margin-bottom:12px">
+              <label class="fl">Rate</label>
+              <input type="text" id="f-rate" class="fi" readonly placeholder="Auto-filled" style="background:var(--bg);color:var(--mu)">
+            </div>
+            <div style="padding:8px 12px;background:var(--bg);border-radius:var(--r);margin-bottom:12px">
+              <div style="font-size:10px;color:var(--mu2);margin-bottom:2px">Subtotal</div>
+              <div style="font-size:16px;font-family:var(--font-mono);color:var(--ink)" id="f-subtotal">$0.00</div>
+            </div>
+            <div class="fg" style="margin-bottom:16px">
+              <label class="fl">Notes</label>
+              <textarea id="f-notes" class="fi" rows="3" placeholder="Optional notes..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">Log session</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right: Stats + Recent sessions -->
+      <div class="main">
+        <!-- Month stats -->
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border2);flex-shrink:0">
+          <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:10px" id="month-label">April 2026</div>
+          <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+            <div class="stat-card">
+              <div class="stat-val" id="stat-hours">25</div>
+              <div class="stat-label">Hours logged</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-sessions">11</div>
+              <div class="stat-label">Sessions</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-clients">4</div>
+              <div class="stat-label">Clients</div>
+            </div>
           </div>
         </div>
 
-      </div>
-    </div>
-
-    <!-- Right: monthly summary + session history -->
-    <div class="panel-r">
-      <div class="ph">
-        <span class="ph-title" id="wl-month-label">March 2026</span>
-        <span style="font-size:11px;color:var(--mu2)">This month</span>
-      </div>
-      <div class="scroll-pane" style="display:flex;flex-direction:column">
-
-        <div class="summary-row">
-          <div class="sum-pill"><div class="sum-val">18</div><div class="sum-lbl">Hours logged</div></div>
-          <div class="sum-pill"><div class="sum-val">6</div><div class="sum-lbl">Sessions</div></div>
-          <div class="sum-pill"><div class="sum-val">5</div><div class="sum-lbl">Clients</div></div>
-        </div>
-
-        <div class="block">
-          <div class="block-hd">
-            <span class="block-title">Recent Sessions</span>
-            <div class="view-toggle">
-              <button class="vt-btn cur" id="vt-table" onclick="setSessionsView('table',this)">Table</button>
-              <button class="vt-btn" id="vt-calendar" onclick="setSessionsView('calendar',this)">Calendar</button>
-            </div>
-          </div>
-          <div id="sessions-view-wrap">
-            <table class="tbl" id="sessions-table-view">
-              <thead><tr><th>Date</th><th>Entity</th><th>Type</th><th>Duration</th></tr></thead>
-              <tbody id="sessions-tbody"></tbody>
+        <!-- Recent sessions table -->
+        <div class="scroll" style="padding:16px 20px">
+          <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:10px">Recent sessions</div>
+          <div class="block">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Client</th>
+                  <th>Task type</th>
+                  <th>Hours</th>
+                  <th>Amount</th>
+                  <th>Notes</th>
+                  <th>Status</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="recent-sessions"></tbody>
             </table>
-            <div id="sessions-calendar-view" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         TAB 2: MY WORK
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-work" class="main hidden">
+      
+      <!-- Month summary (sticky) -->
+      <div style="padding:20px;border-bottom:1px solid var(--border);flex-shrink:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;color:var(--ink)" id="work-month">April 2026</div>
+          <div style="font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--ink)" id="work-total">$1,270.00</div>
+        </div>
+        
+        <!-- Task breakdown table -->
+        <div class="block">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Task type</th>
+                <th style="text-align:right">Rate</th>
+                <th style="text-align:right">Hours</th>
+                <th style="text-align:right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody id="task-breakdown"></tbody>
+            <tfoot>
+              <tr style="border-top:2px solid var(--border)">
+                <td style="font-weight:600">TOTAL</td>
+                <td></td>
+                <td style="text-align:right;font-family:var(--font-mono);font-weight:600" id="total-hours"></td>
+                <td style="text-align:right;font-family:var(--font-mono);font-weight:600;font-size:15px" id="total-amount"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sub-tabs -->
+      <div style="display:flex;gap:1px;padding:0 20px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg)">
+        <button class="det-tab cur" id="work-tab-unpaid" onclick="switchWorkTab('unpaid')">Unpaid</button>
+        <button class="det-tab" id="work-tab-history" onclick="switchWorkTab('history')">History</button>
+      </div>
+
+      <!-- Unpaid section -->
+      <div class="scroll" id="work-unpaid" style="padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--ink)">⚪ Unpaid Sessions</div>
+          <div style="font-family:var(--font-mono);font-size:14px;color:var(--mu)" id="unpaid-total"></div>
+        </div>
+        
+        <div class="block">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th style="width:30px"></th>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Task type</th>
+                <th>Hours</th>
+                <th style="text-align:right">Amount</th>
+                <th>Notes</th>
+                <th style="width:32px"></th>
+              </tr>
+            </thead>
+            <tbody id="unpaid-sessions"></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="selectAllUnpaid()">Select all</button>
+          <button class="btn btn-sm" onclick="unselectAllUnpaid()">Unselect all</button>
+          <button class="btn btn-primary" onclick="createDraftBill()" id="create-draft-btn" style="margin-left:auto">Create draft bill from selected</button>
+        </div>
+
+        <!-- Draft bill card -->
+        <div id="draft-bill-card" style="display:none;margin-top:20px;padding:16px;background:var(--amber-bg);border:1px solid var(--amber-text);border-radius:var(--r-lg)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:13px;font-weight:600;color:var(--amber-text)">📄 Draft Bill — Awaiting Review</div>
+            <div style="font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--amber-text)" id="draft-amount"></div>
+          </div>
+          <div style="font-size:11px;color:var(--mu);margin-bottom:10px" id="draft-info"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="viewDraftBill()">View details</button>
+            <button class="btn btn-sm" onclick="editDraftBill()">Edit</button>
+            <button class="btn btn-sm btn-ghost" onclick="withdrawDraftBill()">Withdraw</button>
           </div>
         </div>
 
-      </div>
-    </div>
-
-  </div><!-- /page-workload -->
-
-  <!-- ═══════════════════ CLIENTS VIEW ═══════════════════ -->
-  <div id="page-clients" class="hidden" style="display:flex;flex:1;overflow:hidden">
-
-    <div class="clients-pane-l">
-      <div class="ph">
-        <span class="ph-title">Clients <span style="color:var(--mu2);font-weight:400;margin-left:4px" id="ops-clients-count"></span></span>
-        <button class="btn-sm" onclick="openOpsClientModal()">+ New Client</button>
-      </div>
-      <div class="ops-clients-tools">
-        <div class="search-bar" style="margin:0">
-          <span style="color:var(--mu2);font-size:13px">⌕</span>
-          <input type="text" id="ops-clients-search" placeholder="Search clients..." oninput="setOpsClientsSearch(this.value)">
-        </div>
-        <div class="ops-filter-row">
-          <select class="fsel" id="ops-filter-vendor" onchange="setOpsVendorFilter(this.value)">
-            <option value="">All vendors</option>
-          </select>
-          <select class="fsel" id="ops-filter-active" onchange="setOpsActiveFilter(this.value)">
-            <option value="all">All status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          <select class="fsel" id="ops-filter-payment" onchange="setOpsPaymentFilter(this.value)">
-            <option value="all">All payment</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="overdue">Overdue</option>
-          </select>
+        <!-- Rejected bill card -->
+        <div id="rejected-bill-card" style="display:none;margin-top:20px;padding:16px;background:var(--red-bg);border:1px solid var(--red-text);border-radius:var(--r-lg)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:13px;font-weight:600;color:var(--red-text)">❌ Bill Rejected</div>
+            <div style="font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--red-text)" id="rejected-amount"></div>
+          </div>
+          <div style="font-size:11px;color:var(--mu);margin-bottom:8px" id="rejected-info"></div>
+          <div style="padding:10px;background:var(--surface);border-radius:var(--r);margin-bottom:10px">
+            <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:4px">Manager notes</div>
+            <div style="font-size:12px;color:var(--ink)" id="rejected-notes"></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="createNewDraftAfterRejection()">Create new draft</button>
         </div>
       </div>
-      <div class="scroll-pane" style="padding:0">
-        <div class="ops-client-list" id="ops-clients-list"></div>
+
+      <!-- History section -->
+      <div class="scroll hidden" id="work-history" style="padding:20px">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px">✅ Payment History</div>
+        <div id="history-bills"></div>
       </div>
     </div>
 
-    <div class="clients-pane-r">
-      <div id="ops-client-empty" style="flex:1;display:flex">
-        <div class="empty-state">
-          <div class="empty-icon">👤</div>
-          <div style="font-size:12px">Select a client to view profile and assignments</div>
+    <!-- ═══════════════════════════════════════════════════════════
+         TAB 3: MY CLIENTS
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-clients" class="main hidden" style="flex-direction:row">
+      <!-- Left: client list -->
+      <div style="width:260px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border2);flex-shrink:0">
+          <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2)">My clients</div>
+        </div>
+        <div class="scroll" id="client-list">
+          <div style="padding:24px;text-align:center;color:var(--mu2)">Loading...</div>
         </div>
       </div>
-      <div id="ops-client-detail" class="hidden" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-        <div class="scroll-pane" id="ops-client-detail-body" style="display:flex;flex-direction:column"></div>
-      </div>
-    </div>
-
-  </div><!-- /page-clients -->
-
-  <!-- ═══════════════════ PAYMENTS VIEW ═══════════════════ -->
-  <div id="page-payments" class="hidden" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px">
-
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:14px;font-weight:600">My Payments</span>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div id="pay-gen-btn-wrap" style="display:none">
-          <button class="btn-primary" onclick="handleGeneratePaycheck()">Generate Report</button>
+      
+      <!-- Right: client detail -->
+      <div class="main" id="client-detail">
+        <div class="empty">
+          <div class="empty-icon">◻</div>
+          <div>Select a client</div>
         </div>
-        <span style="font-size:11px;color:var(--mu2)">Read-only — managed by your admin</span>
       </div>
     </div>
 
-    <!-- summary pills -->
-    <div style="display:flex;gap:8px" id="pay-summary"></div>
-
-    <!-- paycheck table -->
-    <div class="block">
-      <div class="block-hd">
-        <span class="block-title">Paycheck History</span>
+    <!-- ═══════════════════════════════════════════════════════════
+         TAB 4: MY PROFILE
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-profile" class="main hidden scroll" style="padding:20px;max-width:720px">
+      <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">My Profile</div>
+      
+      <!-- Rate sheet -->
+      <div class="block" style="margin-bottom:20px">
+        <div class="block-head">
+          <div class="block-title">MY RATES</div>
+        </div>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Task type</th>
+              <th style="text-align:right">Rate (USD/hour)</th>
+            </tr>
+          </thead>
+          <tbody id="rate-sheet"></tbody>
+        </table>
       </div>
-      <table class="tbl" id="pay-table">
-        <thead><tr>
-          <th>Month</th><th>Hours</th><th>Amount</th><th>Currency</th><th>Status</th><th>Paid on</th><th></th>
-        </tr></thead>
-        <tbody id="pay-tbody"></tbody>
-      </table>
+
+      <!-- Personal info -->
+      <div class="block">
+        <div class="block-head">
+          <div class="block-title">PERSONAL INFO</div>
+        </div>
+        <div style="padding:16px" id="profile-info">
+          <div class="sp-row">
+            <div class="sp-row-label">Full name</div>
+            <div class="sp-row-val">—</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-  </div><!-- /page-payments -->
-
-</div><!-- /main -->
-
-<!-- Client profile panel (overlay) -->
-<div class="panel-ov" id="cp-ov" onclick="closeCp()"></div>
-<div class="side-panel" id="cp-panel">
-  <div class="sp-top">
-    <span class="sp-top-title">Client Profile</span>
-    <button class="close-btn" onclick="closeCp()">✕</button>
-  </div>
-  <div class="sp-body" id="cp-body"></div>
-</div>
-
-<!-- Vendor profile panel (separate overlay / panel) -->
-<div class="panel-ov" id="vp-ov" onclick="closeVendorProfile()" style="z-index:170"></div>
-<div class="side-panel" id="vp-panel" style="z-index:180;width:400px">
-  <div class="sp-top">
-    <span class="sp-top-title">My Profile</span>
-    <button class="close-btn" onclick="closeVendorProfile()">✕</button>
-  </div>
-  <div class="sp-body" id="vp-body"></div>
-</div>
-
-<!-- New Client Modal -->
-<div class="ov" id="ops-client-modal">
-  <div class="modal" style="width:460px">
-    <div class="mh">
-      <span class="mt">Create Client</span>
-      <button class="mx" onclick="closeOpsClientModal()">✕</button>
-    </div>
-    <div class="form" style="display:grid;grid-template-columns:1fr;gap:10px">
-      <div class="fg">
-        <label class="fl">Full name *</label>
-        <input class="fi" id="ops-new-full-name" type="text" placeholder="Full name">
-      </div>
-      <div class="fg">
-        <label class="fl">Email</label>
-        <input class="fi" id="ops-new-email" type="email" placeholder="Email">
-      </div>
-      <div class="fg">
-        <label class="fl">Phone</label>
-        <input class="fi" id="ops-new-phone" type="text" placeholder="Phone">
-      </div>
-      <div class="fg">
-        <label class="fl">Client kind</label>
-        <select class="fsel" id="ops-new-kind" onchange="toggleOpsNewCompany(this.value)">
-          <option value="private">Private</option>
-          <option value="corporate">Corporate</option>
-        </select>
-      </div>
-      <div class="fg" id="ops-new-company-wrap" style="display:none">
-        <label class="fl">Company</label>
-        <input class="fi" id="ops-new-company" type="text" placeholder="Company (if corporate)">
-      </div>
-      <div class="fg">
-        <label class="fl">Source</label>
-        <select class="fsel" id="ops-new-source">
-          <option value="">Select source</option>
-          <option value="Referral">Referral</option>
-          <option value="Website">Website</option>
-          <option value="ActiveCampaign">ActiveCampaign</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="fg">
-        <label class="fl">Notes</label>
-        <textarea class="fi" id="ops-new-notes" style="min-height:72px;resize:vertical" placeholder="Notes"></textarea>
-      </div>
-    </div>
-    <div class="mfooter">
-      <button class="btn-ghost" onclick="closeOpsClientModal()">Cancel</button>
-      <button class="btn-primary" onclick="submitOpsClient()">Create Client</button>
-    </div>
   </div>
 </div>
 
-<!-- Session detail modal -->
-<div class="modal-overlay" id="session-modal-ov" onclick="closeSessionModal()"></div>
-<div class="modal-panel" id="session-modal">
-  <div class="modal-header">
-    <span>Session Details</span>
-    <button onclick="closeSessionModal()">✕</button>
-  </div>
-  <div class="modal-body">
-    <div class="field-group">
-      <label>Client / Entity</label>
-      <div id="edit-entity-label" class="field-static"></div>
-    </div>
-    <div class="field-row">
-      <div class="field-group">
-        <label>Date</label>
-        <input type="date" id="edit-date" class="fi">
-      </div>
-      <div class="field-group">
-        <label>Time</label>
-        <input type="time" id="edit-time" class="fi">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field-group">
-        <label>Duration</label>
-        <select id="edit-duration" class="fsel">
-          <option value="0.5">30 min</option>
-          <option value="1">1 hr</option>
-          <option value="1.5">1.5 hr</option>
-          <option value="2">2 hr</option>
-          <option value="2.5">2.5 hr</option>
-          <option value="3">3 hr</option>
-        </select>
-      </div>
-      <div class="field-group">
-        <label>Type</label>
-        <select id="edit-type" class="fsel"></select>
-      </div>
-    </div>
-    <div class="field-group">
-      <label>Status</label>
-      <select id="edit-status" class="fsel">
-        <option value="planned">Planned</option>
-        <option value="done">Done</option>
-        <option value="cancelled">Cancelled</option>
-        <option value="no_show">No-show</option>
-      </select>
-    </div>
-    <div class="field-group">
-      <label>Notes</label>
-      <textarea id="edit-notes" class="fi" style="min-height:72px;resize:vertical"></textarea>
-    </div>
-  </div>
-  <div class="modal-footer" id="session-modal-footer">
-    <button class="btn-ghost" onclick="closeSessionModal()">Cancel</button>
-    <button class="btn-primary" onclick="saveSessionEdit()">Save</button>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast" id="toast"><span class="td"></span><span id="toast-msg"></span></div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="router.js"></script>
 <script src="workload.js"></script>
-<script>
-  // Load environment toggle
-  fetch('env-toggle.html')
-    .then(r => r.text())
-    .then(html => {
-      const container = document.getElementById('env-toggle-container');
-      container.innerHTML = html;
-
-      // Scripts inside innerHTML do not execute automatically.
-      container.querySelectorAll('script').forEach(oldScript => {
-        const script = document.createElement('script');
-        if (oldScript.src) {
-          script.src = oldScript.src;
-        } else {
-          script.textContent = oldScript.textContent;
-        }
-        document.body.appendChild(script);
-        oldScript.remove();
-      });
-    })
-    .catch(err => {
-      console.error('[HSos] Failed to load env-toggle.html', err);
-    });
-</script>
 </body>
 </html>

@@ -1,339 +1,414 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sales</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="env-config.js"></script>
-<script src="supabase-client.js"></script>
-<link rel="stylesheet" href="deals.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Sales</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+  <script src="router.js"></script>
+  <style>
+    .ql-toolbar.ql-snow  { border-color: var(--border); border-radius: var(--r) var(--r) 0 0; padding: 6px 8px; font-family: var(--font-sans); }
+    .ql-container.ql-snow { border-color: var(--border); border-radius: 0 0 var(--r) var(--r); font-family: var(--font-sans); font-size: 13px; min-height: 90px; }
+    .ql-editor { min-height: 90px; }
+    .ql-editor p { margin-bottom: 4px; }
+    .ql-container.ql-snow:focus-within { border-color: var(--ink); }
+  </style>
 </head>
 <body>
+<div class="app">
 
-<!-- Topbar -->
-<div class="topbar">
-  <div style="display:flex;align-items:center">
-    <span class="brand-mark">HSos</span>
-    <div class="logo-wrap" onclick="toggleMod()">
-      <span class="logo">Sales</span>
-      <span style="font-size:10px;color:var(--mu2)">▾</span>
-      <div class="mod-dd" id="mod-dd">
-        <div class="mod-item" onclick="goModule('workload')"><div class="mod-dot" style="background:var(--tl)"></div>Operations</div>
-        <div class="mod-item cur"><div class="mod-dot" style="background:var(--pu)"></div>Sales</div>
-        <div class="mod-item" onclick="goModule('payments')"><div class="mod-dot" style="background:var(--gn)"></div>Payments</div>
-        <div class="mod-item" onclick="goModule('portal')"><div class="mod-dot" style="background:var(--am)"></div>Clients Portal</div>
-      </div>
-    </div>
-    <div class="nav" id="main-nav">
-      <button class="nav-btn cur" data-page="deals" onclick="switchPage('deals',this)">Deals</button>
-      <button class="nav-btn" data-page="clients" onclick="switchPage('clients',this)">Clients</button>
-      <button class="nav-btn" data-page="products" onclick="switchPage('products',this)">Products</button>
-      <button class="nav-btn" data-page="vendors" onclick="switchPage('vendors',this)">Vendors</button>
-      <button class="nav-btn" data-page="settings" onclick="switchPage('settings',this)">Settings</button>
-    </div>
-  </div>
-  <div class="topbar-r">
-    <div id="env-toggle-container"></div>
-    <span style="font-size:12px;color:var(--mu)">Admin</span>
-    <div class="av-sm">HS</div>
-  </div>
-</div>
-
-<!-- Overdue banner -->
-<div id="od-bar"></div>
-
-<!-- Toolbar (deals only) -->
-<div class="toolbar" id="deals-toolbar">
-  <div class="srch"><span style="color:var(--mu2);font-size:13px">⌕</span><input type="text" placeholder="Search deals, clients, products…" oninput="doSearch(this.value)"></div>
-  <button class="fb" id="fb-od" onclick="toggleF('overdue',this)">⚠ Overdue</button>
-  <button class="fb" id="fb-ac" onclick="toggleF('active',this)">Active</button>
-  <button class="fb" id="fb-up" onclick="toggleF('unpaid',this)">Unpaid</button>
-  <div class="vtog">
-    <button class="vb cur" id="vb-k" onclick="setView('kanban')" title="Kanban">⊞</button>
-    <button class="vb" id="vb-l" onclick="setView('list')" title="List">☰</button>
-  </div>
-  <button class="btn-new" onclick="openNewDeal()">+ New Deal</button>
-</div>
-
-<!-- Views -->
-<div id="kanban-view" class="kanban"></div>
-<div id="list-view" class="list-wrap hidden"><table class="dt"><thead><tr>
-  <th>Client</th><th>Product</th><th>Owner</th><th>Base Price</th><th>VAT</th><th>Final</th><th>Processor</th><th>Sales Status</th><th>Billing</th>
-</tr></thead><tbody id="list-tbody"></tbody></table></div>
-<div id="clients-view" class="clients-view hidden">
-  <div class="clients-pane-l">
-    <div class="clients-pane-hd">
-      <span class="clients-pane-title">Clients <span class="clients-pane-count" id="sales-clients-count"></span></span>
-      <button class="btn-sm" onclick="openSalesClientModal()">+ New Client</button>
-    </div>
-    <div class="clients-pane-tools">
-      <div class="srch" style="width:100%">
-        <span style="color:var(--mu2);font-size:13px">⌕</span>
-        <input type="text" id="sales-clients-search" placeholder="Search clients..." oninput="setSalesClientsSearch(this.value)">
-      </div>
-      <div class="clients-filter-row">
-        <select class="fsel" id="sales-filter-stage" onchange="setSalesStageFilter(this.value)">
-          <option value="all">All deal status</option>
-          <option value="active">Active deals</option>
-          <option value="delivered">Delivered</option>
-          <option value="lead">Leads</option>
-          <option value="none">No deals</option>
-        </select>
-        <select class="fsel" id="sales-filter-billing" onchange="setSalesBillingFilter(this.value)">
-          <option value="all">All payment</option>
-          <option value="paid">Paid</option>
-          <option value="pending">Pending</option>
-          <option value="overdue">Overdue</option>
-        </select>
-      </div>
-    </div>
-    <div class="clients-list" id="sales-clients-list"></div>
-  </div>
-  <div class="clients-pane-r">
-    <div id="sales-client-empty" class="clients-empty">
-      <div class="empty-icon">👤</div>
-      <div>Select a client to view deal history</div>
-    </div>
-    <div id="sales-client-detail" class="hidden clients-detail-wrap">
-      <div class="clients-detail-body" id="sales-client-detail-body"></div>
-    </div>
-  </div>
-</div>
-<div id="products-view" class="products-wrap hidden">
-  <div class="prod-hd"><span class="prod-title">Products</span><button class="btn-new" onclick="showToast('Add product — coming soon','info')">+ New Product</button></div>
-  <table class="prod-table"><thead><tr><th>Product</th><th>Type</th><th>Base Price</th><th>Currency</th><th>Units</th><th>Notes</th></tr></thead>
-  <tbody id="prod-tbody"></tbody></table>
-</div>
-<div id="vendors-view" class="vendors-wrap hidden">
-  <div class="vendors-hd">
-    <span class="vendors-title">Vendors</span>
-    <button class="btn-new" onclick="openVendorPanel(null)">+ New Vendor</button>
-  </div>
-  <table class="vnd-table">
-    <thead><tr>
-      <th>Vendor</th><th>Role</th><th>Rates</th><th>Bank</th><th>Active Deals</th><th>Clients</th><th></th>
-    </tr></thead>
-    <tbody id="vendors-tbody"></tbody>
-  </table>
-</div>
-
-<!-- Breakdown panel -->
-<div class="bd-ov" id="bd-ov" onclick="closeBd()"></div>
-<div class="bd" id="bd">
-  <div class="bd-top">
-    <span class="bd-title" id="bd-title">Paycheck Breakdown</span>
-    <button class="mx" onclick="closeBd()">✕</button>
-  </div>
-  <div class="bd-body" id="bd-body"></div>
-  <div class="bd-footer" id="bd-footer"></div>
-</div>
-
-<div id="settings-view" class="settings-wrap hidden">
-  <div class="settings-section">
-    <div class="settings-hd"><span class="settings-title">Team & Owners</span><button class="btn-sm" onclick="showToast('Add team member — coming soon','info')">+ Add Member</button></div>
-    <div id="mgr-list"></div>
-  </div>
-  <div class="settings-section">
-    <div class="settings-hd"><span class="settings-title">Notification Routing</span></div>
-    <div style="padding:14px 18px;font-size:12px;color:var(--mu);display:flex;flex-direction:column;gap:8px">
-      <div style="display:flex;align-items:center;gap:8px"><span class="notif-pulse" style="width:7px;height:7px;border-radius:50%;background:var(--am);animation:pulse 2s ease-in-out infinite"></span>When deal moves to <strong style="color:var(--tx)">Invoiced</strong> → owner notification flow planned</div>
-      <div style="display:flex;align-items:center;gap:8px"><span class="notif-pulse" style="width:7px;height:7px;border-radius:50%;background:var(--am);animation:pulse 2s ease-in-out infinite"></span>When deal moves to <strong style="color:var(--tx)">Active</strong> → notify assigned vendor via email</div>
-      <div style="display:flex;align-items:center;gap:8px"><span class="notif-pulse" style="width:7px;height:7px;border-radius:50%;background:var(--am);animation:pulse 2s ease-in-out infinite"></span>When billing is <strong style="color:var(--rd)">Overdue</strong> → notification routing placeholder</div>
-      <div style="margin-top:6px;padding:10px;background:var(--sf2);border-radius:var(--rs);font-size:11px;color:var(--mu2)">💬 Notification routing is planned. No live integration yet.</div>
-    </div>
-  </div>
-</div>
-
-<!-- New Deal Modal -->
-<div class="ov" id="modal-new">
-<div class="modal">
-  <div class="mh"><span class="mt">New Deal</span><button class="mx" onclick="closeModal('modal-new')">✕</button></div>
-  <div class="form">
-    <!-- Client -->
-    <div class="fg ff"><label class="fl">Client</label><select class="fsel" id="f-client"><option value="">— Select client —</option></select></div>
-    <!-- Vendor -->
-    <div class="fg"><label class="fl">Vendor</label><select class="fsel" id="f-vendor"><option value="">— Select vendor —</option></select></div>
-    <!-- Owner -->
-    <div class="fg"><label class="fl">Owner</label><select class="fsel" id="f-owner"><option value="">— Assign owner —</option></select></div>
-    <!-- Product -->
-    <div class="fg ff"><label class="fl">Product</label>
-      <select class="fsel" id="f-product" onchange="onProductChange(this.value)"><option value="">— Select product —</option></select></div>
-    <hr class="fdiv">
-    <div class="fsec">Pricing</div>
-    <div class="fg"><label class="fl">Base Price</label><input class="fi" type="number" id="f-price" placeholder="0" oninput="calcVAT()"></div>
-    <div class="fg"><label class="fl">Currency</label>
-      <select class="fsel" id="f-currency" onchange="calcVAT()">
-        <option value="EUR">EUR €</option><option value="USD">USD $</option>
-        <option value="GBP">GBP £</option><option value="ILS">ILS ₪</option><option value="CHF">CHF ₣</option>
-      </select></div>
-    <!-- VAT -->
-    <div class="vat-box">
-      <div class="vat-row">
-        <div class="fg" style="flex:1"><label class="fl">VAT %</label><input class="fi" type="number" id="f-vat" placeholder="0" min="0" max="100" oninput="calcVAT()"></div>
-        <div class="fg" style="flex-shrink:0;padding-top:18px">
-          <div class="vat-toggle">
-            <button class="vat-opt on" id="vat-excl" onclick="setVatMode('excl')">+ VAT</button>
-            <button class="vat-opt" id="vat-incl" onclick="setVatMode('incl')">incl. VAT</button>
+  <!-- Topbar -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <div class="mod-wrap">
+        <div class="mod-trigger" onclick="toggleModDD()">
+          SALES <span style="font-size:9px">▾</span>
+        </div>
+        <div class="mod-dd" id="mod-dd">
+          <div class="mod-item" onclick="window.location.href=Router.pathForPage('operations')">
+            <div class="mod-dot" style="background:var(--green)"></div>Operations
+          </div>
+          <div class="mod-item cur">
+            <div class="mod-dot" style="background:var(--gold)"></div>Sales
+          </div>
+          <div class="mod-item" onclick="window.location.href=Router.pathForPage('payments')">
+            <div class="mod-dot" style="background:var(--blue)"></div>Payments
           </div>
         </div>
       </div>
-      <div class="vat-result">
-        <div><div class="vat-final-lbl">Final amount</div><div class="vat-breakdown" id="vat-breakdown">Base: — + VAT: —</div></div>
-        <div class="vat-final-amt" id="vat-final">—</div>
+      <nav class="tb-nav" style="margin-left:8px">
+        <a class="cur" id="nav-deals"    onclick="switchPage('deals',this)">Deals</a>
+        <a id="nav-clients"              onclick="switchPage('clients',this)">Clients</a>
+        <a id="nav-vendors"              onclick="switchPage('vendors',this)">Vendors</a>
+        <a id="nav-products"             onclick="switchPage('products',this)">Products</a>
+        <a href="import.html">Import</a>
+      </nav>
+    </div>
+    <div class="tb-right">
+      <div class="role-selector" id="role-selector"></div>
+      <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
+    </div>
+  </div>
+
+  <!-- Deals toolbar -->
+  <div id="deals-toolbar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap">
+    <input type="text" class="fi" style="width:220px;height:32px" placeholder="Search deals, clients…" oninput="setSearch(this.value)">
+    <select class="fi fsel" style="height:32px;font-size:12px;width:140px" id="filter-vendor" onchange="setFilterVendor(this.value)">
+      <option value="">All vendors</option>
+    </select>
+    <select class="fi fsel" style="height:32px;font-size:12px;width:150px" id="filter-product" onchange="setFilterProduct(this.value)">
+      <option value="">All products</option>
+    </select>
+    <select class="fi fsel" style="height:32px;font-size:12px;width:130px" onchange="setFilterBilling(this.value)">
+      <option value="">All billing</option>
+      <option value="pending">Pending</option>
+      <option value="invoiced">Invoiced</option>
+      <option value="partial">Partial</option>
+      <option value="paid">Paid</option>
+      <option value="overdue">Overdue</option>
+    </select>
+    <button class="btn btn-sm" id="fb-overdue" onclick="toggleFilter('overdue',this)">Overdue</button>
+    <button class="btn btn-sm" id="fb-active"  onclick="toggleFilter('active',this)">Active</button>
+    <div style="flex:1"></div>
+    <div style="display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+      <button class="btn btn-sm" id="vb-kanban" onclick="setView('kanban')" style="border:none;border-radius:0;border-right:1px solid var(--border)">⊞ Kanban</button>
+      <button class="btn btn-sm" id="vb-list"   onclick="setView('list')"   style="border:none;border-radius:0">☰ List</button>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openNewDeal()">+ New Deal</button>
+  </div>
+
+  <!-- App body -->
+  <div class="app-body" id="app-body" style="position:relative">
+
+    <!-- DEALS — kanban -->
+    <div id="page-deals-kanban" class="main scroll" style="padding:16px;flex-direction:row;gap:12px;align-items:flex-start">
+      <div style="color:var(--mu2);font-size:13px;padding:20px">Loading deals…</div>
+    </div>
+
+    <!-- DEALS — list -->
+    <div id="page-deals-list" class="main scroll hidden" style="padding:16px">
+      <div class="block">
+        <table class="tbl" id="deals-list-table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Product</th>
+              <th>Vendor</th>
+              <th>Price</th>
+              <th>Sales</th>
+              <th>Billing</th>
+              <th>Processor</th>
+            </tr>
+          </thead>
+          <tbody id="deals-list-body">
+            <tr><td colspan="7" style="text-align:center;color:var(--mu2);padding:24px">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
-    <hr class="fdiv">
-    <div class="fsec">Payment Processor</div>
-    <div class="proc-grid">
-      <div class="proc-card" id="pc-gi"   onclick="selProc('green-invoice')"><div class="proc-nm">Green Invoice</div><div class="proc-desc">Israeli invoicing</div></div>
-      <div class="proc-card" id="pc-str"  onclick="selProc('stripe')"><div class="proc-nm">Stripe</div><div class="proc-desc">Payment link</div></div>
-      <div class="proc-card" id="pc-wise" onclick="selProc('wise')"><div class="proc-nm">Wise Transfer</div><div class="proc-desc">IBAN / bank</div></div>
-      <div class="proc-card" id="pc-thr"  onclick="selProc('thrive')"><div class="proc-nm">Thrive Card</div><div class="proc-desc">Custom flow</div></div>
+
+    <!-- CLIENTS page -->
+    <div id="page-clients" class="main hidden" style="flex-direction:row">
+      <div style="width:280px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border2);flex-shrink:0">
+          <input type="text" class="fi" style="height:32px" placeholder="Search clients…" oninput="setClientsSearch(this.value)">
+        </div>
+        <div class="scroll" id="clients-list">
+          <div style="padding:24px;text-align:center;color:var(--mu2)">Loading…</div>
+        </div>
+      </div>
+      <div class="main" id="client-detail">
+        <div class="empty"><div class="empty-icon">◻</div><div>Select a client</div></div>
+      </div>
     </div>
-    <div class="proc-fields hidden" id="proc-fields"></div>
-    <hr class="fdiv">
-    <div class="fg"><label class="fl">Sales Status</label>
-      <select class="fsel" id="f-fulfill">
-        <option value="lead">Lead</option><option value="qualified">Qualified</option>
-        <option value="active">Active</option><option value="delivered">Delivered</option><option value="closed">Closed</option>
-      </select></div>
-    <div class="fg"><label class="fl">Billing</label>
-      <select class="fsel" id="f-billing">
-        <option value="pending">Pending</option><option value="invoiced">Invoiced</option>
-        <option value="partial">Partial</option><option value="paid">Paid</option><option value="overdue">Overdue</option>
-      </select></div>
-    <div class="fg ff"><label class="fl">Notes</label><textarea class="fta" id="f-notes" placeholder="Context, source, special terms…"></textarea></div>
-    <div style="grid-column:1/-1;display:flex;align-items:center;gap:7px;padding:9px 10px;background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);font-size:11px;color:var(--mu)">
-      💬 Owner notification flow planned — <em>routing configured in Settings</em>
+
+    <!-- VENDORS page -->
+    <div id="page-vendors" class="main hidden" style="flex-direction:row">
+      <div style="flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden">
+        <!-- Tab bar -->
+        <div style="display:flex;align-items:center;gap:0;padding:0 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">
+          <button class="det-tab cur" id="vtab-active" onclick="switchVendorListTab('active',this)">Active Vendors <span id="vtab-active-count" style="font-size:10px;font-family:var(--font-mono);margin-left:4px;color:var(--mu2)"></span></button>
+          <button class="det-tab" id="vtab-archived" onclick="switchVendorListTab('archived',this)">Archived <span id="vtab-archived-count" style="font-size:10px;font-family:var(--font-mono);margin-left:4px;color:var(--mu2)"></span></button>
+        </div>
+        <!-- Toolbar -->
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border2);flex-shrink:0;flex-wrap:wrap">
+          <input type="text" class="fi" style="height:30px;font-size:12px;width:160px" placeholder="Search…" oninput="setVendorSearch(this.value)">
+          <select class="fi fsel" style="height:30px;font-size:12px;width:150px" onchange="setFilterVendorType(this.value)">
+            <option value="">All types</option>
+            <option value="coach">Coach</option>
+            <option value="contractor">Contractor</option>
+            <option value="team_member">Team member</option>
+            <option value="subscription">Subscription</option>
+            <option value="software_saas">Software &amp; SaaS</option>
+          </select>
+          <select class="fi fsel" style="height:30px;font-size:12px;width:110px" onchange="setFilterVendorCurrency(this.value)">
+            <option value="">All currencies</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="ILS">ILS</option>
+            <option value="GBP">GBP</option>
+          </select>
+          <select class="fi fsel" style="height:30px;font-size:12px;width:140px" id="filter-vendor-manager" onchange="setFilterVendorManager(this.value)">
+            <option value="">All managers</option>
+          </select>
+        </div>
+        <!-- Table -->
+        <div class="scroll" style="flex:1;padding:20px">
+          <div class="block">
+            <table class="tbl" id="vendors-table">
+              <thead>
+                <tr>
+                  <th>Vendor</th>
+                  <th>Type</th>
+                  <th>Currency</th>
+                  <th>Rate</th>
+                  <th>Clients</th>
+                </tr>
+              </thead>
+              <tbody id="vendors-tbody">
+                <tr><td colspan="5" style="text-align:center;color:var(--mu2);padding:24px">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="vendor-detail" style="width:360px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
+        <div class="empty"><div class="empty-icon">◻</div><div>Select a vendor</div></div>
+      </div>
     </div>
-  </div>
-  <div class="mfooter">
-    <button class="btn-cancel" onclick="closeModal('modal-new')">Cancel</button>
-    <button class="btn-create" onclick="submitNewDeal()">Create Deal</button>
-  </div>
-</div></div>
 
-<!-- New Client Modal -->
-<div class="ov" id="sales-client-modal">
-<div class="modal" style="width:460px">
-  <div class="mh"><span class="mt">Create Client</span><button class="mx" onclick="closeSalesClientModal()">✕</button></div>
-  <div class="form" style="display:grid;grid-template-columns:1fr;gap:10px">
-    <div class="fg"><label class="fl">Full name *</label><input class="fi" id="sales-new-full-name" type="text" placeholder="Full name"></div>
-    <div class="fg"><label class="fl">Email</label><input class="fi" id="sales-new-email" type="email" placeholder="Email"></div>
-    <div class="fg"><label class="fl">Phone</label><input class="fi" id="sales-new-phone" type="text" placeholder="Phone"></div>
-    <div class="fg"><label class="fl">Client kind</label>
-      <select class="fsel" id="sales-new-kind" onchange="toggleSalesNewCompany(this.value)">
-        <option value="private">Private</option>
-        <option value="corporate">Corporate</option>
-      </select>
+    <!-- PRODUCTS page -->
+    <div id="page-products" class="main hidden" style="position:relative">
+      <!-- Product list view -->
+      <div id="products-list-view" class="scroll" style="padding:20px">
+        <div id="products-container">
+          <div style="text-align:center;color:var(--mu2);padding:40px">Loading…</div>
+        </div>
+      </div>
+      <!-- Plans detail view -->
+      <div id="plans-detail-view" class="main hidden" style="background:var(--bg)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px;flex-shrink:0">
+          <button class="btn btn-sm btn-ghost" onclick="closePlansView()">← Back</button>
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:600;color:var(--ink)" id="plans-product-name"></div>
+            <div style="font-size:11px;color:var(--mu);font-family:var(--font-mono)" id="plans-product-meta"></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openPlanModal(null)">+ Add Plan</button>
+        </div>
+        <div class="scroll" style="padding:20px">
+          <div id="plans-container"></div>
+        </div>
+      </div>
     </div>
-    <div class="fg" id="sales-new-company-wrap" style="display:none"><label class="fl">Company</label><input class="fi" id="sales-new-company" type="text" placeholder="Company (if corporate)"></div>
-    <div class="fg"><label class="fl">Source</label>
-      <select class="fsel" id="sales-new-source">
-        <option value="">Select source</option>
-        <option value="Referral">Referral</option>
-        <option value="Website">Website</option>
-        <option value="ActiveCampaign">ActiveCampaign</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
-    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="sales-new-notes" style="min-height:72px;resize:vertical" placeholder="Notes"></textarea></div>
-  </div>
-  <div class="mfooter">
-    <button class="btn-cancel" onclick="closeSalesClientModal()">Cancel</button>
-    <button class="btn-create" onclick="submitSalesClient()">Create Client</button>
-  </div>
-</div></div>
 
-<!-- Move Modal -->
-<div class="ov" id="modal-move">
-<div class="modal" style="width:360px">
-  <div class="mh"><span class="mt">Move Deal</span><button class="mx" onclick="closeModal('modal-move')">✕</button></div>
-  <div style="font-size:12px;color:var(--mu);margin-bottom:14px" id="move-info"></div>
-  <div style="font-size:10px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">Sales Status</div>
-  <div class="move-opts" id="move-opts"></div>
-  <div style="display:flex;align-items:center;gap:7px;margin-top:14px;padding:9px 11px;background:var(--sf2);border-radius:var(--rs);font-size:11px;color:var(--mu)">
-    <div class="notif-pulse" style="width:7px;height:7px;border-radius:50%;background:var(--am);animation:pulse 2s ease-in-out infinite;flex-shrink:0"></div>
-    Owner notification flow planned
-  </div>
-</div></div>
-
-<!-- Deal side panel -->
-<div class="dp-ov" id="dp-ov" onclick="closeDp()"></div>
-<div class="dp" id="dp">
-  <div class="dp-top">
-    <span class="dp-title" id="dp-title">Deal</span>
-    <button class="mx" onclick="closeDp()">✕</button>
-  </div>
-  <div class="dp-tabs">
-    <button class="dp-tab cur" onclick="switchDpTab('info',this)">Info</button>
-    <button class="dp-tab" onclick="switchDpTab('billing',this)">Billing</button>
-    <button class="dp-tab" onclick="switchDpTab('workflow',this)">Workflow</button>
-    <button class="dp-tab" onclick="switchDpTab('docs',this)">Documents</button>
-    <button class="dp-tab" onclick="switchDpTab('notes',this)">Notes</button>
-  </div>
-  <div class="dp-body" id="dp-body"></div>
-</div>
-
-<!-- Client Profile Panel -->
-<div class="cp-ov" id="cp-ov" onclick="closeCp()"></div>
-<div class="cp" id="cp">
-  <div class="cp-top">
-    <span style="font-size:12px;font-weight:600">Client Profile</span>
-    <button class="mx" onclick="closeCp()">✕</button>
-  </div>
-  <div class="cp-body" id="cp-body"></div>
-</div>
-
-<!-- Vendor Panel -->
-<div class="vp-ov" id="vp-ov" onclick="closeVendorPanel()"></div>
-<div class="vp" id="vp">
-  <div class="vp-top">
-    <span style="font-size:13px;font-weight:600" id="vp-title">Vendor</span>
-    <button class="mx" onclick="closeVendorPanel()">✕</button>
-  </div>
-  <div class="vp-tabs">
-    <button class="vp-tab cur" onclick="switchVpTab('profile',this)">Profile</button>
-    <button class="vp-tab" onclick="switchVpTab('rates',this)">Rates</button>
-    <button class="vp-tab" onclick="switchVpTab('students',this)">Clients</button>
-    <button class="vp-tab" onclick="switchVpTab('payments',this)">Payments</button>
-  </div>
-  <div class="vp-body" id="vp-body"></div>
-  <div class="vp-save-row">
-    <button class="btn-cancel" onclick="closeVendorPanel()">Close</button>
-    <button class="btn-create" onclick="saveVendor()">Save Changes</button>
   </div>
 </div>
 
-<!-- Toast -->
-<div class="toast" id="toast"><span class="td"></span><span id="toast-msg"></span></div>
+<!-- Deal Edit Modal -->
+<div class="overlay" id="modal-edit-deal">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:560px;max-height:90vh;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:17px;font-weight:600">Edit Deal</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeEditDeal()">✕</button>
+    </div>
+    <div id="edit-deal-body"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px">
+      <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg)"
+        onclick="deleteEditDeal()">Delete deal</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="closeEditDeal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditDeal()">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Deal Modal — Step 1: Client + Product + Plan selection -->
+<div class="overlay" id="modal-new-deal">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:580px;max-height:90vh;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:17px;font-weight:600">New Deal</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeNewDeal()">✕</button>
+    </div>
+
+    <!-- Step tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border);gap:0" id="nd-step-tabs">
+      <div id="nd-tab-1" style="padding:8px 16px;font-size:12px;font-weight:600;color:var(--ink);border-bottom:2px solid var(--ink);cursor:default">1 · Client & Product</div>
+      <div id="nd-tab-2" style="padding:8px 16px;font-size:12px;color:var(--mu2);cursor:default">2 · Plan Selection</div>
+      <div id="nd-tab-3" style="padding:8px 16px;font-size:12px;color:var(--mu2);cursor:default">3 · Deal Details</div>
+    </div>
+
+    <!-- Step 1: Client + Product -->
+    <div id="nd-step-1">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg" style="grid-column:1/-1">
+          <label class="fl">Client</label>
+          <div class="cs-wrap" id="nd-cs-wrap"></div>
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <label class="fl">Product</label>
+          <select class="fi fsel" id="nd-product" onchange="onNdProductChange(this.value)"></select>
+        </div>
+        <!-- Customer country — used for plan auto-suggestion -->
+        <div class="fg">
+          <label class="fl">Customer country <span style="color:var(--mu2);font-weight:400">(for plan routing)</span></label>
+          <select class="fi fsel" id="nd-country">
+            <option value="">— Unknown —</option>
+            <option value="IL">🇮🇱 Israel (IL)</option>
+            <option value="US">🇺🇸 United States (US)</option>
+            <option value="EU">🇪🇺 Europe (EU)</option>
+            <option value="GB">🇬🇧 United Kingdom (GB)</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <!-- Customer email — for customer lookup/creation -->
+        <div class="fg">
+          <label class="fl">Customer email <span style="color:var(--mu2);font-weight:400">(optional)</span></label>
+          <input class="fi" type="email" id="nd-customer-email" placeholder="customer@example.com" oninput="onNdCustomerEmailInput(this.value)">
+          <div id="nd-customer-hint" style="font-size:10px;color:var(--mu2);margin-top:3px;font-family:var(--font-mono)"></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;padding-top:8px">
+        <button class="btn btn-primary" onclick="ndStep1Next()">Next: Choose Plan →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Plan selection -->
+    <div id="nd-step-2" style="display:none">
+      <div id="nd-plans-loading" style="text-align:center;color:var(--mu2);padding:20px;font-size:12px">Loading plans…</div>
+      <div id="nd-plans-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="nd-no-plans" style="display:none;padding:16px;background:var(--bg);border-radius:var(--r);font-size:12px;color:var(--mu2)">
+        No plans defined for this product. You'll set pricing manually in the next step.
+      </div>
+      <div style="display:flex;justify-content:space-between;padding-top:12px">
+        <button class="btn" onclick="ndStepBack(1)">← Back</button>
+        <button class="btn btn-primary" id="nd-step2-next" onclick="ndStep2Next()" disabled>Next: Deal Details →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Deal details (manual pricing, vendor, status) -->
+    <div id="nd-step-3" style="display:none">
+      <!-- Plan summary (shown if plan was selected) -->
+      <div id="nd-plan-summary" style="display:none;background:var(--blue-bg);border:1px solid var(--blue);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px">
+        <div style="font-weight:600;color:var(--blue-text)" id="nd-plan-summary-name"></div>
+        <div style="color:var(--blue-text);margin-top:3px" id="nd-plan-summary-detail"></div>
+      </div>
+      <!-- Payment link (from plan) -->
+      <div id="nd-payment-link-row" style="display:none;margin-bottom:12px">
+        <div class="fg">
+          <label class="fl">Payment link <span style="color:var(--green-text);font-size:10px">✓ from plan</span></label>
+          <div style="display:flex;gap:6px">
+            <input class="fi" id="nd-payment-link" style="flex:1;font-family:var(--font-mono);font-size:11px" readonly>
+            <button class="btn btn-sm" onclick="copyNdPaymentLink()">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg">
+          <label class="fl">Vendor</label>
+          <select class="fi fsel" id="nd-vendor"></select>
+        </div>
+        <div class="fg">
+          <label class="fl">Sales status</label>
+          <select class="fi fsel" id="nd-sales">
+            <option value="lead">Lead</option>
+            <option value="qualified">Qualified</option>
+            <option value="active">Active</option>
+            <option value="delivered">Delivered</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Price</label>
+          <input class="fi" type="number" id="nd-price" placeholder="0" oninput="calcNdVat()">
+        </div>
+        <div class="fg">
+          <label class="fl">Currency</label>
+          <select class="fi fsel" id="nd-currency" onchange="calcNdVat()">
+            <option value="EUR">EUR €</option>
+            <option value="USD">USD $</option>
+            <option value="ILS">ILS ₪</option>
+            <option value="GBP">GBP £</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">VAT %</label>
+          <input class="fi" type="number" id="nd-vat" placeholder="0" oninput="calcNdVat()">
+        </div>
+        <div class="fg">
+          <label class="fl">Billing</label>
+          <select class="fi fsel" id="nd-billing">
+            <option value="pending">Pending</option>
+            <option value="invoiced">Invoiced</option>
+            <option value="partial">Partial</option>
+            <option value="paid">Paid</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <label class="fl">Notes</label>
+          <div id="nd-notes-editor"></div>
+        </div>
+        <div style="grid-column:1/-1;font-family:var(--font-mono);font-size:11px;color:var(--mu2);background:var(--bg);padding:8px 12px;border-radius:var(--r)" id="nd-vat-preview"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding-top:4px">
+        <button class="btn" onclick="ndStepBack(2)">← Back</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="closeNewDeal()">Cancel</button>
+          <button class="btn btn-primary" onclick="submitNewDeal()">Create Deal</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Product Modal -->
+<div class="overlay" id="modal-product">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:480px;max-height:90vh;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:17px;font-weight:600" id="product-modal-title">Product</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeProductModal()">✕</button>
+    </div>
+    <div id="product-modal-body"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px">
+      <button class="btn btn-sm" id="pm-delete-btn" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg);display:none"
+        onclick="deleteProductModal()">Delete</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn" onclick="closeProductModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveProductModal()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Plan Modal -->
+<div class="overlay" id="modal-plan">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:520px;max-height:90vh;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:17px;font-weight:600" id="plan-modal-title">Plan</div>
+      <button class="btn btn-ghost btn-sm" onclick="closePlanModal()">✕</button>
+    </div>
+    <div id="plan-modal-body"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px">
+      <button class="btn btn-sm" id="plan-delete-btn" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg);display:none"
+        onclick="deletePlanModal()">Delete</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn" onclick="closePlanModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePlanModal()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="deals.js"></script>
-<script>
-  // Load environment toggle
-  fetch('env-toggle.html')
-    .then(r => r.text())
-    .then(html => {
-      const container = document.getElementById('env-toggle-container');
-      container.innerHTML = html;
-
-      // Scripts inside innerHTML do not execute automatically.
-      container.querySelectorAll('script').forEach(oldScript => {
-        const script = document.createElement('script');
-        if (oldScript.src) {
-          script.src = oldScript.src;
-        } else {
-          script.textContent = oldScript.textContent;
-        }
-        document.body.appendChild(script);
-        oldScript.remove();
-      });
-    })
-    .catch(err => {
-      console.error('[HSos] Failed to load env-toggle.html', err);
-    });
-</script>
 </body>
 </html>
