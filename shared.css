@@ -2,15 +2,16 @@
 
 /* ─── variables ─────────────────────────────────────────────── */
 :root {
+  /* brand & neutrals */
   --gold:        #b8a96a;
   --gold-light:  #faf8f0;
   --gold-border: #e8e0c0;
-  --bg:          #f5f3ef;
+  --bg:          #F5F3EF;
   --surface:     #ffffff;
-  --ink:         #1a1a1a;
-  --mu:          #888;
+  --ink:         #1A1814;
+  --mu:          #8C8880;
   --mu2:         #aaa;
-  --border:      #e8e4da;
+  --border:      #E8E4DC;
   --border2:     #f0ede6;
   --green:       #1D9E75; --green-bg: #E1F5EE; --green-text: #085041;
   --blue:        #378ADD; --blue-bg:  #E6F1FB; --blue-text:  #185FA5;
@@ -18,13 +19,29 @@
   --red:         #E24B4A; --red-bg:   #FAECE7; --red-text:   #712B13;
   --purple:      #534AB7; --purple-bg:#EEEDFE; --purple-text:#3C3489;
   --gold-bg:     #fff8e0;
-  --font-sans:   'DM Sans', sans-serif;
-  --font-mono:   'DM Mono', monospace;
-  --font-serif:  'Playfair Display', Georgia, serif;
-  --topbar-h:    48px;
-  --panel-w:     360px;
-  --r:           8px;
-  --r-lg:        12px;
+
+  /* typography */
+  --font-sans:        'DM Sans', sans-serif;
+  --font-mono:        'DM Mono', monospace;
+  --font-serif:       'Playfair Display', Georgia, serif;
+  --font-serif-title: 'DM Serif Display', Georgia, serif;
+
+  /* spacing */
+  --topbar-h:  56px;
+  --sidebar-w: 220px;
+  --panel-w:   360px;
+  --r:         8px;
+  --r-lg:      12px;
+
+  /* space gradients */
+  --space-sales-from:      #1E3A30;
+  --space-sales-to:        #3D6B56;
+  --space-operations-from: #1A1650;
+  --space-operations-to:   #4B42C8;
+  --space-payments-from:   #4A1A10;
+  --space-payments-to:     #B85A40;
+  --space-clients-from:    #2A1840;
+  --space-clients-to:      #7A5090;
 }
 
 /* ─── reset ─────────────────────────────────────────────────── */
@@ -38,6 +55,166 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--ink); 
 .scroll { overflow-y: auto; flex: 1; }
 .hidden { display: none !important; }
 
+/* ─── sidebar ────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* Space selector at top of sidebar */
+.sb-space-selector {
+  padding: 14px 12px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sb-space-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--r);
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mu);
+  cursor: pointer;
+  text-align: left;
+  transition: all .1s;
+}
+.sb-space-btn:hover { background: var(--bg); color: var(--ink); }
+.sb-space-btn.cur { background: var(--bg); color: var(--ink); }
+.sb-space-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sb-space-dot.sales      { background: var(--space-sales-to); }
+.sb-space-dot.operations { background: var(--space-operations-to); }
+.sb-space-dot.payments   { background: var(--space-payments-to); }
+.sb-space-dot.clients    { background: var(--space-clients-to); }
+
+/* Sub-nav links inside sidebar */
+.sb-nav {
+  flex: 1;
+  padding: 10px 8px;
+  overflow-y: auto;
+}
+.sb-section-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--mu2);
+  padding: 10px 8px 4px;
+}
+.sb-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--r);
+  font-size: 13px;
+  color: var(--mu);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  transition: all .1s;
+}
+.sb-link:hover { background: var(--bg); color: var(--ink); }
+.sb-link.cur { background: var(--bg); color: var(--ink); font-weight: 500; }
+
+/* content area right of sidebar */
+.app-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── space cover ────────────────────────────────────────────── */
+.space-cover {
+  height: 140px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 20px 28px;
+  position: relative;
+  overflow: hidden;
+}
+.space-cover.sales      { background: linear-gradient(135deg, var(--space-sales-from), var(--space-sales-to)); }
+.space-cover.operations { background: linear-gradient(135deg, var(--space-operations-from), var(--space-operations-to)); }
+.space-cover.payments   { background: linear-gradient(135deg, var(--space-payments-from), var(--space-payments-to)); }
+.space-cover.clients    { background: linear-gradient(135deg, var(--space-clients-from), var(--space-clients-to)); }
+
+.space-cover-eyebrow {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: rgba(255,255,255,0.55);
+  margin-bottom: 6px;
+}
+.space-cover-title {
+  font-family: var(--font-serif-title), var(--font-serif);
+  font-size: 32px;
+  font-weight: 400;
+  color: #fff;
+  line-height: 1.1;
+}
+
+/* ─── alert bar ──────────────────────────────────────────────── */
+.alert-bar {
+  display: flex;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+/* hide alert bar for vendor/finance roles */
+body[data-role="vendor"] .alert-bar,
+body[data-role="finance"] .alert-bar { display: none; }
+
+.alert-card {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all .1s;
+  text-decoration: none;
+  display: block;
+}
+.alert-card:hover { background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.07); transform: translateY(-1px); }
+.alert-card-val {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+  margin-bottom: 3px;
+}
+.alert-card-label {
+  font-size: 11px;
+  color: var(--mu);
+}
+
 /* ─── topbar ─────────────────────────────────────────────────── */
 .topbar {
   height: var(--topbar-h);
@@ -48,6 +225,7 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--ink); 
   justify-content: space-between;
   padding: 0 20px;
   flex-shrink: 0;
+  z-index: 10;
 }
 .tb-logo { font-weight: 500; font-size: 16px; color: var(--ink); margin-right: 20px; cursor: default; }
 .tb-nav { display: flex; gap: 2px; }
@@ -405,12 +583,12 @@ textarea.fi { height: auto; padding: 8px 10px; resize: vertical; }
 .kanban-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r);
+  border-radius: 10px;
   padding: 12px;
   cursor: pointer;
-  transition: border-color .1s;
+  transition: border-color .1s, box-shadow .1s, transform .1s;
 }
-.kanban-card:hover { border-color: var(--ink); }
+.kanban-card:hover { border-color: var(--ink); box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
 .kanban-card.sel { border-color: var(--ink); }
 .kanban-card-client { font-size: 13px; font-weight: 500; color: var(--ink); margin-bottom: 2px; }
 .kanban-card-product { font-size: 11px; color: var(--mu); margin-bottom: 8px; }

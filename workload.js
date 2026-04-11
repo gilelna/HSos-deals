@@ -102,6 +102,17 @@ function switchTab(tab, { pushUrl = true } = {}) {
 
   currentTab = tab
 
+  // Update cover
+  const tabTitles = { log: 'Log Session', work: 'My Work', clients: 'My Clients', profile: 'Profile' }
+  const titleEl = document.getElementById('cover-title')
+  if (titleEl) titleEl.textContent = tabTitles[tab] || tab
+  const eyebrowEl = document.getElementById('cover-eyebrow')
+  if (eyebrowEl) eyebrowEl.textContent = `Operations · ${window.Role?.get() || 'Vendor'}`
+
+  // Update sidebar active link
+  document.querySelectorAll('.sb-link').forEach(a => a.classList.remove('cur'))
+  document.getElementById('nav-' + tab)?.classList.add('cur')
+
   if (pushUrl && !_routerDispatching) {
     const qs = new URLSearchParams(window.location.search)
     qs.set('tab', tab)

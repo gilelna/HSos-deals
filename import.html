@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — CSV Canvas</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
   <link rel="stylesheet" href="import.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,19 +21,9 @@
 
   <!-- ── Topbar ────────────────────────────────────────────────────── -->
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:0">
-      <span class="tb-logo">HSos</span>
-      <nav class="tb-nav" style="margin-left:8px">
-        <a href="deals.html">Sales</a>
-        <a href="workload.html">Operations</a>
-        <a href="payments.html">Payments</a>
-        <a href="import.html" class="cur">Import</a>
-      </nav>
-    </div>
-    <div class="tb-right">
-      <div class="role-selector" id="role-selector"></div>
-      <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
-    </div>
+    <span class="tb-logo">HSos</span>
+    <div class="role-selector" id="role-selector"></div>
+    <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
   </div>
 
   <!-- ── Page body ─────────────────────────────────────────────────── -->

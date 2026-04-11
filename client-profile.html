@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — Client Profile</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <!-- Quill rich text editor -->
   <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
@@ -290,38 +290,41 @@
 
   <!-- Topbar -->
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:0">
-      <span class="tb-logo">HSos</span>
-      <div class="mod-wrap">
-        <div class="mod-trigger" onclick="toggleModDD()">
-          SALES <span style="font-size:9px">▾</span>
-        </div>
-        <div class="mod-dd" id="mod-dd">
-          <div class="mod-item" onclick="window.location.href=Router.pathForPage('operations')">
-            <div class="mod-dot" style="background:var(--green)"></div>Operations
-          </div>
-          <div class="mod-item cur">
-            <div class="mod-dot" style="background:var(--gold)"></div>Sales
-          </div>
-          <div class="mod-item" onclick="window.location.href=Router.pathForPage('payments')">
-            <div class="mod-dot" style="background:var(--blue)"></div>Payments
-          </div>
-        </div>
-      </div>
-      <nav class="tb-nav" style="margin-left:8px">
-        <a onclick="window.location.href=Router.pathForPage('sales')">Deals</a>
-        <a class="cur">Clients</a>
-        <a onclick="window.location.href=Router.pathForPage('sales')">Vendors</a>
-      </nav>
-    </div>
-    <div class="tb-right">
-      <div class="role-selector" id="role-selector"></div>
-      <div class="tb-av">HS</div>
-    </div>
+    <span class="tb-logo">HSos</span>
+    <div class="role-selector" id="role-selector"></div>
+    <div class="tb-av">HS</div>
   </div>
 
   <!-- App body -->
   <div class="app-body">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-space-selector">
+        <button class="sb-space-btn cur" onclick="window.location.href=Router.pathForPage('sales')">
+          <span class="sb-space-dot sales"></span> Sales
+        </button>
+        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('operations')">
+          <span class="sb-space-dot operations"></span> Operations
+        </button>
+        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('payments')">
+          <span class="sb-space-dot payments"></span> Payments
+        </button>
+        <button class="sb-space-btn" disabled style="opacity:.4;cursor:default">
+          <span class="sb-space-dot clients"></span> Clients Portal
+        </button>
+      </div>
+      <div class="sb-nav">
+        <div class="sb-section-label">Sales</div>
+        <a class="sb-link" href="deals.html">Deals</a>
+        <a class="sb-link cur" href="#">Clients</a>
+        <a class="sb-link" href="deals.html?page=vendors">Vendors</a>
+        <a class="sb-link" href="deals.html?page=products">Products</a>
+      </div>
+    </div>
+
+    <!-- Content area -->
+    <div class="app-content">
 
     <!-- Client list sidebar -->
     <div class="cp-sidebar">
@@ -485,20 +488,12 @@
 
     </div>
 
-  </div>
-</div>
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
 
 <div id="hsos-toast" class="hsos-toast"></div>
 
 <script src="client-profile.js"></script>
-<script>
-  function toggleModDD() {
-    document.getElementById('mod-dd').classList.toggle('open')
-  }
-  document.addEventListener('click', e => {
-    const w = e.target.closest('.mod-wrap')
-    if (!w) document.getElementById('mod-dd')?.classList.remove('open')
-  })
-</script>
 </body>
 </html>

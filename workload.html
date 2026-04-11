@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — Operations V2</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
 </head>
 <body>
@@ -12,34 +12,9 @@
 
   <!-- Topbar -->
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:0">
-      <span class="tb-logo">HSos</span>
-      <div class="mod-wrap">
-        <div class="mod-trigger" onclick="toggleModDD()">
-          OPERATIONS <span style="font-size:9px">▾</span>
-        </div>
-        <div class="mod-dd" id="mod-dd">
-          <div class="mod-item cur">
-            <div class="mod-dot" style="background:var(--green)"></div>Operations
-          </div>
-          <div class="mod-item" onclick="window.location.href=Router.pathForPage('sales')">
-            <div class="mod-dot" style="background:var(--gold)"></div>Sales
-          </div>
-          <div class="mod-item" onclick="window.location.href=Router.pathForPage('payments')">
-            <div class="mod-dot" style="background:var(--blue)"></div>Payments
-          </div>
-        </div>
-      </div>
-      <nav class="tb-nav" style="margin-left:8px">
-        <a class="cur" id="nav-log" onclick="switchTab('log')">Log session</a>
-        <a id="nav-work" onclick="switchTab('work')">My work</a>
-        <a id="nav-clients" onclick="switchTab('clients')">My clients</a>
-        <a id="nav-profile" onclick="switchTab('profile')">⚙ Profile</a>
-        <a href="import.html">Import</a>
-      </nav>
-    </div>
-    <div class="tb-right">
-      <div class="role-selector" id="role-selector"></div>
+    <span class="tb-logo">HSos</span>
+    <div class="role-selector" id="role-selector"></div>
+    <div style="display:flex;align-items:center;gap:8px">
       <span class="tb-user-name" id="topbar-name">Ariella Bloom</span>
       <div class="tb-mode">DEMO</div>
       <div class="tb-av" id="topbar-av">AB</div>
@@ -48,6 +23,62 @@
 
   <!-- App body -->
   <div class="app-body" id="app-body">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-space-selector">
+        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('sales')">
+          <span class="sb-space-dot sales"></span> Sales
+        </button>
+        <button class="sb-space-btn cur">
+          <span class="sb-space-dot operations"></span> Operations
+        </button>
+        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('payments')">
+          <span class="sb-space-dot payments"></span> Payments
+        </button>
+        <button class="sb-space-btn" disabled style="opacity:.4;cursor:default">
+          <span class="sb-space-dot clients"></span> Clients Portal
+        </button>
+      </div>
+      <div class="sb-nav">
+        <div class="sb-section-label">Operations</div>
+        <button class="sb-link cur" id="nav-log"     onclick="switchTab('log')">Log session</button>
+        <button class="sb-link"    id="nav-work"     onclick="switchTab('work')">My work</button>
+        <button class="sb-link"    id="nav-clients"  onclick="switchTab('clients')">My clients</button>
+        <button class="sb-link"    id="nav-profile"  onclick="switchTab('profile')">Profile</button>
+        <div class="sb-section-label" style="margin-top:8px">Tools</div>
+        <a class="sb-link" href="import.html">Import</a>
+      </div>
+    </div>
+
+    <!-- Content area -->
+    <div class="app-content">
+
+      <!-- Space cover -->
+      <div class="space-cover operations">
+        <div class="space-cover-eyebrow" id="cover-eyebrow">Operations · Vendor</div>
+        <div class="space-cover-title"   id="cover-title">Workload</div>
+      </div>
+
+      <!-- Alert bar -->
+      <div class="alert-bar">
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Sessions this month</div>
+        </a>
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Pending approval</div>
+        </a>
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Active packages</div>
+        </a>
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Vendor reassignments</div>
+        </a>
+      </div>
 
     <!-- ═══════════════════════════════════════════════════════════
          TAB 1: LOG SESSION
@@ -335,8 +366,9 @@
       </div>
     </div>
 
-  </div>
-</div>
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>

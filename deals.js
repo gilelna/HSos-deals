@@ -239,12 +239,16 @@ function switchPage(name, linkEl, { pushUrl = true } = {}) {
     history.pushState({}, '', `${window.location.pathname}?${qs}`)
   }
 
-  document.querySelectorAll('.tb-nav a').forEach(a => a.classList.remove('cur'))
-  if (linkEl) {
-    linkEl.classList.add('cur')
-  } else {
-    document.getElementById('nav-' + name)?.classList.add('cur')
-  }
+  // Update sidebar active link
+  document.querySelectorAll('.sb-link').forEach(a => a.classList.remove('cur'))
+  document.getElementById('nav-' + name)?.classList.add('cur')
+
+  // Update space cover title
+  const pageTitles = { deals: 'Deals', clients: 'Clients', vendors: 'Vendors', products: 'Products' }
+  const titleEl = document.getElementById('cover-title')
+  if (titleEl) titleEl.textContent = pageTitles[name] || name.charAt(0).toUpperCase() + name.slice(1)
+  const eyebrowEl = document.getElementById('cover-eyebrow')
+  if (eyebrowEl) eyebrowEl.textContent = `Sales · ${window.Role?.get() || 'Admin'}`
 
   const toolbar = document.getElementById('deals-toolbar')
   toolbar.style.display = name === 'deals' ? 'flex' : 'none'

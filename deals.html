@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — Sales</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -25,67 +25,96 @@
 
   <!-- Topbar -->
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:0">
-      <span class="tb-logo">HSos</span>
-      <div class="mod-wrap">
-        <div class="mod-trigger" onclick="toggleModDD()">
-          SALES <span style="font-size:9px">▾</span>
-        </div>
-        <div class="mod-dd" id="mod-dd">
-          <div class="mod-item" onclick="window.location.href=Router.pathForPage('operations')">
-            <div class="mod-dot" style="background:var(--green)"></div>Operations
-          </div>
-          <div class="mod-item cur">
-            <div class="mod-dot" style="background:var(--gold)"></div>Sales
-          </div>
-          <div class="mod-item" onclick="window.location.href=Router.pathForPage('payments')">
-            <div class="mod-dot" style="background:var(--blue)"></div>Payments
-          </div>
-        </div>
-      </div>
-      <nav class="tb-nav" style="margin-left:8px">
-        <a class="cur" id="nav-deals"    onclick="switchPage('deals',this)">Deals</a>
-        <a id="nav-clients"              onclick="switchPage('clients',this)">Clients</a>
-        <a id="nav-vendors"              onclick="switchPage('vendors',this)">Vendors</a>
-        <a id="nav-products"             onclick="switchPage('products',this)">Products</a>
-        <a href="import.html">Import</a>
-      </nav>
-    </div>
-    <div class="tb-right">
-      <div class="role-selector" id="role-selector"></div>
-      <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
-    </div>
-  </div>
-
-  <!-- Deals toolbar -->
-  <div id="deals-toolbar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap">
-    <input type="text" class="fi" style="width:220px;height:32px" placeholder="Search deals, clients…" oninput="setSearch(this.value)">
-    <select class="fi fsel" style="height:32px;font-size:12px;width:140px" id="filter-vendor" onchange="setFilterVendor(this.value)">
-      <option value="">All vendors</option>
-    </select>
-    <select class="fi fsel" style="height:32px;font-size:12px;width:150px" id="filter-product" onchange="setFilterProduct(this.value)">
-      <option value="">All products</option>
-    </select>
-    <select class="fi fsel" style="height:32px;font-size:12px;width:130px" onchange="setFilterBilling(this.value)">
-      <option value="">All billing</option>
-      <option value="pending">Pending</option>
-      <option value="invoiced">Invoiced</option>
-      <option value="partial">Partial</option>
-      <option value="paid">Paid</option>
-      <option value="overdue">Overdue</option>
-    </select>
-    <button class="btn btn-sm" id="fb-overdue" onclick="toggleFilter('overdue',this)">Overdue</button>
-    <button class="btn btn-sm" id="fb-active"  onclick="toggleFilter('active',this)">Active</button>
-    <div style="flex:1"></div>
-    <div style="display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-      <button class="btn btn-sm" id="vb-kanban" onclick="setView('kanban')" style="border:none;border-radius:0;border-right:1px solid var(--border)">⊞ Kanban</button>
-      <button class="btn btn-sm" id="vb-list"   onclick="setView('list')"   style="border:none;border-radius:0">☰ List</button>
-    </div>
-    <button class="btn btn-primary btn-sm" onclick="openNewDeal()">+ New Deal</button>
+    <span class="tb-logo">HSos</span>
+    <div class="role-selector" id="role-selector"></div>
+    <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
   </div>
 
   <!-- App body -->
   <div class="app-body" id="app-body" style="position:relative">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-space-selector">
+        <button class="sb-space-btn cur" onclick="window.location.href='deals.html'">
+          <span class="sb-space-dot sales"></span> Sales
+        </button>
+        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('operations')">
+          <span class="sb-space-dot operations"></span> Operations
+        </button>
+        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('payments')">
+          <span class="sb-space-dot payments"></span> Payments
+        </button>
+        <button class="sb-space-btn" disabled style="opacity:.4;cursor:default">
+          <span class="sb-space-dot clients"></span> Clients Portal
+        </button>
+      </div>
+      <div class="sb-nav">
+        <div class="sb-section-label">Sales</div>
+        <button class="sb-link cur" id="nav-deals"    onclick="switchPage('deals',null)">Deals</button>
+        <button class="sb-link"    id="nav-clients"   onclick="switchPage('clients',null)">Clients</button>
+        <button class="sb-link"    id="nav-vendors"   onclick="switchPage('vendors',null)">Vendors</button>
+        <button class="sb-link"    id="nav-products"  onclick="switchPage('products',null)">Products</button>
+        <div class="sb-section-label" style="margin-top:8px">Tools</div>
+        <a class="sb-link" href="import.html">Import</a>
+      </div>
+    </div>
+
+    <!-- Content area -->
+    <div class="app-content">
+
+      <!-- Space cover -->
+      <div class="space-cover sales" id="space-cover">
+        <div class="space-cover-eyebrow" id="cover-eyebrow">Sales · Admin</div>
+        <div class="space-cover-title"   id="cover-title">Deals</div>
+      </div>
+
+      <!-- Alert bar -->
+      <div class="alert-bar">
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Bills to approve</div>
+        </a>
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Packages expiring soon</div>
+        </a>
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Ready to pay</div>
+        </a>
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Deals to follow up</div>
+        </a>
+      </div>
+
+      <!-- Deals toolbar -->
+      <div id="deals-toolbar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap">
+        <input type="text" class="fi" style="width:220px;height:32px" placeholder="Search deals, clients…" oninput="setSearch(this.value)">
+        <select class="fi fsel" style="height:32px;font-size:12px;width:140px" id="filter-vendor" onchange="setFilterVendor(this.value)">
+          <option value="">All vendors</option>
+        </select>
+        <select class="fi fsel" style="height:32px;font-size:12px;width:150px" id="filter-product" onchange="setFilterProduct(this.value)">
+          <option value="">All products</option>
+        </select>
+        <select class="fi fsel" style="height:32px;font-size:12px;width:130px" onchange="setFilterBilling(this.value)">
+          <option value="">All billing</option>
+          <option value="pending">Pending</option>
+          <option value="invoiced">Invoiced</option>
+          <option value="partial">Partial</option>
+          <option value="paid">Paid</option>
+          <option value="overdue">Overdue</option>
+        </select>
+        <button class="btn btn-sm" id="fb-overdue" onclick="toggleFilter('overdue',this)">Overdue</button>
+        <button class="btn btn-sm" id="fb-active"  onclick="toggleFilter('active',this)">Active</button>
+        <div style="flex:1"></div>
+        <div style="display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+          <button class="btn btn-sm" id="vb-kanban" onclick="setView('kanban')" style="border:none;border-radius:0;border-right:1px solid var(--border)">⊞ Kanban</button>
+          <button class="btn btn-sm" id="vb-list"   onclick="setView('list')"   style="border:none;border-radius:0">☰ List</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openNewDeal()">+ New Deal</button>
+      </div>
 
     <!-- DEALS — kanban -->
     <div id="page-deals-kanban" class="main scroll" style="padding:16px;flex-direction:row;gap:12px;align-items:flex-start">
@@ -208,8 +237,9 @@
       </div>
     </div>
 
-  </div>
-</div>
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
 
 <!-- Deal Edit Modal -->
 <div class="overlay" id="modal-edit-deal">
