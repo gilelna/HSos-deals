@@ -1,1514 +1,2695 @@
-// deals.js — HSos Deals module logic
-// Depends on: supabase-client.js (loaded before this file)
+// deals.js — HSos Sales space
+// Depends on: db.js, app.js
 
-// ═══════════════════════════════════════════════════════════
-// DATA
-// ═══════════════════════════════════════════════════════════
-// ── Data (loaded from Supabase) ──────────────────────────────────────────────
-let CLIENTS  = []
-let VENDORS  = []
-let VENDORS_EXT = []   // same array — kept for compatibility with render functions
-let MANAGERS = []
-let PRODUCTS = []
-let DEALS    = []
-let PAYCHECKS = []
-let MONTH_SESSIONS = {}  // populated from vendor_hours per-vendor per-month
+// ─── rich text editor (Quill) instances ──────────────────────
+let _edNotesQuill = null   // Edit deal modal
+let _ndNotesQuill = null   // New deal modal
 
-const SESSION_TYPE_ICONS = {
-  coaching:   '🎓',
-  consulting: '💼',
-  editing:    '✏️',
-  design:     '🎨',
-  admin:      '📋',
-  other:      '⚡',
-}
-
-const STAGES=[
-  {key:'lead',      label:'Lead',      color:'#888888'},
-  {key:'qualified', label:'Qualified', color:'#5a9de0'},
-  {key:'active',    label:'Active',    color:'#4caf82'},
-  {key:'delivered', label:'Delivered', color:'#3dbfb0'},
-  {key:'closed',    label:'Closed',    color:'#5a5a66'},
-];
-const BILLING=['pending','invoiced','partial','paid','overdue'];
-const SYM={EUR:'€',USD:'$',GBP:'£',ILS:'₪',CHF:'₣'};
-const fmt=(p,c)=>`${SYM[c]||c}${Number(p).toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:2})}`;
-
-// ═══════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════
-const getC=id=>CLIENTS.find(x=>x.id===id)||{name:id,company:null,initials:'?',color:'#888',bg:'#222'};
-const getV=id=>VENDORS.find(x=>x.id===id)||{name:id,initials:'?',color:'#888',bg:'#222'};
-const getM=id=>MANAGERS.find(x=>x.id===id)||VENDORS.find(x=>x.id===id)||null; // TEMP COMPAT: manager lookup; falls back to vendor record
-const getP=id=>PRODUCTS.find(x=>x.id===id)||null;
-const getS=k=>STAGES.find(x=>x.key===k);
-const finalAmt=(price,vat,mode)=>{
-  const p=parseFloat(price)||0, v=parseFloat(vat)||0;
-  if(mode==='excl') return p*(1+v/100);
-  return p; // incl: final = base
-};
-const baseAmt=(price,vat,mode)=>{
-  const p=parseFloat(price)||0, v=parseFloat(vat)||0;
-  if(mode==='incl') return v>0?p/(1+v/100):p;
-  return p;
-};
-
-// ═══════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════
-let view='kanban', filters=new Set(), search='', movingId=null, selProc_='', vatMode='excl', dpDealId=null, dpTab='info', nextN=8, page='deals';
-let SALES_CLIENT_FILTERS = { search:'', stage:'all', billing:'all' }
-let selectedSalesClientId = null
-let selectedSalesClientDetail = null
-let salesClientEditMode = false
-let pendingSalesClientId = null
-
-// ═══════════════════════════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════════════════════════
-function showToast(msg,type='success'){
-  const t=document.getElementById('toast'), m=document.getElementById('toast-msg');
-  t.className='toast '+(type||'success');
-  m.textContent=msg; t.classList.add('show');
-  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2800);
-}
-
-// ═══════════════════════════════════════════════════════════
-// PAGE SWITCHING
-// ═══════════════════════════════════════════════════════════
-function switchPage(p,btn){
-  if (p === 'students') p = 'clients'
-  page=p;
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('cur'));
-  const targetBtn = btn || document.querySelector(`.nav-btn[data-page="${p}"]`)
-  if (targetBtn) targetBtn.classList.add('cur');
-  document.getElementById('deals-toolbar').classList.toggle('hidden', p!=='deals');
-  document.getElementById('kanban-view').classList.toggle('hidden', p!=='deals'||view!=='kanban');
-  document.getElementById('list-view').classList.toggle('hidden', p!=='deals'||view!=='list');
-  document.getElementById('clients-view').classList.toggle('hidden', p!=='clients');
-  document.getElementById('products-view').classList.toggle('hidden', p!=='products');
-  document.getElementById('settings-view').classList.toggle('hidden', p!=='settings');
-  document.getElementById('od-bar').classList.toggle('hidden', p!=='deals');
-  document.getElementById('vendors-view').classList.toggle('hidden', p!=='vendors');
-  if(p==='deals') render();
-  else if(p==='clients') renderSalesClients()
-  else if(p==='products') renderProducts();
-  else if(p==='vendors') renderVendors();
-  else if(p==='settings') renderSettings();
-}
-
-// ═══════════════════════════════════════════════════════════
-// RENDER DEALS
-// ═══════════════════════════════════════════════════════════
-function filtered(){
-  return DEALS.filter(d=>{
-    if(search){
-      const c=getC(d.clientId), p=getP(d.productId);
-      if(![c.name,c.company||'',p?p.name:'',d.id].join(' ').toLowerCase().includes(search.toLowerCase())) return false;
-    }
-    if(filters.has('overdue') && d.billing!=='overdue') return false;
-    if(filters.has('active')  && d.fulfillment!=='active') return false;
-    if(filters.has('unpaid')  && d.billing==='paid') return false;
-    return true;
-  });
-}
-
-function render(){
-  renderOD();
-  view==='kanban'?renderKanban():renderList();
-}
-
-function renderOD(){
-  const bar=document.getElementById('od-bar');
-  const od=DEALS.filter(d=>d.billing==='overdue');
-  if(!od.length){bar.innerHTML='';bar.style.display='none';return;}
-  bar.style.display='flex';
-  bar.innerHTML=`<span class="od-lbl">⚠ Overdue (${od.length})</span>
-  <div class="od-chips">${od.map(d=>{
-    const c=getC(d.clientId), fa=finalAmt(d.price,d.vat,d.vatMode);
-    return `<div class="od-chip" onclick="openCp('${d.clientId}')">
-      <span class="od-cn">${c.name}</span>
-      <span class="od-ca">${fmt(fa,d.currency)}</span>
-    </div>`;
-  }).join('')}</div>`;
-}
-
-function renderKanban(){
-  const deals=filtered();
-  document.getElementById('kanban-view').innerHTML=STAGES.map(st=>{
-    const sd=deals.filter(d=>d.fulfillment===st.key);
-    const tot=sd.reduce((s,d)=>s+finalAmt(d.price,d.vat,d.vatMode),0);
-    return `<div class="k-col">
-      <div class="k-hd">
-        <div class="k-title"><div class="k-dot" style="background:${st.color}"></div>${st.label}</div>
-        <div class="k-stats">
-          ${tot>0?`<span class="k-amt">${fmt(tot,'EUR')}</span>`:''}
-          <span class="k-cnt">${sd.length}</span>
-        </div>
-      </div>
-      <div class="k-body">
-        ${sd.map(d=>dealCard(d)).join('')||`<div style="padding:14px 4px;text-align:center;color:var(--mu2);font-size:11px">Empty</div>`}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function dealCard(d){
-  const c=getC(d.clientId), v=getV(d.vendorId), m=getM(d.managerId), p=getP(d.productId);
-  const st=getS(d.fulfillment);
-  const fa=finalAmt(d.price,d.vat,d.vatMode);
-  const vatLabel=d.vat>0?(d.vatMode==='excl'?`+${d.vat}% VAT`:`incl. ${d.vat}% VAT`):'';
-  return `<div class="dc card-anim" onclick="openDp('${d.id}')">
-    <button class="move-btn" onclick="event.stopPropagation();openMove('${d.id}')" title="Move">→</button>
-    <div class="dc-top">
-      <div>
-        <div class="dc-client clickable" onclick="event.stopPropagation();openCp('${d.clientId}')">${c.name}</div>
-        ${c.company?`<div class="dc-co">${c.company}</div>`:''}
-      </div>
-      <div>
-        <div class="dc-amt">${fmt(fa,d.currency)}</div>
-        ${vatLabel?`<div style="font-size:9px;color:var(--mu2);text-align:right">${vatLabel}</div>`:''}
-      </div>
-    </div>
-    <div class="dc-prod">${p?p.name:'Custom'}</div>
-    <div class="dc-mid">
-      ${m?`<div class="mgr-chip"><div class="mgr-av" style="background:${m.bg};color:${m.color}">${m.initials}</div>${m.name.split(' ')[0]}</div>`:''}
-      <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
-        <div class="vdot" style="background:${v.bg};color:${v.color}">${v.initials}</div>
-      </div>
-    </div>
-    <div class="dc-bot">
-      <div class="dc-badges">
-        <span class="bb ${d.billing}"><span class="bbd"></span>${d.billing}</span>
-        ${d.processor?`<span style="font-size:9px;color:var(--mu2);padding:2px 5px;background:var(--sf2);border-radius:10px;border:1px solid var(--b)">${d.processor.replace('-',' ')}</span>`:''}
-      </div>
-      ${d.billing==='invoiced'||d.billing==='overdue'?`<div class="notif-hint"><div style="width:5px;height:5px;border-radius:50%;background:var(--am);animation:pulse 2s infinite"></div>notif</div>`:''}
-    </div>
-  </div>`;
-}
-
-function renderList(){
-  document.getElementById('list-tbody').innerHTML=filtered().map(d=>{
-    const c=getC(d.clientId), v=getV(d.vendorId), m=getM(d.managerId), p=getP(d.productId);
-    const fa=finalAmt(d.price,d.vat,d.vatMode);
-    return `<tr onclick="openDp('${d.id}')">
-      <td><div style="font-weight:500" class="clickable" onclick="event.stopPropagation();openCp('${d.clientId}')">${c.name}</div>${c.company?`<div style="font-size:10px;color:var(--mu2)">${c.company}</div>`:''}</td>
-      <td style="color:var(--mu)">${p?p.name:'Custom'}</td>
-      <td>${m?`<div style="display:flex;align-items:center;gap:5px"><div class="mgr-av" style="background:${m.bg};color:${m.color};width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700">${m.initials}</div><span style="font-size:11px">${m.name}</span></div>`:'—'}</td>
-      <td class="mono" style="color:var(--mu)">${fmt(d.price,d.currency)}</td>
-      <td style="color:var(--mu2);font-size:11px">${d.vat>0?d.vat+'% '+(d.vatMode==='excl'?'+':' incl.'):'—'}</td>
-      <td class="mono" style="color:var(--ac)">${fmt(fa,d.currency)}</td>
-      <td style="font-size:11px;color:var(--mu2)">${d.processor||'—'}</td>
-      <td><span class="fs-badge ${d.fulfillment}">${d.fulfillment}</span></td>
-      <td><span class="bb ${d.billing}"><span class="bbd"></span>${d.billing}</span></td>
-    </tr>`;
-  }).join('')||`<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--mu2)">No deals match filters</td></tr>`;
-}
-
-function esc(v){
-  return String(v ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-}
-
-function normalizeClientBillingStatus(client){
-  const explicit = client.paymentStatus || client.payment_status
-  if (explicit) {
-    const s = String(explicit).toLowerCase()
-    if (s.includes('overdue')) return 'overdue'
-    if (s.includes('pending') || s.includes('invoiced') || s.includes('partial')) return 'pending'
-    if (s.includes('paid') || s.includes('active')) return 'paid'
+function _initEdNotesQuill(initialHtml) {
+  if (!_edNotesQuill) {
+    _edNotesQuill = new Quill('#ed-notes-editor', {
+      theme: 'snow',
+      placeholder: 'Add notes…',
+      modules: { toolbar: [['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['link'],['clean']] },
+    })
   }
-  const deals = client.deals || []
-  const statuses = deals.map(d => d.billing_status || d.billing).filter(Boolean)
-  if (statuses.includes('overdue')) return 'overdue'
-  if (statuses.some(s => s !== 'paid')) return 'pending'
-  if (statuses.includes('paid')) return 'paid'
-  return 'pending'
+  _edNotesQuill.root.innerHTML = initialHtml || ''
 }
 
-function clientMatchesStage(client, stage){
-  if (stage === 'all') return true
-  const deals = client.deals || []
-  if (stage === 'none') return deals.length === 0
-  return deals.some(d => (d.sales_status || d.fulfillment_stage || d.fulfillment) === stage)
+function _initNdNotesQuill() {
+  if (!_ndNotesQuill) {
+    _ndNotesQuill = new Quill('#nd-notes-editor', {
+      theme: 'snow',
+      placeholder: 'Add notes…',
+      modules: { toolbar: [['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['link'],['clean']] },
+    })
+  }
+  _ndNotesQuill.root.innerHTML = ''
 }
 
-function setSalesClientsSearch(value){
-  SALES_CLIENT_FILTERS.search = value || ''
-  renderSalesClients()
+function _quillValue(q) {
+  if (!q) return null
+  const html = q.root.innerHTML
+  return html === '<p><br></p>' ? null : html
 }
 
-function setSalesStageFilter(value){
-  SALES_CLIENT_FILTERS.stage = value || 'all'
-  renderSalesClients()
+// ─── state ────────────────────────────────────────────────────
+let _deals    = []
+let _clients  = []
+let _vendors  = []
+let _products = []
+
+let _page     = 'deals'
+let _view     = 'kanban'
+let _search   = ''
+let _filters  = new Set()        // 'overdue' | 'active' | 'unpaid'
+let _fVendor  = ''               // vendor filter id
+let _fProduct = ''               // product filter id
+let _fBilling = ''               // billing_status filter
+
+// deal edit modal
+let _editDealId = null
+
+// client selector in edit modal
+let _edCsOpen    = false
+let _edCsSearch  = ''
+let _edCsFocused = -1
+let _edSelClient = null
+
+// products page
+let _editProductId = null        // null = new
+
+// clients page
+let _clientSearch = ''
+let _selClientId  = null
+
+// vendors page
+let _selVendorId     = null
+let _vendorTab       = 'profile'
+let _vendorPaychecks = []
+let _vendorsInactive = []  // archived vendors
+let _vendorListTab   = 'active' // 'active' | 'archived'
+let _vendorEditMode  = false    // profile panel edit/view toggle
+let _vendorEditSnapshot = null  // original values for cancel revert
+let _companies       = []
+let _routerDispatching = false
+let _routerRegistered  = false
+
+let _vendorSearch  = ''
+let _fVendorType   = ''   // 'coach' | 'contractor' | 'team_member' | 'subscription' | 'software_saas' | ''
+let _fVendorCurrency = '' // 'EUR' | 'USD' | 'ILS' | 'GBP' | ''
+let _fVendorManager  = '' // vendor id | ''
+
+const STAGES = [
+  { key: 'lead',      label: 'Lead',      color: '#aaa' },
+  { key: 'qualified', label: 'Qualified', color: 'var(--blue)' },
+  { key: 'active',    label: 'Active',    color: 'var(--green)' },
+  { key: 'delivered', label: 'Delivered', color: 'var(--purple)' },
+  { key: 'closed',    label: 'Closed',    color: 'var(--mu2)' },
+]
+
+const BILLING_COLORS = {
+  pending:  'var(--mu2)',
+  invoiced: 'var(--blue)',
+  partial:  'var(--gold)',
+  paid:     'var(--green)',
+  overdue:  'var(--red)',
 }
 
-function setSalesBillingFilter(value){
-  SALES_CLIENT_FILTERS.billing = value || 'all'
-  renderSalesClients()
+const PAYMENT_STATUS_META = {
+  pending:  { icon: '⏳', color: 'var(--amber)',  bg: 'var(--amber-bg)',  label: 'pending' },
+  initiated:{ icon: '🔄', color: 'var(--blue)',   bg: 'var(--blue-bg)',   label: 'initiated' },
+  partial:  { icon: '🔄', color: 'var(--gold)',   bg: 'var(--gold-bg)',   label: 'partial' },
+  paid:     { icon: '✅', color: 'var(--green)',  bg: 'var(--green-bg)',  label: 'paid' },
+  refunded: { icon: '↩️', color: 'var(--mu2)',    bg: 'var(--bg)',        label: 'refunded' },
+  failed:   { icon: '❌', color: 'var(--red)',    bg: 'var(--red-bg)',    label: 'failed' },
 }
 
-function filteredSalesClients(){
-  const q = SALES_CLIENT_FILTERS.search.trim().toLowerCase()
-  return CLIENTS.filter(c => {
-    if (q) {
-      const blob = [c.name, c.email, c.company, c.phone].filter(Boolean).join(' ').toLowerCase()
-      if (!blob.includes(q)) return false
+const GATEWAY_LABELS = {
+  green_invoice: 'Green Invoice',
+  thrivecart:    'ThriveCart',
+  wise:          'Wise',
+  stripe:        'Stripe',
+  paypal:        'PayPal',
+  manual:        'Manual',
+}
+
+// Returns HTML for a payment_status badge (or empty string if status is null/unknown)
+function paymentStatusBadge(status) {
+  if (!status) return ''
+  const m = PAYMENT_STATUS_META[status]
+  if (!m) return ''
+  return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:1px 6px;border-radius:10px;background:${m.bg};color:${m.color};font-family:var(--font-mono);font-weight:500">${m.icon} ${m.label}</span>`
+}
+
+const SYM = { EUR: '€', USD: '$', GBP: '£', ILS: '₪', CHF: '₣' }
+const fmt = (p, c) => `${SYM[c] || c}${Number(p).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+const finalAmt = (price, vat, mode) => {
+  const p = parseFloat(price) || 0, v = parseFloat(vat) || 0
+  return mode === 'excl' ? p * (1 + v / 100) : p
+}
+
+// ─── schema detection ─────────────────────────────────────────
+// Probes whether add-product-plans.sql has been applied by doing a
+// zero-row select on the product_plans table. Sets window._plansSchemaReady.
+async function _detectPlansSchema() {
+  try {
+    const { error } = await _sb.from('product_plans').select('id').limit(0)
+    window._plansSchemaReady = !error
+  } catch {
+    window._plansSchemaReady = false
+  }
+}
+
+// ─── init ─────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Detect whether the product-plans migration has been applied.
+  // Silently sets window._plansSchemaReady so deal creation can include
+  // product_plan_id / payment_link without causing PGRST204 errors.
+  _detectPlansSchema()
+  registerRouterHandlers()
+  await loadData()
+
+  // Restore page + view from URL params
+  const _initParams = new URLSearchParams(window.location.search)
+  const _initPage   = _initParams.get('page') || 'deals'
+  const _initView   = _initParams.get('view') || 'kanban'
+  const _hasEntity  = !!_initParams.get('entity')
+
+  if (!_hasEntity) {
+    // No entity deep-link — restore page/view
+    setView(_initView, { pushUrl: false })
+    if (_initPage !== 'deals') {
+      switchPage(_initPage, null, { pushUrl: false })
     }
-    if (!clientMatchesStage(c, SALES_CLIENT_FILTERS.stage)) return false
-    if (SALES_CLIENT_FILTERS.billing !== 'all' && normalizeClientBillingStatus(c) !== SALES_CLIENT_FILTERS.billing) return false
-    return true
+  } else {
+    setView(_initView, { pushUrl: false })
+  }
+
+  if (window.Router) Router.dispatch()
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.mod-wrap'))
+      document.getElementById('mod-dd')?.classList.remove('open')
+    // close edit modal on overlay click
+    if (e.target === document.getElementById('modal-edit-deal'))
+      closeEditDeal()
+    if (e.target === document.getElementById('modal-new-deal'))
+      closeNewDeal()
+    if (e.target === document.getElementById('modal-product'))
+      closeProductModal()
+    // close CS dropdown on outside click
+    if (_edCsOpen && !e.target.closest('#ed-cs-wrap'))
+      _edCsClose()
+    // close vendor-clients dropdown on outside click
+    const vcDd = document.getElementById('vc-cs-dropdown')
+    if (vcDd && vcDd.style.display !== 'none' && !e.target.closest('#vc-cs-wrap'))
+      vcDd.style.display = 'none'
+  })
+})
+
+async function loadData() {
+  try {
+    const [deals, clients, vendors, vendorsInactive, products, companies] = await Promise.all([
+      getDeals(),
+      getClients(),
+      getVendors(),
+      getVendorsInactive().catch(() => []),
+      getProducts(),
+      getCompanies().catch(() => []),
+    ])
+    _deals           = deals
+    _clients         = clients
+    _vendors         = vendors
+    _vendorsInactive = vendorsInactive
+    _products        = products
+    _companies       = companies
+    render()
+  } catch(e) {
+    console.error('[HSos] deals loadData error:', e)
+    showToast('Failed to load data — check console', 'warn')
+  }
+}
+
+// ─── module dropdown ──────────────────────────────────────────
+
+function toggleModDD() {
+  document.getElementById('mod-dd').classList.toggle('open')
+}
+window.toggleModDD = toggleModDD
+
+// ─── page switching ───────────────────────────────────────────
+
+function switchPage(name, linkEl, { pushUrl = true } = {}) {
+  if (window.Router && !_routerDispatching) {
+    const { entity } = Router.getParams()
+    const leavingEntityView =
+      (entity === 'deal' && name !== 'deals') ||
+      (entity === 'vendor' && name !== 'vendors')
+    if (leavingEntityView) Router.close()
+  }
+
+  _page = name
+
+  if (pushUrl && !_routerDispatching) {
+    const qs = new URLSearchParams(window.location.search)
+    qs.set('page', name)
+    if (name === 'deals') qs.set('view', _view); else qs.delete('view')
+    qs.delete('entity'); qs.delete('id'); qs.delete('from')
+    history.pushState({}, '', `${window.location.pathname}?${qs}`)
+  }
+
+  document.querySelectorAll('.tb-nav a').forEach(a => a.classList.remove('cur'))
+  if (linkEl) {
+    linkEl.classList.add('cur')
+  } else {
+    document.getElementById('nav-' + name)?.classList.add('cur')
+  }
+
+  const toolbar = document.getElementById('deals-toolbar')
+  toolbar.style.display = name === 'deals' ? 'flex' : 'none'
+
+  const pages = ['deals-kanban', 'deals-list', 'clients', 'vendors', 'products']
+  pages.forEach(p => document.getElementById(`page-${p}`)?.classList.add('hidden'))
+
+  if (name === 'deals') {
+    document.getElementById(_view === 'kanban' ? 'page-deals-kanban' : 'page-deals-list').classList.remove('hidden')
+    render()
+  } else {
+    document.getElementById(`page-${name}`)?.classList.remove('hidden')
+    if (name === 'clients')  renderClients()
+    if (name === 'vendors')  renderVendors()
+    if (name === 'products') {
+      // Always reset to list view when navigating to products page
+      document.getElementById('products-list-view')?.classList.remove('hidden')
+      document.getElementById('plans-detail-view')?.classList.add('hidden')
+      renderProducts()
+    }
+  }
+}
+window.switchPage = switchPage
+
+function runWithRouterDispatch(fn) {
+  _routerDispatching = true
+  try {
+    return fn()
+  } finally {
+    _routerDispatching = false
+  }
+}
+
+async function runWithRouterDispatchAsync(fn) {
+  _routerDispatching = true
+  try {
+    return await fn()
+  } finally {
+    _routerDispatching = false
+  }
+}
+
+function registerRouterHandlers() {
+  if (!window.Router || _routerRegistered) return
+  _routerRegistered = true
+
+  Router.register('deal', ({ id, from }) => {
+    runWithRouterDispatch(() => {
+      const navDeals = document.getElementById('nav-deals')
+      switchPage('deals', navDeals)
+      if (from === 'list' || from === 'kanban') setView(from)
+      openEditDeal(id)
+    })
+  })
+
+  Router.register('vendor', ({ id }) => {
+    runWithRouterDispatchAsync(async () => {
+      const navVendors = document.getElementById('nav-vendors')
+      switchPage('vendors', navVendors)
+      await openVendorDetail(id)
+    })
+  })
+
+  Router.register('client', ({ id, from }) => {
+    const url = Router.urlFor({
+      path: 'client-profile.html',
+      entity: 'client',
+      id,
+      view: 'page',
+      from: from || 'list',
+    })
+    window.location.href = url
+  })
+
+  document.addEventListener('router:close', () => {
+    runWithRouterDispatch(() => {
+      closeEditDeal()
+      clearVendorDetail()
+    })
+  })
+
+  window.addEventListener('popstate', () => {
+    const qs = new URLSearchParams(window.location.search)
+    const entity = qs.get('entity')
+    if (entity) return  // router handles entity popstate
+    const pg = qs.get('page') || 'deals'
+    const vw = qs.get('view') || 'kanban'
+    runWithRouterDispatch(() => {
+      if (pg === 'deals') {
+        setView(vw, { pushUrl: false })
+        switchPage('deals', null, { pushUrl: false })
+      } else {
+        switchPage(pg, null, { pushUrl: false })
+      }
+    })
   })
 }
 
-function renderSalesClients(){
-  const list = document.getElementById('sales-clients-list')
-  if (!list) return
-  const clients = filteredSalesClients()
-  const count = document.getElementById('sales-clients-count')
-  if (count) count.textContent = `${clients.length}`
+// ─── view / filter / search ───────────────────────────────────
 
-  list.innerHTML = clients.map(c => {
-    const cur = selectedSalesClientId === c.id
-    const total = c.totalValue || 0
-    const metaCurrency = c.deals?.[0]?.currency || 'EUR'
-    return `<div class="sales-client-card${cur ? ' cur' : ''}" onclick="selectSalesClient('${c.id}')">
-      <div class="sales-client-av" style="background:${c.bg};color:${c.color}">${esc(c.initials)}</div>
-      <div class="sales-client-main">
-        <div class="sales-client-name">${esc(c.name)}</div>
-        <div class="sales-client-email">${esc(c.email || 'No email')}</div>
-        <div class="sales-client-meta"><span>${c.dealCount || 0} deals</span><strong>${fmt(total, metaCurrency)}</strong></div>
-      </div>
-    </div>`
-  }).join('') || `<div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px;background:#FFFFFF">No clients match current filters</div>`
+function setView(v, { pushUrl = true } = {}) {
+  _view = v
+  document.getElementById('page-deals-kanban').classList.toggle('hidden', v !== 'kanban')
+  document.getElementById('page-deals-list').classList.toggle('hidden',   v !== 'list')
+  document.getElementById('vb-kanban').classList.toggle('btn-primary', v === 'kanban')
+  document.getElementById('vb-list').classList.toggle('btn-primary',   v === 'list')
+  if (pushUrl && !_routerDispatching && _page === 'deals') {
+    const qs = new URLSearchParams(window.location.search)
+    qs.set('page', 'deals')
+    qs.set('view', v)
+    qs.delete('entity'); qs.delete('id'); qs.delete('from')
+    history.pushState({}, '', `${window.location.pathname}?${qs}`)
+  }
+  renderDeals()
+}
+window.setView = setView
 
-  renderSalesClientDetail()
+function toggleFilter(f, btn) {
+  if (_filters.has(f)) { _filters.delete(f); btn.classList.remove('btn-primary') }
+  else                 { _filters.add(f);    btn.classList.add('btn-primary') }
+  renderDeals()
+}
+window.toggleFilter = toggleFilter
+
+function setSearch(v) { _search = v.toLowerCase(); renderDeals() }
+window.setSearch = setSearch
+
+function setFilterVendor(v) { _fVendor = v; renderDeals() }
+window.setFilterVendor = setFilterVendor
+
+function setFilterProduct(v) { _fProduct = v; renderDeals() }
+window.setFilterProduct = setFilterProduct
+
+function setFilterBilling(v) { _fBilling = v; renderDeals() }
+window.setFilterBilling = setFilterBilling
+
+// ─── master render ────────────────────────────────────────────
+
+function render() {
+  renderDeals()
+  // Populate filter dropdowns
+  const vSel = document.getElementById('filter-vendor')
+  const pSel = document.getElementById('filter-product')
+  if (vSel) {
+    vSel.innerHTML = `<option value="">All vendors</option>` +
+      _vendors.map(v => `<option value="${v.id}"${_fVendor === v.id ? ' selected' : ''}>${v.full_name}</option>`).join('')
+  }
+  if (pSel) {
+    pSel.innerHTML = `<option value="">All products</option>` +
+      _products.map(p => `<option value="${p.id}"${_fProduct === p.id ? ' selected' : ''}>${p.name}</option>`).join('')
+  }
 }
 
-async function selectSalesClient(clientId, options = {}){
-  selectedSalesClientId = clientId
-  salesClientEditMode = false
-  if (!options.keepPage) switchPage('clients')
-  renderSalesClients()
+function filteredDeals() {
+  let d = [..._deals]
+  if (_search) {
+    d = d.filter(deal => {
+      const cn = (deal.clients?.full_name || '').toLowerCase()
+      const pn = (deal.products?.name || '').toLowerCase()
+      const vn = (deal.vendors?.full_name || '').toLowerCase()
+      return cn.includes(_search) || pn.includes(_search) || vn.includes(_search)
+    })
+  }
+  if (_filters.has('overdue')) d = d.filter(x => x.billing_status === 'overdue')
+  if (_filters.has('active'))  d = d.filter(x => x.sales_status === 'active')
+  if (_filters.has('unpaid'))  d = d.filter(x => !['paid'].includes(x.billing_status))
+  if (_fVendor)  d = d.filter(x => x.primary_vendor_id === _fVendor)
+  if (_fProduct) d = d.filter(x => x.product_id === _fProduct)
+  if (_fBilling) d = d.filter(x => x.billing_status === _fBilling)
+  return d
+}
+
+// ─── kanban ───────────────────────────────────────────────────
+
+function renderDeals() {
+  if (_view === 'kanban') renderKanban()
+  else renderList()
+}
+
+function renderKanban() {
+  const el = document.getElementById('page-deals-kanban')
+  const deals = filteredDeals()
+  if (!deals.length && !_deals.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">◻</div><div>No deals yet</div></div>`
+    return
+  }
+  el.innerHTML = STAGES.map(stage => {
+    const cols = deals.filter(d => d.sales_status === stage.key)
+    return `
+      <div class="kanban-col" style="min-width:240px">
+        <div class="kanban-col-head">
+          <span style="display:flex;align-items:center;gap:6px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${stage.color};flex-shrink:0"></span>
+            ${stage.label}
+          </span>
+          <span style="font-size:11px">${cols.length}</span>
+        </div>
+        ${cols.map(d => kanbanCard(d)).join('')}
+      </div>
+    `
+  }).join('')
+}
+
+function kanbanCard(d) {
+  const client    = d.clients?.full_name || '—'
+  const product   = d.products?.name || 'Custom'
+  const vendorObj = d.vendors || null
+  const vendorName = vendorObj?.full_name || null
+  const price     = d.price != null ? fmt(finalAmt(d.price, d.vat_pct, d.vat_mode), d.currency) : null
+  const bColor    = BILLING_COLORS[d.billing_status] || 'var(--mu2)'
+  const created   = d.created_at ? formatDate(d.created_at) : ''
+
+  const vendorAvatarHtml = vendorObj
+    ? vendorObj.profile_picture_url
+      ? `<img src="${escHtml(vendorObj.profile_picture_url)}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      : `<div class="av" style="background:${avatarBg(vendorName)};color:${avatarFg(vendorName)};width:16px;height:16px;font-size:7px;flex-shrink:0">${initials(vendorName)}</div>`
+    : ''
+
+  return `
+    <div class="kanban-card" onclick="openEditDeal('${d.id}',event)">
+      <div style="margin-bottom:4px">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.3">${product}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div class="av" style="background:${avatarBg(client)};color:${avatarFg(client)};width:18px;height:18px;font-size:8px;flex-shrink:0">${initials(client)}</div>
+        <span style="font-size:12px;color:var(--mu);cursor:pointer;text-decoration:underline;text-underline-offset:2px"
+          onclick="openClientFromCard('${d.client_id}',event)">${escHtml(client)}</span>
+      </div>
+      ${vendorName ? `
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+        ${vendorAvatarHtml}
+        <span style="font-size:11px;color:var(--mu2)">by ${escHtml(vendorName)}</span>
+      </div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 7px;border-radius:20px;background:${bColor}18;color:${bColor};font-weight:500;border:1px solid ${bColor}40">
+          ${d.billing_status || '—'}
+        </span>
+        ${price ? `<span style="font-size:12px;font-family:var(--font-mono);color:var(--ink);font-weight:600">${price}</span>` : ''}
+      </div>
+      ${created ? `<div style="font-size:10px;color:var(--mu2);margin-top:6px;font-family:var(--font-mono)">${created}</div>` : ''}
+    </div>
+  `
+}
+
+function openClientFromCard(clientId, e) {
+  e.stopPropagation()
+  showClientDetail(clientId, null, 'kanban')
+}
+window.openClientFromCard = openClientFromCard
+
+// ─── list view ────────────────────────────────────────────────
+
+function renderList() {
+  const tbody = document.getElementById('deals-list-body')
+  const deals = filteredDeals()
+  if (!deals.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--mu2);padding:24px">No deals found</td></tr>`
+    return
+  }
+  tbody.innerHTML = deals.map(d => {
+    const client  = d.clients?.full_name || '—'
+    const product = d.products?.name || 'Custom'
+    const vendor  = d.vendors?.full_name || '—'
+    const price   = d.price != null ? fmt(finalAmt(d.price, d.vat_pct, d.vat_mode), d.currency) : '—'
+    const stage   = STAGES.find(s => s.key === d.sales_status)
+    const bColor  = BILLING_COLORS[d.billing_status] || 'var(--mu2)'
+    return `
+      <tr onclick="openEditDeal('${d.id}',event)" style="cursor:pointer">
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="av av-sm" style="background:${avatarBg(client)};color:${avatarFg(client)}">${initials(client)}</div>
+            ${client}
+          </div>
+        </td>
+        <td style="font-weight:500">${product}</td>
+        <td style="color:var(--mu)">${vendor}</td>
+        <td class="mono">${price}</td>
+        <td><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px"><span style="width:6px;height:6px;border-radius:50%;background:${stage?.color || 'var(--mu2)'};flex-shrink:0"></span>${d.sales_status}</span></td>
+        <td><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 7px;border-radius:20px;background:${bColor}18;color:${bColor};font-weight:500;border:1px solid ${bColor}40">${d.billing_status}</span></td>
+        <td class="mono" style="font-size:11px">${d.payment_processor || '—'}</td>
+      </tr>
+    `
+  }).join('')
+}
+
+// ─── deal edit modal ──────────────────────────────────────────
+
+function openEditDeal(id, e) {
+  e?.stopPropagation()
+  if (window.Router && !_routerDispatching) {
+    Router.open({
+      entity: 'deal',
+      id,
+      view: 'modal',
+      from: _view === 'list' ? 'list' : 'kanban',
+    })
+    return
+  }
+
+  _editDealId = id
+  const deal = _deals.find(d => d.id === id)
+  if (!deal) return
+
+  // Init client selector state
+  _edSelClient = _clients.find(c => c.id === deal.client_id) || null
+  _edCsOpen    = false
+  _edCsSearch  = ''
+  _edCsFocused = -1
+
+  _renderEditDealModal(deal)
+  document.getElementById('modal-edit-deal').classList.add('open')
+}
+window.openEditDeal = openEditDeal
+
+function closeEditDeal() {
+  _editDealId = null
+  document.getElementById('modal-edit-deal').classList.remove('open')
+  if (window.Router && !_routerDispatching && Router.getParams().entity === 'deal') {
+    Router.close()
+  }
+}
+window.closeEditDeal = closeEditDeal
+
+function _renderEditDealModal(deal) {
+  const body = document.getElementById('edit-deal-body')
+
+  // ── Payment info blocks ──────────────────────────────────────
+  // Payment link section (only if link exists)
+  const paymentLinkHtml = deal.payment_link ? `
+    <div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:var(--r);padding:10px 12px;margin-bottom:4px">
+      <div style="font-size:10px;font-family:var(--font-mono);color:var(--blue-text);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Payment Link</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <a href="${escHtmlAttr(deal.payment_link)}" target="_blank" rel="noopener"
+           style="font-size:11px;font-family:var(--font-mono);color:var(--blue-text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none"
+           title="${escHtmlAttr(deal.payment_link)}">${escHtml(deal.payment_link)}</a>
+        <button class="btn btn-sm" style="flex-shrink:0;padding:3px 8px;font-size:11px"
+          onclick="copyDealLink('${escHtmlAttr(deal.payment_link)}')">Copy</button>
+        <a href="${escHtmlAttr(deal.payment_link)}" target="_blank" rel="noopener"
+           class="btn btn-sm" style="flex-shrink:0;padding:3px 8px;font-size:11px;text-decoration:none">Open ↗</a>
+      </div>
+    </div>` : ''
+
+  // Paid details (only when payment_status === 'paid')
+  const paidHtml = (deal.payment_status === 'paid' && deal.paid_at) ? (() => {
+    const amt = deal.paid_amount != null
+      ? `${SYM[deal.paid_currency] || deal.paid_currency || ''}${Number(deal.paid_amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : null
+    return `
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:4px">
+        <span>✅</span>
+        <span>${amt ? `Paid ${amt}` : 'Paid'} on ${formatDate(deal.paid_at)}</span>
+      </div>`
+  })() : ''
+
+  // Gateway / payment method badge
+  const gatewayHtml = deal.payment_method ? (() => {
+    const label = GATEWAY_LABELS[deal.payment_method] || deal.payment_method
+    return `<span style="font-size:10px;font-family:var(--font-mono);padding:2px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--border);color:var(--mu)">${label}</span>`
+  })() : ''
+
+  body.innerHTML = `
+    ${paidHtml}
+    ${paymentLinkHtml}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="grid-column:1/-1">
+        <label class="fl">Client</label>
+        <div class="cs-wrap" id="ed-cs-wrap">
+          ${_edBuildCsTrigger()}
+          ${_edBuildCsDropdown()}
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Vendor</label>
+        <select class="fi fsel" id="ed-vendor">
+          <option value="">— None —</option>
+          ${_vendors.map(v => `<option value="${v.id}"${deal.primary_vendor_id === v.id ? ' selected' : ''}>${v.full_name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Product</label>
+        <select class="fi fsel" id="ed-product" onchange="onEdProductChange(this.value)">
+          <option value="">— Custom —</option>
+          ${_products.map(p => `<option value="${p.id}"${deal.product_id === p.id ? ' selected' : ''}>${p.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Price</label>
+        <input class="fi" type="number" id="ed-price" value="${deal.price != null ? deal.price : ''}" placeholder="0" oninput="calcEdVat()">
+      </div>
+      <div class="fg">
+        <label class="fl">Currency</label>
+        <select class="fi fsel" id="ed-currency" onchange="calcEdVat()">
+          ${['EUR','USD','ILS','GBP'].map(c => `<option value="${c}"${deal.currency === c ? ' selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">VAT %</label>
+        <input class="fi" type="number" id="ed-vat" value="${deal.vat_pct || ''}" placeholder="0" oninput="calcEdVat()">
+      </div>
+      <div class="fg">
+        <label class="fl">VAT mode</label>
+        <select class="fi fsel" id="ed-vatmode" onchange="calcEdVat()">
+          <option value="excl"${deal.vat_mode !== 'incl' ? ' selected' : ''}>+ on top</option>
+          <option value="incl"${deal.vat_mode === 'incl' ? ' selected' : ''}>included</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <div id="ed-vat-preview" style="font-family:var(--font-mono);font-size:11px;color:var(--mu2);background:var(--bg);padding:8px 10px;border-radius:var(--r);display:none"></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Sales status</label>
+        <select class="fi fsel" id="ed-sales">
+          ${STAGES.map(s => `<option value="${s.key}"${deal.sales_status === s.key ? ' selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Billing status</label>
+        <select class="fi fsel" id="ed-billing">
+          ${['pending','invoiced','partial','paid','overdue'].map(s => `<option value="${s}"${deal.billing_status === s ? ' selected' : ''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label class="fl">
+          Payment processor
+          ${gatewayHtml}
+        </label>
+        <input class="fi" id="ed-processor" value="${deal.payment_processor || ''}" placeholder="stripe, thrivecart, wise…">
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label class="fl">Notes</label>
+        <div id="ed-notes-editor"></div>
+      </div>
+    </div>
+    <div id="ed-reminders-section" style="margin-top:12px">
+      <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.14em;color:var(--mu2);margin-bottom:8px">Reminders</div>
+      <div id="ed-reminders-list"></div>
+      <div style="display:flex;gap:6px;margin-top:8px" id="ed-reminder-add-row">
+        <input class="fi" id="ed-reminder-text" style="flex:1;height:32px;font-size:12px" placeholder="Add reminder…" onkeydown="if(event.key==='Enter')addEdReminder()">
+        <input type="date" class="fi" id="ed-reminder-date" style="width:130px;height:32px;font-size:12px">
+        <button class="btn btn-sm" onclick="addEdReminder()" style="height:32px">+ Add</button>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--mu2);font-family:var(--font-mono);margin-top:8px">Created ${formatDate(deal.created_at)}</div>
+  `
+  calcEdVat()
+  requestAnimationFrame(() => {
+    _initEdNotesQuill(deal.notes || '')
+    _renderEdReminders(deal.deal_reminders || [])
+  })
+}
+
+// ── helpers used inside the modal HTML ───────────────────────
+
+function escHtmlAttr(str) {
+  return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function copyDealLink(url) {
+  navigator.clipboard.writeText(url).then(() => showToast('Link copied'))
+}
+window.copyDealLink = copyDealLink
+
+// ─── client selector inside edit modal ───────────────────────
+
+function _edBuildCsTrigger() {
+  if (_edSelClient) {
+    return `
+      <div class="cs-trigger" onclick="edCsToggle()">
+        <div class="av" style="background:${avatarBg(_edSelClient.full_name)};color:${avatarFg(_edSelClient.full_name)};width:20px;height:20px;font-size:9px;flex-shrink:0">${initials(_edSelClient.full_name)}</div>
+        <span style="flex:1;color:var(--ink)">${_edSelClient.full_name}</span>
+        <span onclick="edCsClear(event)" style="color:var(--mu2);font-size:14px;line-height:1;cursor:pointer;padding:0 2px">×</span>
+      </div>
+    `
+  }
+  return `
+    <div class="cs-trigger" onclick="edCsToggle()">
+      <span style="color:var(--mu2);flex:1">Select client…</span>
+      <span style="color:var(--mu2);font-size:10px">▾</span>
+    </div>
+  `
+}
+
+function _edBuildCsDropdown() {
+  if (!_edCsOpen) return ''
+  const filtered = _edCsSearch
+    ? _clients.filter(c => c.full_name.toLowerCase().includes(_edCsSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(_edCsSearch.toLowerCase()))
+    : _clients
+  return `
+    <div class="cs-dropdown">
+      <div style="padding:6px 8px;border-bottom:1px solid var(--border2)">
+        <input class="fi" style="height:30px;font-size:12px" placeholder="Search…" id="ed-cs-search"
+          oninput="edCsSearch(this.value)" onkeydown="edCsKeydown(event)"
+          value="${_edCsSearch}" autocomplete="off">
+      </div>
+      <div class="cs-list">
+        ${filtered.length ? filtered.map((c, i) => `
+          <div class="cs-item${_edSelClient?.id === c.id ? ' cs-sel' : ''}${_edCsFocused === i ? ' cs-focused' : ''}"
+            onclick="edCsSelect('${c.id}')">
+            <div class="av" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)};width:20px;height:20px;font-size:9px;flex-shrink:0">${initials(c.full_name)}</div>
+            <div>
+              <div style="font-size:13px;color:var(--ink)">${c.full_name}</div>
+              ${c.email ? `<div style="font-size:11px;color:var(--mu2)">${c.email}</div>` : ''}
+            </div>
+          </div>
+        `).join('') : `<div style="padding:12px;text-align:center;font-size:12px;color:var(--mu2)">No clients found</div>`}
+      </div>
+    </div>
+  `
+}
+
+function _edRenderCs() {
+  const wrap = document.getElementById('ed-cs-wrap')
+  if (!wrap) return
+  wrap.innerHTML = _edBuildCsTrigger() + _edBuildCsDropdown()
+  if (_edCsOpen) {
+    const inp = document.getElementById('ed-cs-search')
+    inp?.focus()
+  }
+}
+
+function edCsToggle() { _edCsOpen = !_edCsOpen; _edCsFocused = -1; _edRenderCs() }
+window.edCsToggle = edCsToggle
+
+function edCsClear(e) {
+  e.stopPropagation()
+  _edSelClient = null; _edCsOpen = false; _edCsSearch = ''; _edCsFocused = -1
+  _edRenderCs()
+}
+window.edCsClear = edCsClear
+
+function edCsSearch(v) { _edCsSearch = v; _edCsFocused = -1; _edRenderCs() }
+window.edCsSearch = edCsSearch
+
+function edCsSelect(id) {
+  _edSelClient = _clients.find(c => c.id === id) || null
+  _edCsOpen = false; _edCsSearch = ''; _edCsFocused = -1
+  _edRenderCs()
+}
+window.edCsSelect = edCsSelect
+
+function _edCsClose() { _edCsOpen = false; _edCsFocused = -1; _edRenderCs() }
+
+function edCsKeydown(e) {
+  const filtered = _edCsSearch
+    ? _clients.filter(c => c.full_name.toLowerCase().includes(_edCsSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(_edCsSearch.toLowerCase()))
+    : _clients
+  if (e.key === 'ArrowDown') { e.preventDefault(); _edCsFocused = Math.min(_edCsFocused + 1, filtered.length - 1); _edRenderCs() }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _edCsFocused = Math.max(_edCsFocused - 1, -1); _edRenderCs() }
+  else if (e.key === 'Enter') { e.preventDefault(); if (_edCsFocused >= 0 && filtered[_edCsFocused]) edCsSelect(filtered[_edCsFocused].id) }
+  else if (e.key === 'Escape') _edCsClose()
+}
+window.edCsKeydown = edCsKeydown
+
+// ─── edit modal VAT + product autofill ───────────────────────
+
+function onEdProductChange(id) {
+  const p = _products.find(x => x.id === id)
+  if (p) {
+    if (p.base_price) document.getElementById('ed-price').value = p.base_price
+    if (p.currency)   document.getElementById('ed-currency').value = p.currency
+    calcEdVat()
+  }
+}
+window.onEdProductChange = onEdProductChange
+
+function calcEdVat() {
+  const price = parseFloat(document.getElementById('ed-price')?.value) || 0
+  const vat   = parseFloat(document.getElementById('ed-vat')?.value) || 0
+  const cur   = document.getElementById('ed-currency')?.value || 'EUR'
+  const mode  = document.getElementById('ed-vatmode')?.value || 'excl'
+  const prev  = document.getElementById('ed-vat-preview')
+  if (!prev) return
+  if (price > 0 && vat > 0) {
+    const final  = mode === 'excl' ? price * (1 + vat / 100) : price
+    const base   = mode === 'incl' ? price / (1 + vat / 100) : price
+    const vatAmt = mode === 'excl' ? price * vat / 100 : price - base
+    prev.style.display = 'block'
+    prev.textContent = mode === 'excl'
+      ? `Base: ${fmt(price, cur)} + VAT (${vat}%): ${fmt(vatAmt, cur)} = Final: ${fmt(final, cur)}`
+      : `Final: ${fmt(price, cur)} (incl. VAT ${vat}% = ${fmt(vatAmt, cur)})`
+  } else {
+    prev.style.display = 'none'
+  }
+}
+window.calcEdVat = calcEdVat
+
+// ─── save deal ────────────────────────────────────────────────
+
+async function saveEditDeal() {
+  if (!_editDealId) return
+  const clientId  = _edSelClient?.id || null
+  const vendorId  = document.getElementById('ed-vendor').value || null
+  const productId = document.getElementById('ed-product').value || null
+  const price     = parseFloat(document.getElementById('ed-price').value) || null
+  const currency  = document.getElementById('ed-currency').value
+  const vatPct    = parseFloat(document.getElementById('ed-vat').value) || 0
+  const vatMode   = document.getElementById('ed-vatmode').value
+  const sales     = document.getElementById('ed-sales').value
+  const billing   = document.getElementById('ed-billing').value
+  const processor = document.getElementById('ed-processor').value.trim() || null
+  const notes     = _quillValue(_edNotesQuill)
+
+  if (!clientId) { showToast('Select a client', 'warn'); return }
+
+  const fields = {
+    client_id:         clientId,
+    primary_vendor_id: vendorId,
+    product_id:        productId,
+    price,
+    currency,
+    vat_pct:           vatPct,
+    vat_mode:          vatMode,
+    sales_status:      sales,
+    billing_status:    billing,
+    payment_processor: processor,
+    notes,
+  }
 
   try {
-    selectedSalesClientDetail = await getClientDetail(clientId)
-    renderSalesClientDetail()
-  } catch (err) {
-    showToast('Failed loading client detail: ' + err.message, 'warn')
-    selectedSalesClientDetail = null
-    renderSalesClientDetail()
+    await updateDeal(_editDealId, fields)
+
+    // Update local state
+    const i = _deals.findIndex(d => d.id === _editDealId)
+    if (i !== -1) {
+      const client  = _clients.find(c => c.id === clientId)
+      const vendor  = _vendors.find(v => v.id === vendorId)
+      const product = _products.find(p => p.id === productId)
+      _deals[i] = { ..._deals[i], ...fields, clients: client || null, vendors: vendor || null, products: product || null }
+    }
+
+    // Auto-create package if product.type === 'package'
+    const product = _products.find(p => p.id === productId)
+    if (product?.type === 'package' && vendorId && clientId) {
+      await _autoCreatePackage(_editDealId, clientId, vendorId, product)
+    }
+
+    // Auto-assign vendor to client
+    if (vendorId && clientId) {
+      await _autoAssignVendorClient(vendorId, clientId)
+    }
+
+    closeEditDeal()
+    renderDeals()
+    showToast('Deal saved')
+  } catch(e) {
+    console.error('[HSos] saveEditDeal error:', e)
+    showToast('Save failed — check console', 'warn')
+  }
+}
+window.saveEditDeal = saveEditDeal
+
+// ─── deal reminders ───────────────────────────────────────────
+
+function _renderEdReminders(reminders) {
+  const list = document.getElementById('ed-reminders-list')
+  if (!list) return
+  if (!reminders.length) {
+    list.innerHTML = `<div style="font-size:12px;color:var(--mu2);padding:4px 0">No reminders yet</div>`
+    return
+  }
+  // Sort: undone first, then by due_date ascending (nulls last)
+  const sorted = [...reminders].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1
+    const ad = a.due_date || '9999'
+    const bd = b.due_date || '9999'
+    return ad.localeCompare(bd)
+  })
+  list.innerHTML = sorted.map(r => {
+    const overdue = !r.done && r.due_date && r.due_date < new Date().toISOString().slice(0, 10)
+    const dueLbl = r.due_date
+      ? `<span style="font-size:10px;font-family:var(--font-mono);color:${overdue ? 'var(--red-text)' : 'var(--mu2)'}">${overdue ? '⚠️ ' : ''}Due: ${r.due_date}</span>`
+      : ''
+    return `
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2)">
+        <input type="checkbox" ${r.done ? 'checked' : ''}
+          style="margin-top:2px;flex-shrink:0;cursor:pointer"
+          onchange="toggleEdReminder('${r.id}', this.checked)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;${r.done ? 'text-decoration:line-through;color:var(--mu2)' : 'color:var(--ink)'}">${escHtml(r.text)}</div>
+          ${dueLbl}
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+async function addEdReminder() {
+  if (!_editDealId) return
+  const textEl = document.getElementById('ed-reminder-text')
+  const dateEl = document.getElementById('ed-reminder-date')
+  const text   = textEl?.value.trim()
+  if (!text) { textEl?.focus(); return }
+  const due_date = dateEl?.value || null
+  try {
+    const reminder = await addDealReminder(_editDealId, text, due_date)
+    // Push into local deal state
+    const deal = _deals.find(d => d.id === _editDealId)
+    if (deal) {
+      if (!deal.deal_reminders) deal.deal_reminders = []
+      deal.deal_reminders.push(reminder)
+      _renderEdReminders(deal.deal_reminders)
+    }
+    textEl.value = ''
+    if (dateEl) dateEl.value = ''
+  } catch(e) {
+    console.error('[HSos] addEdReminder error:', e)
+    showToast('Could not add reminder', 'warn')
+  }
+}
+window.addEdReminder = addEdReminder
+
+async function toggleEdReminder(id, done) {
+  try {
+    await toggleDealReminder(id, done)
+    const deal = _deals.find(d => d.id === _editDealId)
+    if (deal?.deal_reminders) {
+      const r = deal.deal_reminders.find(x => x.id === id)
+      if (r) r.done = done
+      _renderEdReminders(deal.deal_reminders)
+    }
+  } catch(e) {
+    console.error('[HSos] toggleEdReminder error:', e)
+    showToast('Could not update reminder', 'warn')
+  }
+}
+window.toggleEdReminder = toggleEdReminder
+
+async function _autoCreatePackage(dealId, clientId, vendorId, product) {
+  // Check if package already exists for this deal
+  const { data: existing } = await _sb
+    .from('packages').select('id').eq('deal_id', dealId).maybeSingle()
+  if (existing) return  // already exists
+
+  const totalSessions = product.default_package_sessions || 10
+  await createPackage({
+    deal_id:       dealId,
+    client_id:     clientId,
+    vendor_id:     vendorId,
+    total_sessions: totalSessions,
+    sessions_used:  0,
+    status:         'active',
+  })
+  showToast(`Package created: ${totalSessions} sessions`)
+}
+
+async function _autoAssignVendorClient(vendorId, clientId) {
+  // Check junction table
+  const { data: existing } = await _sb
+    .from('vendor_clients')
+    .select('vendor_id')
+    .eq('vendor_id', vendorId)
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (existing) return  // already assigned
+
+  await assignClientToVendor(vendorId, clientId)
+  // Update local vendor clients list silently
+  const v = _vendors.find(x => x.id === vendorId)
+  const c = _clients.find(x => x.id === clientId)
+  if (v && c) {
+    if (!v.clients) v.clients = []
+    if (!v.clients.find(x => x.id === clientId)) v.clients.push(c)
   }
 }
 
-function renderSalesClientDetail(){
-  const empty = document.getElementById('sales-client-empty')
-  const detail = document.getElementById('sales-client-detail')
-  const body = document.getElementById('sales-client-detail-body')
-  if (!empty || !detail || !body) return
+// ─── delete deal ──────────────────────────────────────────────
 
-  if (!selectedSalesClientId) {
-    empty.style.display = 'flex'
-    detail.classList.add('hidden')
+async function deleteEditDeal() {
+  if (!_editDealId) return
+  const deal = _deals.find(d => d.id === _editDealId)
+  if (!confirm(`Delete deal for "${deal?.clients?.full_name || 'this client'}"? This cannot be undone.`)) return
+  try {
+    await deleteDeal(_editDealId)
+    _deals = _deals.filter(d => d.id !== _editDealId)
+    closeEditDeal()
+    renderDeals()
+    showToast('Deal deleted')
+  } catch(e) {
+    console.error('[HSos] deleteEditDeal error:', e)
+    showToast('Delete failed — check console', 'warn')
+  }
+}
+window.deleteEditDeal = deleteEditDeal
+
+// ─── new deal modal ───────────────────────────────────────────
+
+let _ndSelClient     = null
+let _ndCsOpen        = false
+let _ndCsSearch      = ''
+let _ndCsFocused     = -1
+let _ndSelectedPlan  = null  // selected product_plan record
+let _ndCurrentStep   = 1
+
+function _ndGoToStep(step) {
+  _ndCurrentStep = step
+  ;[1, 2, 3].forEach(n => {
+    const el = document.getElementById(`nd-step-${n}`)
+    if (el) el.style.display = n === step ? '' : 'none'
+    const tab = document.getElementById(`nd-tab-${n}`)
+    if (tab) {
+      tab.style.color = n === step ? 'var(--ink)' : 'var(--mu2)'
+      tab.style.borderBottom = n === step ? '2px solid var(--ink)' : '2px solid transparent'
+    }
+  })
+}
+
+async function ndStep1Next() {
+  const productId = document.getElementById('nd-product').value
+  if (!productId) {
+    // Skip plan step if no product — go straight to details
+    _ndSelectedPlan = null
+    _ndGoToStep(3)
+    _prefillStep3FromPlan(null)
     return
   }
+  const country = document.getElementById('nd-country').value || null
+  _ndGoToStep(2)
+  await _ndLoadPlans(productId, country)
+}
+window.ndStep1Next = ndStep1Next
 
-  empty.style.display = 'none'
-  detail.classList.remove('hidden')
-  const base = CLIENTS.find(c => c.id === selectedSalesClientId)
-  if (!base) {
-    body.innerHTML = `<div class="clients-empty"><div class="empty-icon">⚠</div><div>Client not found</div></div>`
-    return
-  }
-  if (!selectedSalesClientDetail) {
-    body.innerHTML = `<div class="clients-empty"><div class="empty-icon">⌛</div><div>Loading client...</div></div>`
-    return
-  }
+function ndStepBack(toStep) {
+  _ndGoToStep(toStep)
+}
+window.ndStepBack = ndStepBack
 
-  const d = selectedSalesClientDetail
-  const deals = (d.deals || []).map(mapDeal).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))
-  const totalValue = deals.reduce((s, x) => s + finalAmt(x.price, x.vat, x.vatMode), 0)
-  const totalPaid = deals.filter(x => x.billing === 'paid').reduce((s, x) => s + finalAmt(x.price, x.vat, x.vatMode), 0)
-  const outstanding = totalValue - totalPaid
-  const baseCurrency = deals[0]?.currency || 'EUR'
+async function _ndLoadPlans(productId, country) {
+  const loading = document.getElementById('nd-plans-loading')
+  const list    = document.getElementById('nd-plans-list')
+  const noPlans = document.getElementById('nd-no-plans')
+  const nextBtn = document.getElementById('nd-step2-next')
 
-  if (salesClientEditMode) {
-    body.innerHTML = `
-      <div class="sales-client-sec">
-        <div class="sales-client-sec-hd"><span class="sales-client-sec-title">Edit Client</span></div>
-        <div class="sales-edit-grid">
-          <div class="fg ff"><label class="fl">Full name</label><input class="fi" id="sales-edit-name" value="${esc(base.name)}"></div>
-          <div class="fg"><label class="fl">Email</label><input class="fi" id="sales-edit-email" value="${esc(base.email || '')}"></div>
-          <div class="fg"><label class="fl">Phone</label><input class="fi" id="sales-edit-phone" value="${esc(base.phone || '')}"></div>
-          <div class="fg"><label class="fl">Client kind</label>
-            <select class="fsel" id="sales-edit-kind">
-              <option value="private"${(base.clientKind || 'private') === 'private' ? ' selected' : ''}>Private</option>
-              <option value="corporate"${(base.clientKind || 'private') === 'corporate' ? ' selected' : ''}>Corporate</option>
-            </select>
+  loading.style.display = 'block'
+  list.innerHTML = ''
+  noPlans.style.display = 'none'
+  nextBtn.disabled = true
+  _ndSelectedPlan = null
+
+  try {
+    const plans = await getProductPlans(productId, country)
+    loading.style.display = 'none'
+
+    if (!plans.length) {
+      noPlans.style.display = 'block'
+      nextBtn.disabled = false
+      return
+    }
+
+    list.innerHTML = plans.map((p, i) => {
+      const isDefault = p.is_default
+      const gatewayColors = {
+        green_invoice: 'var(--green)', stripe: 'var(--blue)',
+        thrivecart: 'var(--purple)', wise: 'var(--amber)',
+      }
+      const gColor = gatewayColors[p.collection_gateway] || 'var(--mu2)'
+      const installLabel = p.installments > 1
+        ? `${p.installments} × ${Math.round(p.price / p.installments)} ${p.currency}`
+        : `${p.price} ${p.currency}`
+      const countryLabel = p.target_customer_country ? `🌍 ${p.target_customer_country}` : '🌐 Default'
+      return `
+        <div class="nd-plan-card" id="nd-plan-${p.id}"
+          onclick="ndSelectPlan('${p.id}')"
+          style="border:2px solid var(--border);border-radius:var(--r);padding:12px 14px;cursor:pointer;transition:border-color .1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:600">${p.plan_name}</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              ${isDefault ? `<span style="font-size:10px;background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-border);padding:1px 8px;border-radius:10px;font-family:var(--font-mono)">default</span>` : ''}
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${gColor}20;color:${gColor};font-family:var(--font-mono);font-weight:500">${p.collection_gateway}</span>
+            </div>
           </div>
-          <div class="fg"><label class="fl">Company</label><input class="fi" id="sales-edit-company" value="${esc(base.company || '')}"></div>
-          <div class="fg"><label class="fl">Source</label><input class="fi" id="sales-edit-source" value="${esc(base.source || '')}"></div>
-          <div class="fg ff"><label class="fl">Notes</label><textarea class="fi" id="sales-edit-notes" style="min-height:76px;resize:vertical">${esc(base.notes || '')}</textarea></div>
+          <div style="display:flex;align-items:center;gap:16px;font-size:12px;color:var(--mu)">
+            <span>💰 ${installLabel}</span>
+            <span>${countryLabel}</span>
+            ${p.collection_gateway_link ? `<span style="color:var(--blue-text)">🔗 Has link</span>` : ''}
+            ${p.vendors ? `<span>👤 ${p.vendors.full_name}</span>` : ''}
+          </div>
+          ${p.plan_code ? `<div style="font-size:10px;font-family:var(--font-mono);color:var(--mu2);margin-top:4px">${p.plan_code}</div>` : ''}
         </div>
-        <div class="sales-edit-actions">
-          <button class="btn-cancel" onclick="salesClientEditMode=false;renderSalesClientDetail()">Cancel</button>
-          <button class="btn-create" onclick="saveSalesClientEdits()">Save</button>
+      `
+    }).join('')
+
+    // Auto-select the first (highest priority) plan
+    if (plans[0]) ndSelectPlan(plans[0].id, plans[0])
+  } catch(e) {
+    loading.style.display = 'none'
+    noPlans.style.display = 'block'
+    noPlans.textContent = 'Failed to load plans — you can still create a manual deal.'
+    nextBtn.disabled = false
+    console.error('[HSos] _ndLoadPlans error:', e)
+  }
+}
+
+function ndSelectPlan(planId, planObj) {
+  // Deselect all
+  document.querySelectorAll('.nd-plan-card').forEach(c => {
+    c.style.borderColor = 'var(--border)'
+    c.style.background  = ''
+  })
+  // Highlight selected
+  const card = document.getElementById(`nd-plan-${planId}`)
+  if (card) { card.style.borderColor = 'var(--ink)'; card.style.background = 'var(--bg)' }
+  // Find plan object from the DOM list (we may not have planObj if called from onclick)
+  _ndSelectedPlan = planObj || null
+  document.getElementById('nd-step2-next').disabled = false
+}
+window.ndSelectPlan = ndSelectPlan
+
+function ndStep2Next() {
+  _ndGoToStep(3)
+  _prefillStep3FromPlan(_ndSelectedPlan)
+}
+window.ndStep2Next = ndStep2Next
+
+function _prefillStep3FromPlan(plan) {
+  // Vendor
+  const vendorSel = document.getElementById('nd-vendor')
+  if (vendorSel) {
+    vendorSel.innerHTML = `<option value="">— Vendor —</option>` +
+      _vendors.map(v => `<option value="${v.id}"${plan?.vendor_id === v.id ? ' selected' : ''}>${v.full_name}</option>`).join('')
+  }
+  // Price + currency
+  if (plan) {
+    const priceEl = document.getElementById('nd-price')
+    const curEl   = document.getElementById('nd-currency')
+    if (priceEl) priceEl.value = plan.price || ''
+    if (curEl)   curEl.value   = plan.currency || 'EUR'
+  }
+  calcNdVat()
+  requestAnimationFrame(() => _initNdNotesQuill())
+
+  // Plan summary banner
+  const summary     = document.getElementById('nd-plan-summary')
+  const summaryName = document.getElementById('nd-plan-summary-name')
+  const summaryDet  = document.getElementById('nd-plan-summary-detail')
+  if (plan && summary) {
+    summary.style.display = 'block'
+    summaryName.textContent = plan.plan_name || ''
+    const installLabel = plan.installments > 1
+      ? `${plan.installments} installments × ${Math.round(plan.price / plan.installments)} ${plan.currency}`
+      : `${plan.price} ${plan.currency}`
+    summaryDet.textContent = `${plan.collection_gateway} · ${installLabel}${plan.plan_code ? ' · ' + plan.plan_code : ''}`
+  } else if (summary) {
+    summary.style.display = 'none'
+  }
+
+  // Payment link row
+  const linkRow = document.getElementById('nd-payment-link-row')
+  const linkEl  = document.getElementById('nd-payment-link')
+  if (plan?.collection_gateway_link && linkRow && linkEl) {
+    linkRow.style.display = 'block'
+    linkEl.value = plan.collection_gateway_link
+  } else if (linkRow) {
+    linkRow.style.display = 'none'
+  }
+}
+
+function copyNdPaymentLink() {
+  const val = document.getElementById('nd-payment-link')?.value
+  if (val) { navigator.clipboard.writeText(val); showToast('Link copied') }
+}
+window.copyNdPaymentLink = copyNdPaymentLink
+
+// Customer email lookup (debounced)
+let _ndEmailTimer = null
+async function onNdCustomerEmailInput(val) {
+  clearTimeout(_ndEmailTimer)
+  const hint = document.getElementById('nd-customer-hint')
+  if (!val || !val.includes('@')) { if (hint) hint.textContent = ''; return }
+  _ndEmailTimer = setTimeout(async () => {
+    try {
+      const existing = await getCustomerByEmail(val)
+      if (hint) {
+        hint.textContent = existing
+          ? `✓ Known customer: ${existing.full_name}${existing.country ? ' · ' + existing.country : ''}`
+          : '+ Will create new customer record on deal creation'
+        hint.style.color = existing ? 'var(--green-text)' : 'var(--mu2)'
+        // Auto-fill country if known
+        if (existing?.country) {
+          const sel = document.getElementById('nd-country')
+          if (sel) sel.value = existing.country
+        }
+      }
+    } catch { if (hint) hint.textContent = '' }
+  }, 400)
+}
+window.onNdCustomerEmailInput = onNdCustomerEmailInput
+
+function openNewDeal() {
+  _ndSelClient = null; _ndCsOpen = false; _ndCsSearch = ''; _ndCsFocused = -1
+  _ndSelectedPlan = null
+
+  // Reset step
+  _ndGoToStep(1)
+
+  // Reset step 3 fields (they may not exist yet if we haven't gone to step 3)
+  const priceEl   = document.getElementById('nd-price')
+  const vatEl     = document.getElementById('nd-vat')
+  const vatPrevEl = document.getElementById('nd-vat-preview')
+  if (priceEl)   priceEl.value = ''
+  if (vatEl)     vatEl.value   = ''
+  if (vatPrevEl) vatPrevEl.textContent = ''
+
+  // Populate product select (step 1)
+  document.getElementById('nd-product').innerHTML = `<option value="">— Product (optional) —</option>` +
+    _products.map(p => `<option value="${p.id}">${p.name}</option>`).join('')
+
+  // Reset customer email hint
+  const hint = document.getElementById('nd-customer-hint')
+  const emailEl = document.getElementById('nd-customer-email')
+  if (hint)    hint.textContent = ''
+  if (emailEl) emailEl.value   = ''
+  const countrySel = document.getElementById('nd-country')
+  if (countrySel) countrySel.value = ''
+
+  _renderNdCs()
+  document.getElementById('modal-new-deal').classList.add('open')
+}
+window.openNewDeal = openNewDeal
+
+function closeNewDeal() {
+  document.getElementById('modal-new-deal').classList.remove('open')
+}
+window.closeNewDeal = closeNewDeal
+
+function _ndBuildCsTrigger() {
+  if (_ndSelClient) {
+    return `
+      <div class="cs-trigger" onclick="ndCsToggle()">
+        <div class="av" style="background:${avatarBg(_ndSelClient.full_name)};color:${avatarFg(_ndSelClient.full_name)};width:20px;height:20px;font-size:9px;flex-shrink:0">${initials(_ndSelClient.full_name)}</div>
+        <span style="flex:1;color:var(--ink)">${_ndSelClient.full_name}</span>
+        <span onclick="ndCsClear(event)" style="color:var(--mu2);font-size:14px;line-height:1;cursor:pointer;padding:0 2px">×</span>
+      </div>
+    `
+  }
+  return `
+    <div class="cs-trigger" onclick="ndCsToggle()">
+      <span style="color:var(--mu2);flex:1">Select client…</span>
+      <span style="color:var(--mu2);font-size:10px">▾</span>
+    </div>
+  `
+}
+
+function _ndBuildCsDropdown() {
+  if (!_ndCsOpen) return ''
+  const filtered = _ndCsSearch
+    ? _clients.filter(c => c.full_name.toLowerCase().includes(_ndCsSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(_ndCsSearch.toLowerCase()))
+    : _clients
+  return `
+    <div class="cs-dropdown">
+      <div style="padding:6px 8px;border-bottom:1px solid var(--border2)">
+        <input class="fi" style="height:30px;font-size:12px" placeholder="Search…" id="nd-cs-search"
+          oninput="ndCsSearch(this.value)" onkeydown="ndCsKeydown(event)"
+          value="${_ndCsSearch}" autocomplete="off">
+      </div>
+      <div class="cs-list">
+        ${filtered.length ? filtered.map((c, i) => `
+          <div class="cs-item${_ndSelClient?.id === c.id ? ' cs-sel' : ''}${_ndCsFocused === i ? ' cs-focused' : ''}"
+            onclick="ndCsSelect('${c.id}')">
+            <div class="av" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)};width:20px;height:20px;font-size:9px;flex-shrink:0">${initials(c.full_name)}</div>
+            <div>
+              <div style="font-size:13px;color:var(--ink)">${c.full_name}</div>
+              ${c.email ? `<div style="font-size:11px;color:var(--mu2)">${c.email}</div>` : ''}
+            </div>
+          </div>
+        `).join('') : `<div style="padding:12px;text-align:center;font-size:12px;color:var(--mu2)">No clients found</div>`}
+      </div>
+    </div>
+  `
+}
+
+function _renderNdCs() {
+  const wrap = document.getElementById('nd-cs-wrap')
+  if (!wrap) return
+  wrap.innerHTML = _ndBuildCsTrigger() + _ndBuildCsDropdown()
+  if (_ndCsOpen) document.getElementById('nd-cs-search')?.focus()
+}
+
+function ndCsToggle() { _ndCsOpen = !_ndCsOpen; _ndCsFocused = -1; _renderNdCs() }
+window.ndCsToggle = ndCsToggle
+
+function ndCsClear(e) { e.stopPropagation(); _ndSelClient = null; _ndCsOpen = false; _ndCsSearch = ''; _renderNdCs() }
+window.ndCsClear = ndCsClear
+
+function ndCsSearch(v) { _ndCsSearch = v; _ndCsFocused = -1; _renderNdCs() }
+window.ndCsSearch = ndCsSearch
+
+function ndCsSelect(id) { _ndSelClient = _clients.find(c => c.id === id) || null; _ndCsOpen = false; _ndCsSearch = ''; _renderNdCs() }
+window.ndCsSelect = ndCsSelect
+
+function ndCsKeydown(e) {
+  const filtered = _ndCsSearch
+    ? _clients.filter(c => c.full_name.toLowerCase().includes(_ndCsSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(_ndCsSearch.toLowerCase()))
+    : _clients
+  if (e.key === 'ArrowDown') { e.preventDefault(); _ndCsFocused = Math.min(_ndCsFocused + 1, filtered.length - 1); _renderNdCs() }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _ndCsFocused = Math.max(_ndCsFocused - 1, -1); _renderNdCs() }
+  else if (e.key === 'Enter') { e.preventDefault(); if (_ndCsFocused >= 0 && filtered[_ndCsFocused]) ndCsSelect(filtered[_ndCsFocused].id) }
+  else if (e.key === 'Escape') { _ndCsOpen = false; _renderNdCs() }
+}
+window.ndCsKeydown = ndCsKeydown
+
+function onNdProductChange(id) {
+  const p = _products.find(x => x.id === id)
+  if (p) {
+    document.getElementById('nd-price').value = p.base_price || ''
+    if (p.currency) document.getElementById('nd-currency').value = p.currency
+    calcNdVat()
+  }
+}
+window.onNdProductChange = onNdProductChange
+
+function calcNdVat() {
+  const price = parseFloat(document.getElementById('nd-price').value) || 0
+  const vat   = parseFloat(document.getElementById('nd-vat').value) || 0
+  const cur   = document.getElementById('nd-currency').value
+  const final = price * (1 + vat / 100)
+  const prev  = document.getElementById('nd-vat-preview')
+  if (price > 0) {
+    prev.textContent = vat > 0
+      ? `Base: ${fmt(price, cur)} + VAT (${vat}%): ${fmt(price * vat / 100, cur)} = Final: ${fmt(final, cur)}`
+      : `Final: ${fmt(price, cur)}`
+  } else {
+    prev.textContent = ''
+  }
+}
+window.calcNdVat = calcNdVat
+
+async function submitNewDeal() {
+  const clientId  = _ndSelClient?.id || null
+  const vendorId  = document.getElementById('nd-vendor')?.value
+  const productId = document.getElementById('nd-product').value
+  const price     = parseFloat(document.getElementById('nd-price')?.value) || null
+  const currency  = document.getElementById('nd-currency')?.value || 'EUR'
+  const vatPct    = parseFloat(document.getElementById('nd-vat')?.value) || 0
+  const sales     = document.getElementById('nd-sales')?.value || 'lead'
+  const billing   = document.getElementById('nd-billing')?.value || 'pending'
+  const notes     = _quillValue(_ndNotesQuill)
+
+  if (!clientId) { showToast('Select a client', 'warn'); return }
+
+  try {
+    const fields = {
+      client_id:         clientId,
+      primary_vendor_id: vendorId || null,
+      product_id:        productId || null,
+      price,
+      currency,
+      vat_pct:           vatPct,
+      vat_mode:          'excl',
+      sales_status:      sales,
+      billing_status:    billing,
+      notes,
+    }
+    // These columns require migrations/add-product-plans.sql to be applied first.
+    // Only include them if the migration has run (checked by feature flag on window).
+    if (window._plansSchemaReady) {
+      fields.product_plan_id = _ndSelectedPlan?.id || null
+      fields.payment_link    = _ndSelectedPlan?.collection_gateway_link || null
+    }
+    const newDeal = await createDeal(fields)
+    closeNewDeal()
+    showToast('Deal created')
+
+    // Auto-create package if applicable
+    const product = _products.find(p => p.id === productId)
+    if (product?.type === 'package' && vendorId && clientId) {
+      await _autoCreatePackage(newDeal.id, clientId, vendorId, product)
+    }
+
+    // Auto-assign vendor to client
+    if (vendorId && clientId) {
+      await _autoAssignVendorClient(vendorId, clientId)
+    }
+
+    await loadData()
+  } catch(e) {
+    console.error('[HSos] createDeal error:', e)
+    showToast('Failed to create deal — check console', 'warn')
+  }
+}
+window.submitNewDeal = submitNewDeal
+
+// ─── clients page ─────────────────────────────────────────────
+
+function setClientsSearch(v) {
+  _clientSearch = v.toLowerCase()
+  renderClients()
+}
+window.setClientsSearch = setClientsSearch
+
+function renderClients() {
+  const list = document.getElementById('clients-list')
+  let clients = [..._clients]
+  if (_clientSearch) clients = clients.filter(c => c.full_name.toLowerCase().includes(_clientSearch))
+
+  list.innerHTML = clients.map(c => {
+    const deals = _deals.filter(d => d.client_id === c.id)
+    return `
+      <div class="client-list-item${_selClientId === c.id ? ' sel' : ''}" onclick="showClientDetail('${c.id}',event)">
+        <div class="av av-sm" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)}">${initials(c.full_name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.full_name}</div>
+          <div style="font-size:11px;color:var(--mu2)">${deals.length} deal${deals.length !== 1 ? 's' : ''}</div>
         </div>
+      </div>
+    `
+  }).join('') || `<div style="padding:24px;text-align:center;color:var(--mu2)">No clients found</div>`
+}
+
+function showClientDetail(clientId, e, from = 'list') {
+  e?.stopPropagation()
+  const source = from || 'list'
+  if (window.Router) {
+    const url = Router.urlFor({
+      path: 'client-profile.html',
+      entity: 'client',
+      id: clientId,
+      view: 'page',
+      from: source,
+    })
+    window.location.href = url
+    return
+  }
+  window.location.href = `client-profile.html?entity=client&id=${encodeURIComponent(clientId)}&view=page&from=${encodeURIComponent(source)}`
+}
+
+window.showClientDetail = showClientDetail
+
+// ─── vendors page ─────────────────────────────────────────────
+
+const TYPE_LABELS = {
+  coach: 'Coach', contractor: 'Contractor', team_member: 'Team Member',
+  subscription: 'Subscription', software_saas: 'Software & SaaS',
+}
+const TYPE_ORDER  = ['coach', 'contractor', 'team_member', 'subscription', 'software_saas']
+const TYPE_PILL_COLOR = {
+  coach:        'background:var(--green-bg);color:var(--green-text)',
+  contractor:   'background:var(--blue-bg);color:var(--blue-text)',
+  team_member:  'background:var(--purple-bg);color:var(--purple-text)',
+  subscription: 'background:var(--amber-bg);color:var(--amber-text)',
+  software_saas:'background:var(--bg);color:var(--mu)',
+}
+
+// types that don't need personal/banking fields
+const SAAS_TYPES = new Set(['subscription', 'software_saas'])
+
+function _currentRole() {
+  return (sessionStorage.getItem('demoRole') || 'admin').toLowerCase()
+}
+
+function _canSeePayments() {
+  const role = _currentRole()
+  return role === 'finance' || role === 'admin'
+}
+
+function filteredVendors() {
+  const pool = _vendorListTab === 'archived' ? _vendorsInactive : _vendors
+  let v = [...pool]
+  if (_vendorSearch) {
+    const q = _vendorSearch.toLowerCase()
+    v = v.filter(x => x.full_name.toLowerCase().includes(q) || (x.email || '').toLowerCase().includes(q))
+  }
+  if (_fVendorType)     v = v.filter(x => x.vendor_type === _fVendorType)
+  if (_fVendorCurrency) v = v.filter(x => (x.preferred_currency || 'EUR') === _fVendorCurrency)
+  if (_fVendorManager)  v = v.filter(x => x.manager_id === _fVendorManager)
+  return v
+}
+
+function switchVendorListTab(tab, btn) {
+  _vendorListTab = tab
+  document.querySelectorAll('#vtab-active, #vtab-archived').forEach(b => b.classList.remove('cur'))
+  btn.classList.add('cur')
+  clearVendorDetail()
+  renderVendors()
+}
+window.switchVendorListTab = switchVendorListTab
+
+function setVendorSearch(q) { _vendorSearch = q.toLowerCase(); renderVendors() }
+function setFilterVendorType(v) { _fVendorType = v; renderVendors() }
+function setFilterVendorCurrency(v) { _fVendorCurrency = v; renderVendors() }
+function setFilterVendorManager(v) { _fVendorManager = v; renderVendors() }
+window.setVendorSearch = setVendorSearch
+window.setFilterVendorType = setFilterVendorType
+window.setFilterVendorCurrency = setFilterVendorCurrency
+window.setFilterVendorManager = setFilterVendorManager
+
+function _vendorAvatar(v, size = 'av-sm') {
+  if (v.profile_picture_url) {
+    const dimMap = { 'av-xl': '64px', 'av-lg': '44px', 'av-md': '36px', 'av-sm': '28px' }
+    const dim = dimMap[size] || '28px'
+    return `<img src="${escHtml(v.profile_picture_url)}" style="width:${dim};height:${dim};border-radius:50%;object-fit:cover;flex-shrink:0">`
+  }
+  return `<div class="av ${size}" style="background:${avatarBg(v.full_name)};color:${avatarFg(v.full_name)}">${initials(v.full_name)}</div>`
+}
+
+function _vendorRateDisplay(v) {
+  if (SAAS_TYPES.has(v.vendor_type)) {
+    // Show billing interval from notes or just —
+    return '<span style="color:var(--mu2)">—</span>'
+  }
+  const rates = v.rates || []
+  if (!rates.length) return '<span style="color:var(--mu2)">—</span>'
+  const r = rates[0]
+  const sym = SYM[r.currency] || ''
+  return `<span style="font-family:var(--font-mono);font-size:12px">${sym}${parseFloat(r.rate).toLocaleString('en', { minimumFractionDigits: 0 })} <span style="font-size:10px;color:var(--mu2)">${r.currency || ''}</span></span>`
+}
+
+function _vendorRow(v) {
+  const isSel = _selVendorId === v.id
+  const isSaas = SAAS_TYPES.has(v.vendor_type)
+  const clientCount = (v.clients || []).length
+  const curr = v.preferred_currency || v.currency || 'EUR'
+  const typePill = TYPE_LABELS[v.vendor_type]
+    ? `<span class="pill" style="${TYPE_PILL_COLOR[v.vendor_type] || ''};font-size:10px">${TYPE_LABELS[v.vendor_type]}</span>`
+    : '<span style="color:var(--mu2)">—</span>'
+
+  return `
+    <tr onclick="openVendorDetail('${v.id}')" style="${isSel ? 'background:var(--bg);' : ''}cursor:pointer">
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${_vendorAvatar(v)}
+          <div>
+            <div style="font-weight:500">${escHtml(v.full_name)}</div>
+            ${v.email ? `<div style="font-size:11px;color:var(--mu2)">${escHtml(v.email)}</div>` : ''}
+          </div>
+        </div>
+      </td>
+      <td>${typePill}</td>
+      <td><span class="pill" style="background:var(--bg);color:var(--mu);font-size:10px">${escHtml(curr)}</span></td>
+      <td>${_vendorRateDisplay(v)}</td>
+      <td style="color:var(--mu)">
+        ${isSaas ? '<span style="color:var(--mu2)">—</span>' : `${clientCount} client${clientCount !== 1 ? 's' : ''}`}
+      </td>
+    </tr>
+  `
+}
+
+function _groupHeaderRow(label, count, colspan = 5) {
+  return `
+    <tr style="pointer-events:none;user-select:none">
+      <td colspan="${colspan}" style="padding:14px 10px 6px;border-bottom:1px solid var(--border2)">
+        <span style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;color:var(--mu2);font-weight:600">${label}</span>
+        <span style="font-size:10px;font-family:var(--font-mono);color:var(--mu2);margin-left:6px">${count}</span>
+      </td>
+    </tr>
+  `
+}
+
+function renderVendors() {
+  const tbody = document.getElementById('vendors-tbody')
+  if (!tbody) return
+  const vendors = filteredVendors()
+
+  // Update tab counts
+  const activeCount = _vendors.length
+  const archivedCount = _vendorsInactive.length
+  const activeCountEl = document.getElementById('vtab-active-count')
+  const archivedCountEl = document.getElementById('vtab-archived-count')
+  if (activeCountEl) activeCountEl.textContent = activeCount
+  if (archivedCountEl) archivedCountEl.textContent = archivedCount
+
+  if (!vendors.length) {
+    const pool = _vendorListTab === 'archived' ? _vendorsInactive : _vendors
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--mu2);padding:24px">${pool.length ? 'No vendors match filters' : (_vendorListTab === 'archived' ? 'No archived vendors' : 'No vendors')}</td></tr>`
+    _syncVendorManagerFilter()
+    return
+  }
+
+  // Group by vendor_type
+  const grouped = {}
+  for (const type of TYPE_ORDER) grouped[type] = []
+  grouped._other = []
+  for (const v of vendors) {
+    if (grouped[v.vendor_type] !== undefined) grouped[v.vendor_type].push(v)
+    else grouped._other.push(v)
+  }
+
+  let html = ''
+  for (const type of TYPE_ORDER) {
+    const group = grouped[type]
+    if (!group.length) continue
+    html += _groupHeaderRow(TYPE_LABELS[type] || type, group.length)
+    html += group.map(_vendorRow).join('')
+  }
+  if (grouped._other.length) {
+    html += _groupHeaderRow('Other', grouped._other.length)
+    html += grouped._other.map(_vendorRow).join('')
+  }
+
+  tbody.innerHTML = html
+  _syncVendorManagerFilter()
+}
+
+function _syncVendorManagerFilter() {
+  const sel = document.getElementById('filter-vendor-manager')
+  if (!sel) return
+  const cur = sel.value
+  const managerIds = new Set(_vendors.filter(v => v.manager_id).map(v => v.manager_id))
+  const managers = _vendors.filter(v => managerIds.has(v.id))
+  sel.innerHTML = `<option value="">All managers</option>` +
+    managers.map(m => `<option value="${m.id}"${cur === m.id ? ' selected' : ''}>${escHtml(m.full_name)}</option>`).join('')
+}
+
+async function openVendorDetail(id) {
+  if (window.Router && !_routerDispatching) {
+    Router.open({ entity: 'vendor', id, view: 'panel', from: 'list' })
+    return
+  }
+
+  _selVendorId = id
+  _vendorTab = 'profile'
+  _vendorEditMode = false
+  _vendorEditSnapshot = null
+  // Switch to correct tab if vendor is in archived pool
+  if (_vendors.find(x => x.id === id)) _vendorListTab = 'active'
+  else if (_vendorsInactive.find(x => x.id === id)) _vendorListTab = 'archived'
+  renderVendors()
+  _vendorPaychecks = await getPaychecks({ vendor_id: id }).catch(() => [])
+  renderVendorDetail()
+}
+window.openVendorDetail = openVendorDetail
+
+function clearVendorDetail() {
+  _selVendorId = null
+  _vendorPaychecks = []
+  _vendorEditMode = false
+  _vendorEditSnapshot = null
+  const detail = document.getElementById('vendor-detail')
+  if (detail) {
+    detail.innerHTML = `<div class="empty"><div class="empty-icon">◻</div><div>Select a vendor</div></div>`
+  }
+  renderVendors()
+  if (window.Router && !_routerDispatching && Router.getParams().entity === 'vendor') {
+    Router.close()
+  }
+}
+window.clearVendorDetail = clearVendorDetail
+
+function switchVendorTab(tab, btn) {
+  _vendorTab = tab
+  _vendorEditMode = false
+  _vendorEditSnapshot = null
+  document.querySelectorAll('[id^="vdt-"]').forEach(b => b.classList.remove('btn-primary'))
+  btn.classList.add('btn-primary')
+  renderVendorDetail()
+}
+window.switchVendorTab = switchVendorTab
+
+function enterVendorEditMode() {
+  const v = _currentVendor()
+  if (!v) return
+  // snapshot current values for cancel
+  _vendorEditSnapshot = { ...v }
+  _vendorEditMode = true
+  renderVendorDetail()
+}
+window.enterVendorEditMode = enterVendorEditMode
+
+function cancelVendorEdit() {
+  // No in-memory mutations happen during edit mode — just exit edit mode
+  _vendorEditMode = false
+  _vendorEditSnapshot = null
+  renderVendorDetail()
+}
+window.cancelVendorEdit = cancelVendorEdit
+
+function _currentVendor() {
+  return [..._vendors, ..._vendorsInactive].find(x => x.id === _selVendorId) || null
+}
+
+function renderVendorDetail() {
+  const v = _currentVendor()
+  if (!v) return
+  const detail = document.getElementById('vendor-detail')
+  const isSaas = SAAS_TYPES.has(v.vendor_type)
+  const canPay = _canSeePayments()
+  const isTeamMember = v.vendor_type === 'team_member'
+  const showPayTab = !(isTeamMember && !canPay)
+
+  // Avatar HTML
+  const avatarHtml = `
+    <div style="position:relative;display:inline-block;cursor:${_vendorEditMode ? 'pointer' : 'default'}"
+      ${_vendorEditMode ? `onclick="triggerAvatarUpload('${v.id}')"` : ''}>
+      ${_vendorAvatar(v, 'av-xl')}
+      ${_vendorEditMode ? `
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.4);border-radius:50%;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <span style="color:#fff;font-size:16px">📷</span>
+        </div>
+        <input type="file" id="ve-avatar-file" accept="image/*" style="display:none" onchange="onAvatarFileChange('${v.id}',this)">
+      ` : ''}
+    </div>
+  `
+
+  detail.innerHTML = `
+    <div style="padding:20px 20px 12px;border-bottom:1px solid var(--border2);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        ${avatarHtml}
+        <div style="flex:1">
+          <div style="font-family:var(--font-serif);font-size:18px;font-weight:700">${escHtml(v.full_name)}</div>
+          <div style="font-size:11px;color:var(--mu2);margin-top:2px;font-family:var(--font-mono)">${TYPE_LABELS[v.vendor_type] || v.vendor_type || 'vendor'}</div>
+        </div>
+        ${_vendorTab === 'profile' ? (
+          _vendorEditMode
+            ? `<button class="btn btn-sm" onclick="cancelVendorEdit()">Cancel</button>`
+            : `<button class="btn btn-sm" onclick="enterVendorEditMode()">Edit</button>`
+        ) : ''}
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm${_vendorTab === 'profile' ? ' btn-primary' : ''}" id="vdt-profile" onclick="switchVendorTab('profile',this)">Profile</button>
+        ${showPayTab ? `<button class="btn btn-sm${_vendorTab === 'payments' ? ' btn-primary' : ''}" id="vdt-payments" onclick="switchVendorTab('payments',this)">Payments</button>` : ''}
+        <button class="btn btn-sm${_vendorTab === 'clients' ? ' btn-primary' : ''}" id="vdt-clients" onclick="switchVendorTab('clients',this)">Clients</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px" id="vendor-detail-body"></div>
+    ${_vendorTab === 'profile' && _vendorEditMode ? `
+    <div style="padding:12px 20px;border-top:1px solid var(--border2);flex-shrink:0">
+      <button class="btn btn-primary btn-sm" onclick="saveVendorProfile('${v.id}')">Save changes</button>
+    </div>` : ''}
+  `
+
+  const body = document.getElementById('vendor-detail-body')
+
+  if (_vendorTab === 'profile') {
+    _renderVendorProfileTab(v, body, isSaas)
+  } else if (_vendorTab === 'payments') {
+    _renderVendorPaymentsTab(v, body)
+  } else if (_vendorTab === 'clients') {
+    _renderVendorClientsTab(v, body)
+  }
+}
+
+function _renderVendorProfileTab(v, body, isSaas) {
+  const em = _vendorEditMode
+
+  // View-mode helpers
+  const viewRow = (label, val) => `
+    <div class="sp-row">
+      <span class="sp-row-label">${label}</span>
+      <span class="sp-row-val">${val || '<span style="color:var(--mu2)">—</span>'}</span>
+    </div>`
+
+  // Edit-mode helpers
+  const sec = (title) => `<div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;color:var(--mu2);margin:18px 0 10px;padding-bottom:4px;border-bottom:1px solid var(--border2)">${title}</div>`
+  const row2 = (a, b) => `<div class="form-row" style="margin-bottom:10px">${a}${b}</div>`
+  const fi = (id, label, val, type='text', extra='') =>
+    `<div class="fg"><label class="fl">${label}</label><input class="fi" id="${id}" type="${type}" value="${escHtml(val || '')}" ${extra}></div>`
+
+  if (!em) {
+    // ── View mode ──
+    const curr = v.preferred_currency || v.currency || 'EUR'
+    const rate = (v.rates || []).length
+      ? (() => { const r = v.rates[0]; return `${SYM[r.currency]||''}${parseFloat(r.rate).toLocaleString('en')} ${r.currency}` })()
+      : null
+
+    body.innerHTML = `
+      <div class="sp-section-title" style="margin-top:0">Basic info</div>
+      ${viewRow('Email', v.email ? escHtml(v.email) : null)}
+      ${viewRow('Phone', v.phone ? escHtml(v.phone) : null)}
+      ${viewRow('Currency', curr)}
+      ${!isSaas ? viewRow('Date of birth', v.date_of_birth ? formatDate(v.date_of_birth) : null) : ''}
+      ${viewRow('Status', v.active !== false
+        ? '<span class="pill active">Active</span>'
+        : '<span class="pill cancelled">Inactive</span>')}
+      ${v.website ? viewRow('Website', `<a href="${escHtml(v.website)}" target="_blank" style="color:var(--blue)">${escHtml(v.website)}</a>`) : ''}
+
+      ${isSaas ? '' : `
+        <div class="sp-section-title">Address</div>
+        ${viewRow('Street', v.street ? escHtml(v.street) : null)}
+        ${viewRow('City', v.city ? `${escHtml(v.city)}${v.zip_code ? ', '+escHtml(v.zip_code) : ''}` : null)}
+        ${viewRow('Country', v.country ? escHtml(v.country) : null)}
+
+        <div class="sp-section-title">Banking</div>
+        ${viewRow('Bank', v.bank_name ? escHtml(v.bank_name) : null)}
+        ${viewRow('IBAN', v.iban ? `<span class="mono" style="font-size:11px">${escHtml(v.iban)}</span>` : null)}
+        ${viewRow('SWIFT', v.swift_code ? escHtml(v.swift_code) : null)}
+        ${viewRow('Account', v.account_number ? escHtml(v.account_number) : null)}
+        ${viewRow('Payment method', v.payment_method ? escHtml(v.payment_method) : null)}
+        ${viewRow('Payout currency', v.payout_currency ? escHtml(v.payout_currency) : null)}
+      `}
+
+      ${v.notes ? `<div class="sp-section-title">Notes</div><div style="font-size:13px;color:var(--ink);white-space:pre-wrap">${escHtml(v.notes)}</div>` : ''}
+    `
+    return
+  }
+
+  // ── Edit mode ──
+  const allManagers = [..._vendors, ..._vendorsInactive].filter(m => m.id !== v.id)
+
+  body.innerHTML = `
+    ${sec('Basic info')}
+    ${row2(fi('ve-name','Full name', v.full_name), fi('ve-email','Email address', v.email, 'email'))}
+    ${row2(fi('ve-phone','Phone number', v.phone), isSaas
+      ? fi('ve-website','Website', v.website, 'url')
+      : fi('ve-dob','Date of birth', v.date_of_birth, 'date')
+    )}
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="fg">
+        <label class="fl">Vendor type</label>
+        <select class="fi fsel" id="ve-type">
+          ${TYPE_ORDER.map(t => `<option value="${t}"${v.vendor_type===t?' selected':''}>${TYPE_LABELS[t]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Status</label>
+        <select class="fi fsel" id="ve-active">
+          <option value="true"${v.active!==false?' selected':''}>Active</option>
+          <option value="false"${v.active===false?' selected':''}>Inactive</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="fg">
+        <label class="fl">Currency</label>
+        <input class="fi" id="ve-currency" value="${escHtml(v.preferred_currency || v.currency || '')}">
+      </div>
+      ${!isSaas ? `
+      <div class="fg">
+        <label class="fl">Manager</label>
+        <select class="fi fsel" id="ve-manager">
+          <option value="">— none —</option>
+          ${allManagers.map(m => `<option value="${m.id}"${v.manager_id===m.id?' selected':''}>${escHtml(m.full_name)}</option>`).join('')}
+        </select>
+      </div>` : ''}
+    </div>
+    ${isSaas ? '' : `
+      ${row2(fi('ve-nationality','Nationality', v.nationality), fi('ve-tax-id','EIN / SSN / ITIN / National ID', v.tax_id))}
+
+      ${sec('Address')}
+      ${fi('ve-street','Street', v.street)}
+      <div style="margin-bottom:10px"></div>
+      ${fi('ve-address-details','Additional details (apt, floor…)', v.address_details)}
+      <div style="margin-bottom:10px"></div>
+      ${row2(fi('ve-city','City', v.city), fi('ve-zip','Zip code', v.zip_code))}
+      ${row2(fi('ve-state','State / Province', v.state), fi('ve-country','Country', v.country))}
+      <div class="fg" style="margin-bottom:10px">
+        <label class="fl">Residential address <span style="text-transform:none;letter-spacing:0;font-size:10px;color:var(--mu2)">(full free-text, if different)</span></label>
+        <textarea class="fi" id="ve-residential" rows="2">${escHtml(v.residential_address || '')}</textarea>
+      </div>
+
+      ${sec('Banking')}
+      ${row2(fi('ve-bank-name','Bank name', v.bank_name), fi('ve-account-holder','Account holder name', v.account_holder_name))}
+      ${row2(fi('ve-account-number','Account number', v.account_number), fi('ve-routing-number','Routing number', v.routing_number))}
+      ${row2(fi('ve-iban','IBAN', v.iban), fi('ve-swift','SWIFT code', v.swift_code))}
+      ${row2(fi('ve-branch','Branch number', v.branch_number), fi('ve-payment-id','Payment ID (PayPal / Wise)', v.payment_id))}
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="fg">
+          <label class="fl">Payment method</label>
+          <select class="fi fsel" id="ve-payment">
+            ${['iban','paypal','wise','bank_transfer','other'].map(t => `<option value="${t}"${v.payment_method===t?' selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Payout currency</label>
+          <select class="fi fsel" id="ve-payout-currency">
+            <option value="">— not set —</option>
+            ${['EUR','USD','ILS','GBP','MULTI'].map(c => `<option value="${c}"${v.payout_currency===c?' selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="fg">
+          <label class="fl">Paid by (company)</label>
+          <select class="fi fsel" id="ve-paying-company">
+            <option value="">— not assigned —</option>
+            ${_companies.map(c => `<option value="${c.id}"${v.paying_company_id===c.id?' selected':''}>${escHtml(c.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    `}
+
+    ${sec('Notes')}
+    <div class="fg">
+      <textarea class="fi" id="ve-notes" rows="3">${escHtml(v.notes || '')}</textarea>
+    </div>
+  `
+}
+
+async function _renderVendorPaymentsTab(v, body) {
+  // Latest bill section
+  let latestBillHtml = ''
+  try {
+    const bill = await getLatestBillForVendor(v.id)
+    if (bill) {
+      const amt = bill.total_amount != null ? `${SYM[bill.currency]||''}${parseFloat(bill.total_amount).toLocaleString('en', { minimumFractionDigits: 2 })} ${bill.currency||''}` : '—'
+      const dateStr = bill.created_at ? formatDate(bill.created_at.slice(0,10)) : '—'
+      latestBillHtml = `
+        <div style="background:var(--bg);border-radius:var(--r);padding:12px 14px;margin-bottom:16px">
+          <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;color:var(--mu2);margin-bottom:8px">Latest Bill</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:13px;color:var(--mu)">${dateStr}</span>
+            <span class="pill ${bill.status}">${bill.status}</span>
+            <span style="font-family:var(--font-mono);font-size:13px;font-weight:500">${amt}</span>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn btn-sm" onclick="window.location.href='payments.html?bill=${encodeURIComponent(bill.id)}'">Open bill →</button>
+          </div>
+        </div>
+      `
+    } else {
+      latestBillHtml = `<div style="font-size:12px;color:var(--mu2);margin-bottom:16px">No bills yet</div>`
+    }
+  } catch {
+    latestBillHtml = ''
+  }
+
+  const paychecks = _vendorPaychecks
+  if (!paychecks.length) {
+    body.innerHTML = latestBillHtml + `<div style="color:var(--mu2);font-size:12px;padding:8px 0">No paychecks on record</div>`
+    return
+  }
+  const totalPaid  = paychecks.filter(p => p.status === 'paid').reduce((s, p) => s + (parseFloat(p.actual_amount_paid ?? p.amount) || 0), 0)
+  const totalHours = paychecks.reduce((s, p) => s + (parseFloat(p.total_hours ?? p.hours) || 0), 0)
+  body.innerHTML = latestBillHtml + `
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <div class="stat-card" style="flex:1;padding:10px 12px">
+        <div class="stat-val" style="font-size:22px">${totalPaid.toLocaleString('en', { maximumFractionDigits: 0 })}</div>
+        <div class="stat-label">Total paid</div>
+      </div>
+      <div class="stat-card" style="flex:1;padding:10px 12px">
+        <div class="stat-val" style="font-size:22px">${totalHours % 1 === 0 ? totalHours : totalHours.toFixed(1)}</div>
+        <div class="stat-label">Total hours</div>
+      </div>
+    </div>
+    <div class="block">
+      <table class="tbl">
+        <thead><tr><th>Month</th><th>Hours</th><th>Amount</th><th>Payout</th><th>Actual paid</th><th>Payment date</th><th>Status</th></tr></thead>
+        <tbody>
+          ${paychecks.map(p => {
+            const amt = p.amount != null ? parseFloat(p.amount) : null
+            const actualPaid = p.actual_amount_paid != null ? parseFloat(p.actual_amount_paid) : null
+            const payoutAmt  = p.payout_amount    != null ? parseFloat(p.payout_amount)    : null
+            const payoutCurr = p.payout_currency  || p.currency || 'EUR'
+            const actualCurr = p.payout_currency  || p.currency || 'EUR'
+
+            let actualHtml = '—'
+            if (actualPaid != null) {
+              const matches = amt != null && Math.abs(actualPaid - amt) < 0.01
+              actualHtml = `<span class="mono" style="color:${matches ? 'var(--green)' : 'var(--amber)'}">${SYM[actualCurr] || ''}${actualPaid.toLocaleString('en', { minimumFractionDigits: 2 })}</span>`
+            }
+
+            const payoutHtml = payoutAmt != null
+              ? `<span class="mono">${SYM[payoutCurr] || ''}${payoutAmt.toLocaleString('en', { minimumFractionDigits: 2 })} <span style="font-size:10px;color:var(--mu2)">${payoutCurr}</span></span>`
+              : '—'
+
+            const payDateHtml = p.payment_date
+              ? `<span style="font-size:11px;color:var(--mu)">${formatDate(p.payment_date)}</span>`
+              : '—'
+
+            return `
+            <tr>
+              <td style="font-size:12px">${formatMonth(p.month)}</td>
+              <td class="mono">${(p.total_hours ?? p.hours) ?? '—'}</td>
+              <td class="mono">${amt != null ? (SYM[p.currency || 'EUR'] || '') + amt.toLocaleString('en', { minimumFractionDigits: 2 }) + ' <span style="font-size:10px;color:var(--mu2)">' + (p.currency || 'EUR') + '</span>' : '—'}</td>
+              <td>${payoutHtml}</td>
+              <td>${actualHtml}</td>
+              <td>${payDateHtml}</td>
+              <td><span class="pill ${p.status}">${p.status}</span></td>
+            </tr>
+          `}).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function _renderVendorClientsTab(v, body) {
+  const assigned    = v.clients || []
+  const assignedIds = new Set(assigned.map(c => c.id))
+  const unassigned  = _clients.filter(c => !assignedIds.has(c.id))
+
+  body.innerHTML = `
+    <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:10px">
+      Assigned (${assigned.length})
+    </div>
+    <div id="vc-assigned-list">
+      ${assigned.length ? assigned.map(c => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2)">
+          <div class="av av-sm" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)}">${initials(c.full_name)}</div>
+          <div style="font-size:13px;flex:1">${escHtml(c.full_name)}</div>
+          <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg)"
+            onclick="unassignClient('${v.id}','${c.id}')">Remove</button>
+        </div>
+      `).join('') : `<div style="font-size:12px;color:var(--mu2);padding:6px 0 12px">No clients assigned</div>`}
+    </div>
+
+    ${unassigned.length ? `
+    <div style="margin-top:16px;position:relative" id="vc-cs-wrap">
+      <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:6px">Add client</div>
+      <div class="cs-trigger" id="vc-cs-trigger" onclick="vcCsToggle('${v.id}')">
+        <span style="color:var(--mu2);font-size:13px">Search clients…</span>
+        <span style="color:var(--mu2);font-size:11px;margin-left:auto">▾</span>
+      </div>
+      <div class="cs-dropdown" id="vc-cs-dropdown" style="display:none;z-index:200">
+        <div style="padding:6px 8px;border-bottom:1px solid var(--border2)">
+          <input class="fi" style="height:30px;font-size:12px" placeholder="Search…" id="vc-cs-search"
+            oninput="vcCsFilter('${v.id}',this.value)" autocomplete="off">
+        </div>
+        <div class="cs-list" id="vc-cs-list">
+          ${unassigned.map(c => `
+            <div class="cs-item" onclick="assignClient('${v.id}','${c.id}')">
+              <div class="av av-sm" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)}">${initials(c.full_name)}</div>
+              <div>
+                <div class="cs-item-name">${escHtml(c.full_name)}</div>
+                ${c.email ? `<div class="cs-item-sub">${escHtml(c.email)}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>` : `<div style="font-size:12px;color:var(--mu2);padding:6px 0;margin-top:16px">All clients already assigned</div>`}
+  `
+}
+
+function _fiVal(id) {
+  const el = document.getElementById(id)
+  return el ? (el.value.trim() || null) : null
+}
+
+async function saveVendorProfile(id) {
+  const isSaas = SAAS_TYPES.has(document.getElementById('ve-type')?.value)
+  const fields = {
+    full_name:            _fiVal('ve-name'),
+    email:                _fiVal('ve-email'),
+    phone:                _fiVal('ve-phone'),
+    ...(isSaas ? { website: _fiVal('ve-website') } : { date_of_birth: _fiVal('ve-dob') }),
+    vendor_type:          _fiVal('ve-type'),
+    active:               document.getElementById('ve-active')?.value === 'true',
+    manager_id:           _fiVal('ve-manager'),
+    currency:             _fiVal('ve-currency'),
+    preferred_currency:   _fiVal('ve-currency'),
+    notes:                _fiVal('ve-notes'),
+    ...(!isSaas ? {
+      nationality:          _fiVal('ve-nationality'),
+      tax_id:               _fiVal('ve-tax-id'),
+      street:               _fiVal('ve-street'),
+      address_details:      _fiVal('ve-address-details'),
+      city:                 _fiVal('ve-city'),
+      zip_code:             _fiVal('ve-zip'),
+      state:                _fiVal('ve-state'),
+      country:              _fiVal('ve-country'),
+      residential_address:  _fiVal('ve-residential'),
+      bank_name:            _fiVal('ve-bank-name'),
+      account_holder_name:  _fiVal('ve-account-holder'),
+      account_number:       _fiVal('ve-account-number'),
+      routing_number:       _fiVal('ve-routing-number'),
+      iban:                 _fiVal('ve-iban'),
+      swift_code:           _fiVal('ve-swift'),
+      branch_number:        _fiVal('ve-branch'),
+      payment_id:           _fiVal('ve-payment-id'),
+      payment_method:       _fiVal('ve-payment'),
+      payout_currency:      _fiVal('ve-payout-currency'),
+      paying_company_id:    _fiVal('ve-paying-company'),
+    } : {}),
+  }
+  // strip undefined
+  Object.keys(fields).forEach(k => fields[k] === undefined && delete fields[k])
+
+  try {
+    await updateVendor(id, fields)
+    // update in-memory in the right pool
+    const activeIdx = _vendors.findIndex(v => v.id === id)
+    const archiveIdx = _vendorsInactive.findIndex(v => v.id === id)
+
+    const wasActive = activeIdx !== -1
+    const isNowActive = fields.active !== false
+
+    if (wasActive && isNowActive) {
+      _vendors[activeIdx] = { ..._vendors[activeIdx], ...fields }
+    } else if (wasActive && !isNowActive) {
+      // moved to archive
+      const moved = { ..._vendors[activeIdx], ...fields }
+      _vendors.splice(activeIdx, 1)
+      _vendorsInactive.push(moved)
+      _vendorListTab = 'archived'
+    } else if (!wasActive && isNowActive) {
+      // reactivated
+      const moved = { ..._vendorsInactive[archiveIdx], ...fields }
+      _vendorsInactive.splice(archiveIdx, 1)
+      _vendors.push(moved)
+      _vendors.sort((a,b) => a.full_name.localeCompare(b.full_name))
+      _vendorListTab = 'active'
+    } else {
+      _vendorsInactive[archiveIdx] = { ..._vendorsInactive[archiveIdx], ...fields }
+    }
+
+    _vendorEditMode = false
+    _vendorEditSnapshot = null
+    renderVendors()
+    renderVendorDetail()
+    showToast('Vendor saved')
+  } catch(e) {
+    console.error('[HSos] saveVendorProfile error:', e)
+    showToast('Save failed — check console', 'warn')
+  }
+}
+window.saveVendorProfile = saveVendorProfile
+
+// ─── avatar upload ────────────────────────────────────────────
+
+function triggerAvatarUpload(vendorId) {
+  const input = document.getElementById('ve-avatar-file')
+  if (input) input.click()
+}
+window.triggerAvatarUpload = triggerAvatarUpload
+
+async function onAvatarFileChange(vendorId, input) {
+  const file = input.files[0]
+  if (!file) return
+  showToast('Uploading…', 'info')
+  try {
+    const url = await uploadVendorAvatar(vendorId, file)
+    await updateVendor(vendorId, { profile_picture_url: url })
+    const allVendors = [..._vendors, ..._vendorsInactive]
+    const v = allVendors.find(x => x.id === vendorId)
+    if (v) v.profile_picture_url = url
+    renderVendorDetail()
+    showToast('Avatar updated')
+  } catch(e) {
+    console.error('[HSos] avatar upload error:', e)
+    showToast('Upload failed — check console', 'warn')
+  }
+}
+window.onAvatarFileChange = onAvatarFileChange
+
+// ─── vendor-clients dropdown helpers ─────────────────────────
+
+function vcCsToggle(vendorId) {
+  const dd = document.getElementById('vc-cs-dropdown')
+  if (!dd) return
+  const open = dd.style.display !== 'none'
+  dd.style.display = open ? 'none' : ''
+  if (!open) document.getElementById('vc-cs-search')?.focus()
+}
+window.vcCsToggle = vcCsToggle
+
+function vcCsFilter(vendorId, query) {
+  const pool = [..._vendors, ..._vendorsInactive]
+  const v = pool.find(x => x.id === vendorId)
+  if (!v) return
+  const assignedIds = new Set((v.clients || []).map(c => c.id))
+  const unassigned  = _clients.filter(c => !assignedIds.has(c.id))
+  const q = query.toLowerCase()
+  const matches = q
+    ? unassigned.filter(c => c.full_name.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+    : unassigned
+  const list = document.getElementById('vc-cs-list')
+  if (!list) return
+  list.innerHTML = matches.length
+    ? matches.map(c => `
+        <div class="cs-item" onclick="assignClient('${vendorId}','${c.id}')">
+          <div class="av av-sm" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)}">${initials(c.full_name)}</div>
+          <div>
+            <div class="cs-item-name">${escHtml(c.full_name)}</div>
+            ${c.email ? `<div class="cs-item-sub">${escHtml(c.email)}</div>` : ''}
+          </div>
+        </div>`).join('')
+    : '<div class="cs-empty">No matches</div>'
+}
+window.vcCsFilter = vcCsFilter
+
+async function assignClient(vendorId, clientId) {
+  try {
+    await assignClientToVendor(vendorId, clientId)
+    const pool = [..._vendors, ..._vendorsInactive]
+    const v = pool.find(x => x.id === vendorId)
+    const c = _clients.find(x => x.id === clientId)
+    if (v && c) {
+      if (!v.clients) v.clients = []
+      v.clients.push(c)
+    }
+    renderVendorDetail()
+    showToast(`${c?.full_name} assigned`)
+  } catch(e) {
+    console.error('[HSos] assignClient error:', e)
+    showToast('Assign failed — check console', 'warn')
+  }
+}
+window.assignClient = assignClient
+
+async function unassignClient(vendorId, clientId) {
+  try {
+    await unassignClientFromVendor(vendorId, clientId)
+    const pool = [..._vendors, ..._vendorsInactive]
+    const v = pool.find(x => x.id === vendorId)
+    if (v?.clients) {
+      const c = v.clients.find(x => x.id === clientId)
+      v.clients = v.clients.filter(x => x.id !== clientId)
+      showToast(`${c?.full_name} removed`)
+    }
+    renderVendorDetail()
+  } catch(e) {
+    console.error('[HSos] unassignClient error:', e)
+    showToast('Remove failed — check console', 'warn')
+  }
+}
+window.unassignClient = unassignClient
+
+// ─── products page ────────────────────────────────────────────
+
+function renderProducts() {
+  const container = document.getElementById('products-container')
+  if (!container) return
+
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-serif);font-size:22px;font-weight:700">Products</div>
+      <button class="btn btn-primary btn-sm" onclick="openProductModal(null)">+ New Product</button>
+    </div>
+    <div class="block">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Base Price</th>
+            <th>Sessions</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${_products.length ? _products.map(p => {
+            const price = p.base_price != null ? fmt(p.base_price, p.currency || 'EUR') : '—'
+            return `
+              <tr>
+                <td style="font-weight:500">${p.name}</td>
+                <td><span class="pill ${p.type || ''}" style="font-size:10px">${p.type || '—'}</span></td>
+                <td style="color:var(--mu);font-size:12px">${p.category || '—'}</td>
+                <td class="mono">${price}</td>
+                <td class="mono">${p.type === 'package' ? (p.default_package_sessions || '—') : '—'}</td>
+                <td style="text-align:right;display:flex;gap:6px;justify-content:flex-end">
+                  <button class="btn btn-sm" onclick="openPlansView('${p.id}',event)">Plans</button>
+                  <button class="btn btn-sm" onclick="openProductModal('${p.id}',event)">Edit</button>
+                </td>
+              </tr>
+            `
+          }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--mu2);padding:24px">No products</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+// ─── product modal ────────────────────────────────────────────
+
+function openProductModal(id, e) {
+  e?.stopPropagation()
+  _editProductId = id
+  const p = id ? _products.find(x => x.id === id) : null
+
+  const body = document.getElementById('product-modal-body')
+  const title = document.getElementById('product-modal-title')
+  title.textContent = id ? 'Edit Product' : 'New Product'
+
+  // Parse payment_links jsonb — could be object or array of {url,label}
+  let plText = ''
+  if (p?.payment_links) {
+    try {
+      plText = typeof p.payment_links === 'string' ? p.payment_links : JSON.stringify(p.payment_links, null, 2)
+    } catch { plText = '' }
+  }
+
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg">
+        <label class="fl">Name</label>
+        <input class="fi" id="pm-name" value="${p?.name || ''}" placeholder="Product name">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg">
+          <label class="fl">Type</label>
+          <select class="fi fsel" id="pm-type" onchange="onPmTypeChange(this.value)">
+            ${['session','package','workshop','custom'].map(t => `<option value="${t}"${p?.type === t ? ' selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Category</label>
+          <input class="fi" id="pm-category" value="${p?.category || ''}" placeholder="e.g. fitness, coaching">
+        </div>
+        <div class="fg">
+          <label class="fl">Base price</label>
+          <input class="fi" type="number" id="pm-price" value="${p?.base_price != null ? p.base_price : ''}" placeholder="0">
+        </div>
+        <div class="fg">
+          <label class="fl">Currency</label>
+          <select class="fi fsel" id="pm-currency">
+            ${['EUR','USD','ILS','GBP'].map(c => `<option value="${c}"${(p?.currency || 'EUR') === c ? ' selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="fg" id="pm-sessions-wrap" style="${p?.type === 'package' ? '' : 'display:none'}">
+        <label class="fl">Default sessions (package)</label>
+        <input class="fi" type="number" id="pm-sessions" value="${p?.default_package_sessions || ''}" placeholder="e.g. 10">
+      </div>
+      <div class="fg">
+        <label class="fl">Payment links (JSON)</label>
+        <textarea class="fi" id="pm-links" rows="3" placeholder='{"stripe":"https://...","checkout":"https://..."}'>${plText}</textarea>
+        <div style="font-size:10px;color:var(--mu2);margin-top:3px">JSON object or array of {"url":"…","label":"…"}</div>
+      </div>
+      <div class="fg">
+        <label class="fl">Notes</label>
+        <textarea class="fi" id="pm-notes" rows="2">${p?.notes || ''}</textarea>
+      </div>
+    </div>
+  `
+
+  document.getElementById('pm-delete-btn').style.display = id ? 'block' : 'none'
+  document.getElementById('modal-product').classList.add('open')
+}
+window.openProductModal = openProductModal
+
+function closeProductModal() {
+  document.getElementById('modal-product').classList.remove('open')
+  _editProductId = null
+}
+window.closeProductModal = closeProductModal
+
+function onPmTypeChange(type) {
+  const wrap = document.getElementById('pm-sessions-wrap')
+  if (wrap) wrap.style.display = type === 'package' ? '' : 'none'
+}
+window.onPmTypeChange = onPmTypeChange
+
+async function saveProductModal() {
+  const name     = document.getElementById('pm-name').value.trim()
+  const type     = document.getElementById('pm-type').value
+  const category = document.getElementById('pm-category').value.trim() || null
+  const price    = parseFloat(document.getElementById('pm-price').value) || null
+  const currency = document.getElementById('pm-currency').value
+  const sessions = type === 'package' ? (parseInt(document.getElementById('pm-sessions').value) || null) : null
+  const notes    = document.getElementById('pm-notes').value.trim() || null
+  const linksRaw = document.getElementById('pm-links').value.trim()
+
+  if (!name) { showToast('Product name required', 'warn'); return }
+
+  let payment_links = null
+  if (linksRaw) {
+    try {
+      payment_links = JSON.parse(linksRaw)
+    } catch {
+      showToast('Payment links must be valid JSON', 'warn')
+      return
+    }
+  }
+
+  const fields = { name, type, category, base_price: price, currency, default_package_sessions: sessions, notes, payment_links }
+
+  try {
+    if (_editProductId) {
+      const updated = await updateProduct(_editProductId, fields)
+      const i = _products.findIndex(p => p.id === _editProductId)
+      if (i !== -1) _products[i] = { ..._products[i], ...updated }
+      showToast('Product saved')
+    } else {
+      const created = await createProduct({ ...fields, active: true })
+      _products.push(created)
+      showToast('Product created')
+    }
+    closeProductModal()
+    renderProducts()
+  } catch(e) {
+    console.error('[HSos] saveProductModal error:', e)
+    showToast('Save failed — check console', 'warn')
+  }
+}
+window.saveProductModal = saveProductModal
+
+async function deleteProductModal() {
+  if (!_editProductId) return
+  const p = _products.find(x => x.id === _editProductId)
+  if (!confirm(`Delete product "${p?.name}"? This cannot be undone.`)) return
+  try {
+    await deleteProduct(_editProductId)
+    _products = _products.filter(x => x.id !== _editProductId)
+    closeProductModal()
+    renderProducts()
+    showToast('Product deleted')
+  } catch(e) {
+    console.error('[HSos] deleteProductModal error:', e)
+    showToast('Delete failed — check console', 'warn')
+  }
+}
+window.deleteProductModal = deleteProductModal
+
+// ─── plans page (product_plans) ───────────────────────────────
+
+let _plansProductId  = null
+let _plans           = []
+let _editPlanId      = null
+
+const GATEWAY_META = {
+  green_invoice: 'Green Invoice',
+  thrivecart:    'ThriveCart',
+  wise:          'Wise',
+  stripe:        'Stripe',
+}
+
+async function openPlansView(productId, e) {
+  e?.stopPropagation()
+  _plansProductId = productId
+  const product = _products.find(p => p.id === productId)
+
+  document.getElementById('plans-product-name').textContent = product?.name || '—'
+  document.getElementById('plans-product-meta').textContent =
+    [product?.type, product?.category].filter(Boolean).join(' · ') || ''
+
+  document.getElementById('products-list-view').classList.add('hidden')
+  document.getElementById('plans-detail-view').classList.remove('hidden')
+
+  await reloadPlans()
+}
+window.openPlansView = openPlansView
+
+function closePlansView() {
+  _plansProductId = null
+  _plans = []
+  document.getElementById('plans-detail-view').classList.add('hidden')
+  document.getElementById('products-list-view').classList.remove('hidden')
+}
+window.closePlansView = closePlansView
+
+async function reloadPlans() {
+  const container = document.getElementById('plans-container')
+  container.innerHTML = '<div style="color:var(--mu2);font-size:12px;padding:8px">Loading…</div>'
+  try {
+    _plans = await getAllProductPlans(_plansProductId)
+    renderPlans()
+  } catch (err) {
+    console.error(err)
+    container.innerHTML = '<div style="color:var(--red-text);font-size:12px;padding:8px">Failed to load plans</div>'
+  }
+}
+
+function renderPlans() {
+  const container = document.getElementById('plans-container')
+  if (!_plans.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--mu2)">
+        No plans yet — click <strong>+ Add Plan</strong> to create one.
       </div>`
     return
   }
 
-  body.innerHTML = `
-    <div class="sales-client-head">
-      <div class="sales-client-head-av" style="background:${base.bg};color:${base.color}">${esc(base.initials)}</div>
-      <div style="flex:1">
-        <div class="sales-client-head-name">${esc(base.name)}</div>
-        <div class="sales-client-head-sub">${esc(base.email || 'No email')}</div>
-        <div class="sales-client-head-sub">${esc((base.clientKind || 'private') + (base.company ? ` · ${base.company}` : ''))}</div>
-      </div>
-    </div>
-
-    <div class="sales-client-sec">
-      <div class="sales-client-sec-hd"><span class="sales-client-sec-title">All Deals (${deals.length})</span></div>
-      <table class="sales-deals-table">
-        <thead><tr><th>ID</th><th>Product</th><th>Amount</th><th>Status</th></tr></thead>
+  container.innerHTML = `
+    <div class="block">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Plan name</th>
+            <th>Gateway</th>
+            <th>Price</th>
+            <th>Installments</th>
+            <th>Country</th>
+            <th>Vendor</th>
+            <th>Default</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
-          ${deals.length ? deals.map(x => `<tr class="click" onclick="openDp('${x.id}')">
-            <td class="mono" style="font-size:11px;color:var(--mu)">#${esc(x.id)}</td>
-            <td>${esc(getP(x.productId)?.name || x.products?.name || 'Custom')}</td>
-            <td class="mono" style="color:var(--ac)">${fmt(finalAmt(x.price, x.vat, x.vatMode), x.currency)}</td>
-            <td>${esc(x.fulfillment || '—')}</td>
-          </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--mu2)">No deals yet</td></tr>`}
+          ${_plans.map(plan => `
+            <tr style="${!plan.active ? 'opacity:0.45' : ''}">
+              <td style="font-weight:500">${plan.plan_name}${!plan.active ? ' <span style="font-size:10px;color:var(--mu2)">(inactive)</span>' : ''}</td>
+              <td style="font-size:12px;color:var(--mu)">${GATEWAY_META[plan.collection_gateway] || plan.collection_gateway}</td>
+              <td class="mono">${fmt(plan.price, plan.currency)}</td>
+              <td class="mono">${plan.installments > 1 ? plan.installments + 'x' : '1x'}</td>
+              <td style="font-size:12px;color:var(--mu)">${plan.target_customer_country || '—'}</td>
+              <td style="font-size:12px;color:var(--mu)">${plan.vendors?.full_name || '—'}</td>
+              <td>${plan.is_default ? '<span class="pill active" style="font-size:10px">default</span>' : ''}</td>
+              <td style="text-align:right">
+                <button class="btn btn-sm" onclick="openPlanModal('${plan.id}',event)">Edit</button>
+              </td>
+            </tr>`).join('')}
         </tbody>
       </table>
-      <div class="sales-client-sum">
-        <div class="row"><div class="lbl">Total value</div><div class="val">${fmt(totalValue, baseCurrency)}</div></div>
-        <div class="row"><div class="lbl">Total paid</div><div class="val">${fmt(totalPaid, baseCurrency)}</div></div>
-        <div class="row"><div class="lbl">Outstanding</div><div class="val">${fmt(outstanding, baseCurrency)}</div></div>
-      </div>
-    </div>
-
-    <div class="sales-client-sec">
-      <div class="sales-client-sec-hd"><span class="sales-client-sec-title">Payment Integrations</span></div>
-      <div class="dp-row"><span class="dp-rl">Stripe</span><span class="dp-rv">${esc(d.stripe_customer_id ? `connected (${d.stripe_customer_id})` : 'not connected')}</span></div>
-      <div class="dp-row"><span class="dp-rl">Green Invoice</span><span class="dp-rv">${esc(d.green_invoice_client_id ? `client #${d.green_invoice_client_id}` : 'not set')}</span></div>
-    </div>
-
-    <div class="sales-client-actions">
-      <button class="btn-create" onclick="openCreateDealForClient('${selectedSalesClientId}')">+ Create Deal</button>
-      <button class="btn-cancel" onclick="salesClientEditMode=true;renderSalesClientDetail()">Edit Client</button>
-      <button class="btn-cancel" onclick="viewClientInOperations()">View in Operations</button>
     </div>`
 }
 
-async function saveSalesClientEdits(){
-  if (!selectedSalesClientId) return
-  const full_name = document.getElementById('sales-edit-name')?.value.trim()
-  if (!full_name) {
-    showToast('Client name is required', 'info')
-    return
-  }
-  const payload = {
-    full_name,
-    email: document.getElementById('sales-edit-email')?.value.trim() || null,
-    phone: document.getElementById('sales-edit-phone')?.value.trim() || null,
-    client_kind: document.getElementById('sales-edit-kind')?.value || 'private',
-    company: document.getElementById('sales-edit-company')?.value.trim() || null,
-    source: document.getElementById('sales-edit-source')?.value.trim() || null,
-    notes: document.getElementById('sales-edit-notes')?.value.trim() || null,
-  }
-  try {
-    const updated = await updateClient(selectedSalesClientId, payload)
-    salesClientEditMode = false
-    if (isDummyMode()) {
-      CLIENTS = CLIENTS.map(c => c.id === selectedSalesClientId ? mapClient({ ...c, ...updated, ...payload }) : c)
-      selectedSalesClientDetail = { ...selectedSalesClientDetail, ...payload }
-      renderSalesClients()
-    } else {
-      await loadData()
-    }
-    showToast('Client updated', 'success')
-  } catch (err) {
-    showToast('Failed to update client: ' + err.message, 'warn')
-  }
-}
+function openPlanModal(id, e) {
+  e?.stopPropagation()
+  _editPlanId = id
+  const plan = id ? _plans.find(p => p.id === id) : null
 
-function openCreateDealForClient(clientId){
-  openNewDeal()
-  const clientField = document.getElementById('f-client')
-  if (clientField) clientField.value = clientId
-}
+  document.getElementById('plan-modal-title').textContent = id ? 'Edit Plan' : 'New Plan'
+  document.getElementById('plan-delete-btn').style.display = id ? 'block' : 'none'
 
-function viewClientInOperations(){
-  if (!selectedSalesClientId) return
-  window.open(`workload.html?page=clients&clientId=${encodeURIComponent(selectedSalesClientId)}`, '_self')
-}
-
-function openSalesClientModal(){
-  document.getElementById('sales-new-full-name').value = ''
-  document.getElementById('sales-new-email').value = ''
-  document.getElementById('sales-new-phone').value = ''
-  document.getElementById('sales-new-kind').value = 'private'
-  document.getElementById('sales-new-company').value = ''
-  document.getElementById('sales-new-source').value = ''
-  document.getElementById('sales-new-notes').value = ''
-  toggleSalesNewCompany('private')
-  document.getElementById('sales-client-modal').classList.add('open')
-}
-
-function closeSalesClientModal(){
-  document.getElementById('sales-client-modal').classList.remove('open')
-}
-
-function toggleSalesNewCompany(kind){
-  const wrap = document.getElementById('sales-new-company-wrap')
-  if (!wrap) return
-  wrap.style.display = kind === 'corporate' ? 'block' : 'none'
-}
-
-async function submitSalesClient(){
-  const full_name = document.getElementById('sales-new-full-name')?.value.trim()
-  if (!full_name) {
-    showToast('Full name is required', 'info')
-    return
-  }
-  const payload = {
-    full_name,
-    email: document.getElementById('sales-new-email')?.value.trim() || null,
-    phone: document.getElementById('sales-new-phone')?.value.trim() || null,
-    client_kind: document.getElementById('sales-new-kind')?.value || 'private',
-    company: document.getElementById('sales-new-company')?.value.trim() || null,
-    source: document.getElementById('sales-new-source')?.value || null,
-    notes: document.getElementById('sales-new-notes')?.value.trim() || null,
-    active: true,
-  }
-  try {
-    const created = await createClient(payload)
-    closeSalesClientModal()
-    switchPage('clients')
-    if (isDummyMode()) {
-      const localClient = mapClient({ ...created, ...payload, deals: [], dealCount: 0, totalValue: 0, paidValue: 0, vendors: [] })
-      CLIENTS = [localClient, ...CLIENTS]
-      selectedSalesClientId = localClient.id
-      selectedSalesClientDetail = { ...localClient, deals: [], vendor_clients: [], sessions: [] }
-      renderSalesClients()
-    } else {
-      await loadData()
-      await selectSalesClient(created.id, { keepPage: true })
-    }
-    openCreateDealForClient(created.id)
-    showToast('Client created', 'success')
-  } catch (err) {
-    showToast('Failed to create client: ' + err.message, 'warn')
-  }
-}
-
-async function openSalesClientFromNavigation(clientId){
-  if (!clientId) return
-  switchPage('clients')
-  if (!CLIENTS.find(c => c.id === clientId)) {
-    showToast('Client not found in Sales list', 'info')
-    return
-  }
-  await selectSalesClient(clientId, { keepPage: true })
-}
-
-// ═══════════════════════════════════════════════════════════
-// PRODUCTS
-// ═══════════════════════════════════════════════════════════
-function renderProducts(){
-  const typeClass={session:'session',lesson:'session',package:'package',workshop:'workshop',custom:'custom'};
-  document.getElementById('prod-tbody').innerHTML=PRODUCTS.map(p=>`<tr onclick="showToast('Edit product — Phase 2','info')">
-    <td style="font-weight:500">${p.name}</td>
-    <td><span class="type-pill ${typeClass[p.type]||'custom'}">${p.type}</span></td>
-    <td class="mono" style="color:var(--ac)">${fmt(p.price,p.currency)}</td>
-    <td style="color:var(--mu)">${p.currency}</td>
-    <td style="color:var(--mu2);font-size:11px">${p.units}</td>
-    <td style="color:var(--mu2);font-size:11px">${p.notes||'—'}</td>
-  </tr>`).join('');
-}
-
-// ═══════════════════════════════════════════════════════════
-// SETTINGS
-// ═══════════════════════════════════════════════════════════
-function renderSettings(){
-  document.getElementById('mgr-list').innerHTML=MANAGERS.map(m=>`
-    <div class="mgr-card">
-      <div class="mgr-av-lg" style="background:${m.bg};color:${m.color}">${m.initials}</div>
-      <div class="mgr-info">
-        <div class="mgr-name">${m.name}</div>
-        <div class="mgr-role">${m.role}</div>
-        <div class="mgr-slack">
-          <span style="font-size:10px">💬</span>
-          <span class="slack-pill">${m.slack||'not set'}</span>
-          ${m.webhook?`<span style="font-size:9px;color:var(--gn)">webhook ✓</span>`:`<span style="font-size:9px;color:var(--mu2)">no webhook</span>`}
+  document.getElementById('plan-modal-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg" style="grid-column:1/-1">
+          <label class="fl">Plan name</label>
+          <input class="fi" id="plm-name" value="${plan?.plan_name || ''}" placeholder="e.g. IL Standard, US Monthly">
+        </div>
+        <div class="fg">
+          <label class="fl">Gateway</label>
+          <select class="fi fsel" id="plm-gateway">
+            ${['green_invoice','thrivecart','wise','stripe'].map(g =>
+              `<option value="${g}"${plan?.collection_gateway === g ? ' selected' : ''}>${GATEWAY_META[g]}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Gateway product ID</label>
+          <input class="fi" id="plm-gateway-pid" value="${plan?.collection_gateway_product_id || ''}" placeholder="optional">
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <label class="fl">Payment link</label>
+          <input class="fi" id="plm-gateway-link" value="${plan?.collection_gateway_link || ''}" placeholder="https://…">
+        </div>
+        <div class="fg">
+          <label class="fl">Price</label>
+          <input class="fi" type="number" id="plm-price" value="${plan?.price != null ? plan.price : ''}" placeholder="0">
+        </div>
+        <div class="fg">
+          <label class="fl">Currency</label>
+          <select class="fi fsel" id="plm-currency">
+            ${['EUR','USD','ILS','GBP'].map(c =>
+              `<option value="${c}"${(plan?.currency || 'EUR') === c ? ' selected' : ''}>${c}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Installments</label>
+          <input class="fi" type="number" id="plm-installments" min="1" value="${plan?.installments ?? 1}" placeholder="1">
+        </div>
+        <div class="fg">
+          <label class="fl">Target country</label>
+          <input class="fi" id="plm-country" value="${plan?.target_customer_country || ''}" placeholder="IL / US / EU / leave blank">
+        </div>
+        <div class="fg">
+          <label class="fl">Target currency (display)</label>
+          <input class="fi" id="plm-target-currency" value="${plan?.target_currency || ''}" placeholder="ILS / USD / …">
+        </div>
+        <div class="fg">
+          <label class="fl">Vendor payout currency</label>
+          <select class="fi fsel" id="plm-vendor-payout">
+            <option value="">— none —</option>
+            ${['ILS','USD','EUR'].map(c =>
+              `<option value="${c}"${plan?.vendor_payout_currency === c ? ' selected' : ''}>${c}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Vendor</label>
+          <select class="fi fsel" id="plm-vendor">
+            <option value="">— none —</option>
+            ${_vendors.map(v =>
+              `<option value="${v.id}"${plan?.vendor_id === v.id ? ' selected' : ''}>${v.full_name}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Priority</label>
+          <input class="fi" type="number" id="plm-priority" value="${plan?.priority ?? 0}" placeholder="0 = highest">
+        </div>
+        <div class="fg" style="grid-column:1/-1;display:flex;align-items:center;gap:8px;padding-top:4px">
+          <input type="checkbox" id="plm-default" ${plan?.is_default ? 'checked' : ''}>
+          <label for="plm-default" class="fl" style="margin:0;cursor:pointer">Default plan for this product</label>
+        </div>
+        <div class="fg" style="grid-column:1/-1;display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="plm-active" ${(plan?.active ?? true) ? 'checked' : ''}>
+          <label for="plm-active" class="fl" style="margin:0;cursor:pointer">Active</label>
         </div>
       </div>
-      <button class="btn-sm" onclick="showToast('Edit team member — Phase 2','info')">Edit</button>
-    </div>`).join('');
-}
+    </div>`
 
-// ═══════════════════════════════════════════════════════════
-// NEW DEAL
-// ═══════════════════════════════════════════════════════════
-function openNewDeal(){
-  document.getElementById('f-client').innerHTML ='<option value="">— Select client —</option>'+CLIENTS.map(c=>`<option value="${c.id}">${c.name}${c.company?' · '+c.company:''}</option>`).join('');
-  document.getElementById('f-vendor').innerHTML ='<option value="">— Select vendor —</option>'+VENDORS.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
-  // TEMP COMPAT: MANAGERS still loaded from legacy table; displayed as owners
-  document.getElementById('f-owner').innerHTML='<option value="">— Assign owner —</option>'+MANAGERS.map(m=>`<option value="${m.id}">${m.name} (${m.role})</option>`).join('');
-  document.getElementById('f-product').innerHTML='<option value="">— Select product —</option>'+PRODUCTS.map(p=>`<option value="${p.id}">${p.name} — ${fmt(p.price,p.currency)}</option>`).join('');
-  selProc_=''; vatMode='excl';
-  document.querySelectorAll('.proc-card').forEach(c=>c.classList.remove('sel'));
-  document.getElementById('proc-fields').classList.add('hidden');
-  document.getElementById('proc-fields').innerHTML='';
-  document.getElementById('vat-excl').classList.add('on');
-  document.getElementById('vat-incl').classList.remove('on');
-  ['f-price','f-vat','f-notes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('vat-final').textContent='—';
-  document.getElementById('vat-breakdown').textContent='Base: — + VAT: —';
-  document.getElementById('modal-new').classList.add('open');
+  document.getElementById('modal-plan').classList.add('open')
 }
+window.openPlanModal = openPlanModal
 
-function onProductChange(pid){
-  const p=PRODUCTS.find(x=>x.id===pid);
-  if(!p) return;
-  document.getElementById('f-price').value=p.price||'';
-  document.getElementById('f-currency').value=p.currency||'EUR';
-  calcVAT();
+function closePlanModal() {
+  document.getElementById('modal-plan').classList.remove('open')
+  _editPlanId = null
 }
+window.closePlanModal = closePlanModal
 
-function setVatMode(m){
-  vatMode=m;
-  document.getElementById('vat-excl').classList.toggle('on',m==='excl');
-  document.getElementById('vat-incl').classList.toggle('on',m==='incl');
-  calcVAT();
-}
+async function savePlanModal() {
+  const name        = document.getElementById('plm-name').value.trim()
+  const gateway     = document.getElementById('plm-gateway').value
+  const gatewayPid  = document.getElementById('plm-gateway-pid').value.trim() || null
+  const gatewayLink = document.getElementById('plm-gateway-link').value.trim() || null
+  const price       = parseFloat(document.getElementById('plm-price').value) || 0
+  const currency    = document.getElementById('plm-currency').value
+  const installments = parseInt(document.getElementById('plm-installments').value) || 1
+  const country     = document.getElementById('plm-country').value.trim() || null
+  const targetCur   = document.getElementById('plm-target-currency').value.trim() || null
+  const vendorPayout = document.getElementById('plm-vendor-payout').value || null
+  const vendorId    = document.getElementById('plm-vendor').value || null
+  const priority    = parseInt(document.getElementById('plm-priority').value) || 0
+  const isDefault   = document.getElementById('plm-default').checked
+  const active      = document.getElementById('plm-active').checked
 
-function calcVAT(){
-  const price=parseFloat(document.getElementById('f-price').value)||0;
-  const vat=parseFloat(document.getElementById('f-vat').value)||0;
-  const cur=document.getElementById('f-currency').value||'EUR';
-  let final, base, vatAmt;
-  if(vatMode==='excl'){
-    base=price; vatAmt=price*vat/100; final=price+vatAmt;
-  } else {
-    final=price; base=vat>0?price/(1+vat/100):price; vatAmt=final-base;
-  }
-  document.getElementById('vat-final').textContent=price>0?fmt(final,cur):'—';
-  document.getElementById('vat-breakdown').textContent=price>0?`Base: ${fmt(base,cur)} + VAT: ${fmt(vatAmt,cur)}`:'Base: — + VAT: —';
-}
+  if (!name) { showToast('Plan name required', 'warn'); return }
+  if (!price) { showToast('Price required', 'warn'); return }
 
-function selProc(p){
-  selProc_=p;
-  document.querySelectorAll('.proc-card').forEach(c=>c.classList.remove('sel'));
-  const ids={'green-invoice':'pc-gi',stripe:'pc-str',wise:'pc-wise',thrive:'pc-thr'};
-  if(ids[p]) document.getElementById(ids[p]).classList.add('sel');
-  const fld=document.getElementById('proc-fields');
-  fld.classList.remove('hidden');
-  const fields={
-    'green-invoice':`<div class="fg"><label class="fl">Green Invoice Client ID</label><input class="fi" placeholder="Client profile ID"></div><div class="fg"><label class="fl">Invoice Series</label><input class="fi" placeholder="INV-2025"></div>`,
-    stripe:`<div class="fg"><label class="fl">Stripe Customer ID</label><input class="fi" placeholder="cus_xxxxx (optional)"></div><div style="font-size:10px;color:var(--mu);padding:4px 0">Payment link generated after deal creation</div>`,
-    wise:`<div class="fg"><label class="fl">IBAN / Account</label><input class="fi" placeholder="IL62-0108-0000-0009-9999-999"></div><div class="fg"><label class="fl">Bank Reference</label><input class="fi" placeholder="Bank name or transfer ref"></div>`,
-    thrive:`<div class="fg"><label class="fl">Thrive Card Reference</label><input class="fi" placeholder="Card or account ref"></div>`,
-  };
-  fld.innerHTML=fields[p]||'';
-}
-
-async function submitNewDeal(){
-  const cid=document.getElementById('f-client').value;
-  const vid=document.getElementById('f-vendor').value;
-  if(!cid||!vid){
-    ['f-client','f-vendor'].forEach(id=>{const el=document.getElementById(id);if(!el.value){el.classList.add('err');setTimeout(()=>el.classList.remove('err'),800);}});
-    showToast('Please fill in Client and Vendor','warn');
-    return;
-  }
-  const price=parseFloat(document.getElementById('f-price').value)||0;
-  const vat=parseFloat(document.getElementById('f-vat').value)||0;
-  const dealData={
-    client_id:         cid,
-    primary_vendor_id: vid,
-    owner_vendor_id:   document.getElementById('f-owner').value||null,
-    product_id:        document.getElementById('f-product').value||null,
+  const fields = {
+    plan_name:                    name,
+    collection_gateway:           gateway,
+    collection_gateway_product_id: gatewayPid,
+    collection_gateway_link:      gatewayLink,
     price,
-    currency:          document.getElementById('f-currency').value||'EUR',
-    vat_pct:           vat,
-    vat_mode:          vatMode,
-    payment_processor: selProc_||null,
-    sales_status:      document.getElementById('f-fulfill').value,
-    billing_status:    document.getElementById('f-billing').value,
-    notes:             document.getElementById('f-notes').value.trim(),
-  };
+    currency,
+    installments,
+    target_customer_country:      country,
+    target_currency:              targetCur,
+    vendor_payout_currency:       vendorPayout,
+    vendor_id:                    vendorId,
+    priority,
+    is_default:                   isDefault,
+    active,
+    product_id:                   _plansProductId,
+  }
+
   try {
-    await createDeal(dealData)
-    closeModal('modal-new')
-    await loadData()
-    showToast(`Deal created for ${getC(cid).name}`,'success')
-  } catch(err) {
-    showToast('Error creating deal: '+err.message,'warn')
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// MOVE
-// ═══════════════════════════════════════════════════════════
-function openMove(id){
-  movingId=id;
-  const d=DEALS.find(x=>x.id===id), c=getC(d.clientId);
-  document.getElementById('move-info').textContent=`${c.name} — ${getP(d.productId)?.name||'Deal'}`;
-  document.getElementById('move-opts').innerHTML=STAGES.map(st=>`
-    <button class="move-opt ${st.key===d.fulfillment?'cur':''}" onclick="moveDeal('${st.key}')">
-      <div class="move-dot-lg" style="background:${st.color}"></div>${st.label}
-      ${st.key===d.fulfillment?'<span style="margin-left:auto;font-size:10px;color:var(--mu2)">current</span>':''}
-    </button>`).join('');
-  document.getElementById('modal-move').classList.add('open');
-}
-async function moveDeal(stage){
-  try {
-    await setDealFulfillment(movingId, stage)
-    await loadData()
-    const st=getS(stage)
-    showToast(`Moved to ${st?.label||stage}`,'success')
-    closeModal('modal-move')
-    if(dpDealId===movingId) refreshDp()
-  } catch(err) {
-    showToast('Error: '+err.message,'warn')
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// DEAL SIDE PANEL
-// ═══════════════════════════════════════════════════════════
-function openDp(id){
-  dpDealId=id; dpTab='info';
-  document.querySelectorAll('.dp-tab').forEach((t,i)=>t.classList.toggle('cur',i===0));
-  renderDpBody();
-  document.getElementById('dp-ov').classList.add('open');
-  document.getElementById('dp').classList.add('open');
-}
-function closeDp(){
-  document.getElementById('dp-ov').classList.remove('open');
-  document.getElementById('dp').classList.remove('open');
-  dpDealId=null;
-}
-function refreshDp(){if(dpDealId) renderDpBody();}
-function switchDpTab(tab,btn){
-  dpTab=tab;
-  document.querySelectorAll('.dp-tab').forEach(t=>t.classList.remove('cur'));
-  btn.classList.add('cur');
-  renderDpBody();
-}
-
-function renderDpBody(){
-  const d=DEALS.find(x=>x.id===dpDealId);
-  if(!d) return;
-  const c=getC(d.clientId), v=getV(d.vendorId), m=getM(d.managerId), p=getP(d.productId);
-  const fa=finalAmt(d.price,d.vat,d.vatMode), ba=baseAmt(d.price,d.vat,d.vatMode);
-  const vatAmt=fa-ba;
-  document.getElementById('dp-title').textContent=`${c.name} — ${p?.name||'Deal'}`;
-  const body=document.getElementById('dp-body');
-
-  if(dpTab==='info'){
-    body.innerHTML=`
-    <div class="dp-sec">
-      <div class="dp-sec-t">Basic Info</div>
-      <div class="dp-row"><span class="dp-rl">Client</span><span class="dp-rv clickable" onclick="openCp('${d.clientId}')">${c.name}${c.company?' · '+c.company:''}</span></div>
-      <div class="dp-row"><span class="dp-rl">Vendor</span><span class="dp-rv"><span style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><div style="width:18px;height:18px;border-radius:50%;background:${v.bg};color:${v.color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700">${v.initials}</div>${v.name}</span></span></div>
-      <div class="dp-row"><span class="dp-rl">Product</span><span class="dp-rv">${p?.name||'Custom'}</span></div>
-      <div class="dp-row"><span class="dp-rl">Currency</span><span class="dp-rv">${d.currency}</span></div>
-      <div class="dp-row"><span class="dp-rl">Processor</span><span class="dp-rv">${d.processor||'—'}</span></div>
-    </div>
-    <div class="dp-sec">
-      <div class="dp-sec-t">Owner</div>
-      ${m?`<div class="dp-row">
-        <span class="dp-rl">Assigned to</span>
-        <span class="dp-rv" style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
-          <div style="width:20px;height:20px;border-radius:50%;background:${m.bg};color:${m.color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700">${m.initials}</div>
-          ${m.name}
-        </span>
-      </div>
-      <div class="dp-row"><span class="dp-rl">Role</span><span class="dp-rv" style="color:var(--mu)">${m.role}</span></div>
-      <div class="dp-row"><span class="dp-rl">Slack</span><span class="dp-rv"><span class="slack-pill">${m.slack||'—'}</span></span></div>`
-      :`<div class="dp-row"><span class="dp-rl">Assigned to</span><span class="dp-rv" style="color:var(--mu2)">Unassigned</span></div>`}
-    </div>`;
-  }
-
-  else if(dpTab==='billing'){
-    body.innerHTML=`
-    <div class="dp-sec">
-      <div class="dp-sec-t">Pricing</div>
-      <div class="dp-row"><span class="dp-rl">Base price</span><span class="dp-rv mono">${fmt(d.vatMode==='incl'?ba:d.price, d.currency)}</span></div>
-      <div class="dp-row"><span class="dp-rl">VAT</span><span class="dp-rv">${d.vat>0?`${d.vat}% (${d.vatMode==='excl'?'added on top':'included'})`: 'No VAT'}</span></div>
-      ${d.vat>0?`<div class="dp-row"><span class="dp-rl">VAT amount</span><span class="dp-rv mono" style="color:var(--mu)">${fmt(vatAmt,d.currency)}</span></div>`:''}
-      <div class="dp-row" style="background:rgba(200,184,122,.05)"><span class="dp-rl" style="font-weight:600;color:var(--tx)">Final amount</span><span class="dp-rv mono" style="color:var(--ac);font-size:15px">${fmt(fa,d.currency)}</span></div>
-    </div>
-    <div class="dp-sec">
-      <div class="dp-sec-t">Billing Status</div>
-      <div class="status-pills">
-        ${BILLING.map(b=>`<button class="sp s-${b} ${b===d.billing?'on':''}" onclick="changeBilling('${d.id}','${b}')">${b}</button>`).join('')}
-      </div>
-    </div>
-    <div class="dp-sec">
-      <div class="dp-sec-t">Payment Processor</div>
-      <div class="dp-row"><span class="dp-rl">Method</span><span class="dp-rv">${d.processor||'Not set'}</span></div>
-    </div>`;
-  }
-
-  else if(dpTab==='workflow'){
-    const st=getS(d.fulfillment);
-    body.innerHTML=`
-    <div class="dp-sec">
-      <div class="dp-sec-t">Sales Status</div>
-      <div class="status-pills">
-        ${STAGES.map(s=>`<button class="sp" style="border-color:${s.key===d.fulfillment?s.color:'var(--b)'};color:${s.key===d.fulfillment?s.color:'var(--mu)'};background:${s.key===d.fulfillment?s.color+'22':'none'}" onclick="changeFulfillment('${d.id}','${s.key}')">${s.label}</button>`).join('')}
-      </div>
-      <div class="notif-row">
-        <div class="notif-icon">💬</div>
-        <span>Moving to a new stage — owner notification flow planned for <strong>${m?.name||'owner'}</strong></span>
-      </div>
-    </div>
-    <div class="dp-sec">
-      <div class="dp-sec-t">Activity</div>
-      ${(d.activity||[]).length>0
-        ?(d.activity).slice(-6).reverse().map(a=>`<div class="dp-row"><span style="color:var(--mu2);font-family:'DM Mono',monospace;font-size:10px">${a.time}</span><span style="color:var(--mu)">${a.text}</span></div>`).join('')
-        :`<div class="dp-row"><span style="color:var(--mu2);font-size:11px">No activity yet</span></div>`}
-    </div>`;
-  }
-
-  else if(dpTab==='docs'){
-    body.innerHTML=`
-    <div class="dp-sec">
-      <div class="dp-sec-t">Documents</div>
-      <div class="drop-zone" onclick="showToast('File upload — Phase 2','info')" ondragover="event.preventDefault();this.style.borderColor='var(--ac2)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';showToast('File drop — Phase 2','info')">
-        <div class="drop-icon">📎</div>
-        <div>Drag & drop files here, or click to browse</div>
-        <div style="font-size:10px;color:var(--mu2);margin-top:4px">Invoice · Agreement · Receipt · Other</div>
-        <div style="font-size:10px;color:var(--mu2);margin-top:2px">Will sync to Google Drive folder</div>
-      </div>
-      ${d.docs.length>0?`<div class="doc-list">${d.docs.map(doc=>`
-        <div class="doc-item">
-          <div class="doc-icon ${doc.type}">${doc.type==='pdf'?'📄':doc.type==='link'?'🔗':'📎'}</div>
-          <div>
-            <div class="doc-name">${doc.name}</div>
-            ${doc.date?`<div class="doc-meta">${doc.date}</div>`:''}
-            ${doc.url?`<div class="doc-meta" style="color:var(--bl)">${doc.url}</div>`:''}
-          </div>
-          <button class="btn-sm" onclick="showToast('Open document — Phase 2','info')">↗</button>
-        </div>`).join('')}
-      </div>`:''}
-    </div>
-    <div class="dp-sec">
-      <div class="dp-sec-t">External Links</div>
-      <div class="url-add">
-        <input class="fi" placeholder="Paste Google Drive or external URL…" style="font-size:12px">
-        <button class="btn-primary" onclick="showToast('Link saved — Phase 2','info')">Add</button>
-      </div>
-    </div>`;
-  }
-
-  else if(dpTab==='notes'){
-    body.innerHTML=`
-    <div class="dp-sec">
-      <div class="dp-sec-t">Internal Notes</div>
-      <div style="padding:12px">
-        <textarea style="width:100%;background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);padding:10px;font-size:12px;color:var(--tx);font-family:inherit;resize:vertical;min-height:100px;outline:none" placeholder="Internal comments, context, reminders…">${d.notes||''}</textarea>
-        <button class="btn-primary" style="margin-top:8px" onclick="(async()=>{try{await updateDealNotes('${d.id}',document.querySelector('#dp-body textarea').value);showToast('Notes saved','success')}catch(e){showToast(e.message,'warn')}})()">Save Notes</button>
-      </div>
-    </div>
-    <div class="dp-sec">
-      <div class="dp-sec-t">Next Steps / Reminders</div>
-      <div style="padding:12px;display:flex;flex-direction:column;gap:7px">
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" style="accent-color:var(--ac2)"><span style="color:var(--mu)">Send invoice to client</span></div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" checked style="accent-color:var(--ac2)"><span style="color:var(--mu2);text-decoration:line-through">Schedule first session</span></div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" style="accent-color:var(--ac2)"><span style="color:var(--mu)">Follow up on payment</span></div>
-        <button class="btn-sm" style="margin-top:4px;align-self:flex-start" onclick="showToast('Add reminder — Phase 2','info')">+ Add reminder</button>
-      </div>
-    </div>`;
-  }
-}
-
-async function changeFulfillment(id,stage){
-  try {
-    await setDealFulfillment(id, stage)
-    await loadData()
-    refreshDp()
-    showToast(`Sales status: ${stage}`,'success')
-  } catch(err) {
-    showToast('Error: '+err.message,'warn')
-  }
-}
-async function changeBilling(id,status){
-  try {
-    await setDealBilling(id, status)
-    await loadData()
-    refreshDp()
-    showToast(`Billing updated: ${status}`,'success')
-  } catch(err) {
-    showToast('Error: '+err.message,'warn')
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// CLIENT PROFILE PANEL
-// ═══════════════════════════════════════════════════════════
-function openCp(cid){
-  const c=getC(cid);
-  const cDeals=DEALS.filter(d=>d.clientId===cid);
-  document.getElementById('cp-body').innerHTML=`
-    <div class="cp-av-row">
-      <div class="cp-av" style="background:${c.bg};color:${c.color}">${c.initials}</div>
-      <div><div style="font-size:15px;font-weight:600">${c.name}</div>
-      ${c.company?`<div style="font-size:11px;color:var(--mu)">${c.company}</div>`:''}
-      <div style="font-size:11px;color:var(--mu2);font-family:'DM Mono',monospace">${c.email}</div></div>
-    </div>
-    <div class="cp-sec">
-      <div class="cp-sec-t">Deals (${cDeals.length})</div>
-      ${cDeals.map(d=>{const p=getP(d.productId);const fa=finalAmt(d.price,d.vat,d.vatMode);return`<div class="cp-row">
-        <span style="color:var(--mu);font-size:11px">${p?.name||'Deal'}</span>
-        <span style="display:flex;align-items:center;gap:5px">
-          <span class="bb ${d.billing}"><span class="bbd"></span>${d.billing}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--ac)">${fmt(fa,d.currency)}</span>
-        </span>
-      </div>`}).join('')||`<div class="cp-row"><span style="color:var(--mu2)">No deals</span></div>`}
-    </div>
-    <div class="cp-sec">
-      <div class="cp-sec-t">Integrations</div>
-      <div class="int-row"><div class="int-l"><div class="int-d" style="background:#e05a5a"></div>ActiveCampaign</div><span class="ist conn">connected</span></div>
-      <div class="int-row"><div class="int-l"><div class="int-d" style="background:#5a9de0"></div>Stripe</div><span class="ist pend">pending</span></div>
-      <div class="int-row"><div class="int-l"><div class="int-d" style="background:#e0a040"></div>Mighty Network</div><span class="ist na">not set</span></div>
-    </div>
-    <div class="cp-sec">
-      <div class="cp-sec-t" style="border-bottom:none;padding-bottom:0"></div>
-      <div style="padding:10px;display:flex;flex-direction:column;gap:5px">
-        <button class="cp-btn" onclick="showToast('ActiveCampaign — Phase 2','info')">↗ Open in ActiveCampaign</button>
-        <button class="cp-btn" onclick="showToast('Stripe — Phase 2','info')">↗ View in Stripe</button>
-        <button class="cp-btn" onclick="showToast('Mighty Network — Phase 2','info')">↗ Mighty Network</button>
-      </div>
-    </div>`;
-  document.getElementById('cp-ov').classList.add('open');
-  document.getElementById('cp').classList.add('open');
-}
-function closeCp(){
-  document.getElementById('cp-ov').classList.remove('open');
-  document.getElementById('cp').classList.remove('open');
-}
-
-// ═══════════════════════════════════════════════════════════
-// VENDORS DATA (loaded from Supabase via loadData)
-// ═══════════════════════════════════════════════════════════
-
-const PC_FLOW = ['draft','ready','pending','paid'];
-const PC_LABELS = {draft:'Draft',ready:'Ready',pending:'Pending',paid:'Paid'};
-
-function pcNextAction(status) {
-  if(status==='draft')   return {label:'Mark Ready',next:'ready'};
-  if(status==='ready')   return {label:'Send to Pending',next:'pending'};
-  if(status==='pending') return {label:'Mark as Paid',next:'paid'};
-  return null;
-}
-async function advancePaycheck(id) {
-  await advancePc(id);
-  renderVpBody();
-}
-
-let vpVendorId = null, vpTab = 'profile';
-
-// ── Render vendors table ──────────────────────────────────
-function renderVendors() {
-  const tbody = document.getElementById('vendors-tbody');
-  tbody.innerHTML = VENDORS_EXT.map(v => {
-    const activeDeals = DEALS.filter(d => d.vendorId === v.id && d.fulfillment === 'active').length;
-    const stuNames = v.students.map(sid => {const c=getC(sid);return c.name;}).join(', ') || '—';
-    const rateChips = v.rates.map(r=>{const t=r.session_type||r.type||'other';return `<span class="rate-chip">${SESSION_TYPE_ICONS[t]||'⚡'} ${t} · ${r.currency} ${r.rate}/hr</span>`;}).join('');
-    return `<tr>
-      <td><div class="vnd-name-cell">
-        <div class="vnd-av" style="background:${v.bg};color:${v.color}">${v.initials}</div>
-        <div>
-          <div style="font-weight:600">${v.name}</div>
-          <div style="font-size:10px;color:var(--mu);margin-top:1px">${v.email}</div>
-        </div>
-      </div></td>
-      <td style="color:var(--mu)">${v.role}</td>
-      <td>${rateChips}</td>
-      <td style="font-size:11px;color:var(--mu);font-family:'DM Mono',monospace">${v.bank||'—'}</td>
-      <td style="font-family:'DM Mono',monospace;text-align:center">${activeDeals}</td>
-      <td style="font-size:11px;color:var(--mu);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${stuNames}</td>
-      <td><button class="edit-btn" onclick="openVendorPanel('${v.id}')">Edit</button></td>
-    </tr>`;
-  }).join('');
-}
-
-// ── Vendor panel open/close ───────────────────────────────
-function openVendorPanel(id) {
-  vpVendorId = id;
-  vpTab = 'profile';
-  document.querySelectorAll('.vp-tab').forEach((t,i)=>t.classList.toggle('cur',i===0));
-  if(id) {
-    const v = VENDORS_EXT.find(x=>x.id===id);
-    document.getElementById('vp-title').textContent = v ? v.name : 'Vendor';
-    renderVpBody();
-  } else {
-    document.getElementById('vp-title').textContent = 'New Vendor';
-    renderVpNewBody();
-  }
-  document.getElementById('vp-ov').classList.add('open');
-  document.getElementById('vp').classList.add('open');
-}
-function closeVendorPanel() {
-  document.getElementById('vp-ov').classList.remove('open');
-  document.getElementById('vp').classList.remove('open');
-}
-function switchVpTab(tab, btn) {
-  vpTab = tab;
-  document.querySelectorAll('.vp-tab').forEach(t=>t.classList.remove('cur'));
-  btn.classList.add('cur');
-  renderVpBody();
-}
-
-function renderVpBody() {
-  const v = VENDORS_EXT.find(x=>x.id===vpVendorId);
-  if(!v) return;
-  const el = document.getElementById('vp-body');
-
-  if(vpTab === 'profile') {
-    el.innerHTML = `
-      <div class="vp-hero">
-        <div class="vp-av-lg" style="background:${v.bg};color:${v.color}">${v.initials}</div>
-        <div>
-          <div class="vp-name">${v.name}</div>
-          <div class="vp-role-lbl">${v.role}</div>
-          <div class="vp-email-lbl">${v.email}</div>
-        </div>
-      </div>
-      <div class="vp-sec">
-        <div class="vp-sec-t"><span>Personal Details</span></div>
-        <div class="vp-row"><span class="vp-rl">Name</span><input class="vp-input" id="vp-name" value="${v.name}"></div>
-        <div class="vp-row"><span class="vp-rl">Role</span><input class="vp-input" id="vp-role" value="${v.role}"></div>
-        <div class="vp-row"><span class="vp-rl">Email</span><input class="vp-input" id="vp-email" value="${v.email}" style="min-width:0;overflow:hidden;text-overflow:ellipsis"></div>
-        <div class="vp-row"><span class="vp-rl">Phone</span><input class="vp-input" id="vp-phone" value="${v.phone||''}"></div>
-        <div class="vp-row"><span class="vp-rl">Cal / Booking</span><input class="vp-input" id="vp-cal" value="${v.calLink||''}"></div>
-      </div>
-      <div class="vp-sec">
-        <div class="vp-sec-t"><span>Bank &amp; Payment</span></div>
-        <div class="vp-row"><span class="vp-rl">Bank</span><input class="vp-input" id="vp-bank" value="${v.bank||''}"></div>
-        <div class="vp-row"><span class="vp-rl">IBAN</span><input class="vp-input" id="vp-iban" value="${v.iban||''}"></div>
-        <div class="vp-row"><span class="vp-rl">Currency</span>
-          <select class="vp-select" id="vp-currency" style="width:90px">
-            ${['EUR','USD','ILS','GBP','CHF'].map(c=>`<option${(v.currency||'EUR')===c?' selected':''}>${c}</option>`).join('')}
-          </select>
-        </div>
-        <div class="vp-row"><span class="vp-rl">Salary method</span>
-          <select class="vp-select" id="vp-salary" style="width:110px">
-            ${['hourly','monthly','fixed'].map(m=>`<option value="${m}"${(v.salaryMethod||'hourly')===m?' selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="vp-sec">
-        <div class="vp-sec-t"><span>Contract &amp; Notes</span></div>
-        <div class="vp-row"><span class="vp-rl">Agreement</span><input class="vp-input" id="vp-contract" value="${v.contract||''}" placeholder="Free text or description"></div>
-        <div class="vp-row" style="align-items:flex-start"><span class="vp-rl" style="padding-top:6px">Link</span><textarea class="vp-input" id="vp-contractLink" rows="2" style="font-family:'DM Mono',monospace;font-size:11px;resize:vertical;min-height:44px">${v.contractLink||''}</textarea></div>
-        <div class="vp-row" style="align-items:flex-start"><span class="vp-rl" style="padding-top:6px">Internal notes</span><textarea class="vp-input" id="vp-notes" style="min-height:56px;resize:vertical">${v.notes||''}</textarea></div>
-      </div>`;
-  }
-
-  else if(vpTab === 'rates') {
-    const SESSION_TYPES = ['coaching','consulting','editing','design','admin','other'];
-    const rows = v.rates.map((r,i) => {
-      const st = r.session_type || r.type || '';
-      const icon = SESSION_TYPE_ICONS[st] || '⚡';
-      return `
-      <div class="rate-edit-row" data-rate-id="${r.id||''}">
-        <span class="rate-type-lbl">
-          <select class="vp-select rate-type-inp" data-ri="${i}" style="width:140px">
-            ${SESSION_TYPES.map(t=>`<option value="${t}"${st===t?' selected':''}>${SESSION_TYPE_ICONS[t]||'⚡'} ${t}</option>`).join('')}
-          </select>
-        </span>
-        <div class="rate-input-wrap">
-          <select class="vp-select" data-ri="${i}" data-field="currency" style="width:72px">
-            ${['EUR','USD','GBP','ILS'].map(c=>`<option${r.currency===c?' selected':''}>${c}</option>`).join('')}
-          </select>
-          <input class="vp-input rate-num" type="number" data-ri="${i}" data-field="rate" value="${r.rate}" min="0" step="1">
-          <span style="font-size:11px;color:var(--mu)">/hr</span>
-        </div>
-        <button class="edit-btn" style="color:var(--rd);border-color:transparent" onclick="removeRate('${v.id}',${i})">✕</button>
-      </div>`}).join('');
-    el.innerHTML = `
-      <div class="vp-sec">
-        <div class="vp-sec-t"><span>Rates</span><button class="edit-btn" onclick="addRate('${v.id}')">+ Add</button></div>
-        <div id="rate-rows">${rows}</div>
-      </div>
-      <div style="font-size:11px;color:var(--mu2);padding:6px 2px">Changes apply to future sessions. Existing sessions are not affected.</div>`;
-  }
-
-  else if(vpTab === 'students') {
-    const all = CLIENTS;
-    const assigned = v.students;
-    el.innerHTML = `
-      <div class="vp-sec">
-        <div class="vp-sec-t"><span>Assigned Clients</span></div>
-        <div style="padding:10px 13px;display:flex;flex-wrap:wrap">
-          ${assigned.length ? assigned.map(sid=>{const c=getC(sid);return `<span class="student-chip">
-            <span class="student-chip-av" style="background:${c.bg};color:${c.color}">${c.initials}</span>${c.name}
-            <span style="cursor:pointer;color:var(--mu2);margin-left:2px" onclick="unassignStudent('${v.id}','${sid}')">✕</span>
-          </span>`;}).join('') : `<span style="font-size:12px;color:var(--mu2)">No clients assigned</span>`}
-        </div>
-      </div>
-      <div class="vp-sec">
-        <div class="vp-sec-t"><span>Assign Client</span></div>
-        ${all.filter(c=>!assigned.includes(c.id)).map(c=>`
-        <div class="vp-row" style="cursor:pointer" onclick="assignStudent('${v.id}','${c.id}')">
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="width:26px;height:26px;border-radius:50%;background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">${c.initials}</div>
-            <span>${c.name}${c.company?` <span style="color:var(--mu)">· ${c.company}</span>`:''}</span>
-          </div>
-          <span style="font-size:12px;color:var(--mu2)">+ Assign</span>
-        </div>`).join('') || `<div style="padding:12px 13px;font-size:12px;color:var(--mu2)">All clients assigned</div>`}
-      </div>`;
-  }
-
-  else if(vpTab === 'payments') {
-    const pcs = PAYCHECKS.filter(x=>x.vendorId===v.id).sort((a,b)=>b.month.localeCompare(a.month));
-    const unpaid = pcs.filter(x=>x.status!=='paid');
-    const totalOwed = unpaid.reduce((s,x)=>s+x.amount,0);
-
-    const rows = pcs.map(pc => {
-      const act = pcNextAction(pc.status);
-      const monthLabel = (() => {
-        const [y,m] = pc.month.split('-');
-        return new Date(+y,+m-1,1).toLocaleDateString('en',{month:'long',year:'numeric'});
-      })();
-      return `<tr>
-        <td style="font-weight:500">${monthLabel}</td>
-        <td style="color:var(--mu);font-family:'DM Mono',monospace">${pc.totalHours}h</td>
-        <td style="color:var(--mu2);font-size:11px">${pc.currency} ${pc.rate}/hr</td>
-        <td style="font-family:'DM Mono',monospace;color:var(--ac);font-weight:500">${pc.currency} ${pc.amount.toLocaleString()}</td>
-        <td><span class="pc-status ${pc.status}">${PC_LABELS[pc.status]}</span></td>
-        <td style="color:var(--mu2);font-size:11px">${pc.paymentDate||'—'}</td>
-        <td style="text-align:right">${act
-          ? `<button class="pc-action${act.next==='paid'?' primary':''}" onclick="advancePaycheck('${pc.id}')">${act.label}</button>`
-          : `<span style="font-size:10px;color:var(--mu2)">✓ done</span>`
-        }</td>
-      </tr>`;
-    }).join('');
-
-    el.innerHTML = `
-      <div class="vp-sec" style="overflow:visible">
-        <div class="vp-sec-t"><span>Paychecks</span></div>
-        ${pcs.length
-          ? `<table class="pc-table"><thead><tr>
-              <th>Month</th><th>Hours</th><th>Rate</th><th>Amount</th><th>Status</th><th>Paid on</th><th></th>
-             </tr></thead><tbody>${rows}</tbody></table>`
-          : `<div style="padding:16px 13px;font-size:12px;color:var(--mu2)">No paychecks yet</div>`
-        }
-      </div>
-      ${unpaid.length ? `
-      <div style="background:rgba(200,184,122,.06);border:1px solid rgba(200,184,122,.2);border-radius:var(--rs);padding:12px 14px;display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:10px;font-weight:600;color:var(--mu2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Outstanding balance</div>
-          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:400;color:var(--ac)">${pcs[0]?.currency||'EUR'} ${totalOwed.toLocaleString()}</div>
-        </div>
-        <div style="font-size:11px;color:var(--mu)">${unpaid.length} paycheck${unpaid.length>1?'s':''} pending</div>
-      </div>` : `
-      <div style="background:var(--gn-b);border:1px solid rgba(76,175,130,.2);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--gn)">
-        ✓ All paychecks settled
-      </div>`}`;
-  }
-}
-
-function renderVpNewBody() {
-  const el = document.getElementById('vp-body');
-  el.innerHTML = `
-    <div class="vp-sec">
-      <div class="vp-sec-t"><span>Personal Details</span></div>
-      <div class="vp-row"><span class="vp-rl">Name</span><input class="vp-input" id="vp-name" placeholder="Full name"></div>
-      <div class="vp-row"><span class="vp-rl">Role</span><input class="vp-input" id="vp-role" placeholder="e.g. English Teacher"></div>
-      <div class="vp-row"><span class="vp-rl">Email</span><input class="vp-input" id="vp-email" placeholder="email@example.com"></div>
-      <div class="vp-row"><span class="vp-rl">Phone</span><input class="vp-input" id="vp-phone" placeholder="+1-..."></div>
-    </div>
-    <div class="vp-sec">
-      <div class="vp-sec-t"><span>Bank &amp; Payment</span></div>
-      <div class="vp-row"><span class="vp-rl">Bank</span><input class="vp-input" id="vp-bank" placeholder="Bank name"></div>
-      <div class="vp-row"><span class="vp-rl">IBAN</span><input class="vp-input" id="vp-iban" placeholder="IBAN / account number"></div>
-    </div>`;
-}
-
-async function saveVendor() {
-  if(!vpVendorId) { showToast('New vendor — coming soon','info'); return; }
-  const v = VENDORS_EXT.find(x=>x.id===vpVendorId);
-  if(!v) return;
-  if(vpTab === 'profile') {
-    const updates = {
-      name:          document.getElementById('vp-name')?.value || v.name,
-      role:          document.getElementById('vp-role')?.value || v.role,
-      email:         document.getElementById('vp-email')?.value || v.email,
-      phone:         document.getElementById('vp-phone')?.value || v.phone,
-      cal_link:      document.getElementById('vp-cal')?.value ?? v.cal_link,
-      bank:          document.getElementById('vp-bank')?.value || v.bank,
-      iban:          document.getElementById('vp-iban')?.value || v.iban,
-      currency:      document.getElementById('vp-currency')?.value || v.currency,
-      salary_method: document.getElementById('vp-salary')?.value || v.salary_method,
-      contract:      document.getElementById('vp-contract')?.value ?? v.contract,
-      contract_link: document.getElementById('vp-contractLink')?.value ?? v.contract_link,
-      notes:         document.getElementById('vp-notes')?.value ?? v.notes,
+    if (_editPlanId) {
+      await updateProductPlan(_editPlanId, fields)
+      showToast('Plan saved')
+    } else {
+      await createProductPlan(fields)
+      showToast('Plan created')
     }
-    try {
-      await updateVendor(vpVendorId, updates)
-      await loadData()
-      renderVendors()
-      showToast(`${v.name} — saved`, 'success')
-    } catch(err) {
-      showToast('Error saving vendor: ' + err.message, 'warn')
-    }
-  } else if(vpTab === 'rates') {
-    const rateRows = document.querySelectorAll('.rate-edit-row')
-    const ratePromises = []
-    rateRows.forEach((row, i) => {
-      const typeEl = row.querySelector('.rate-type-inp')
-      const rateEl = row.querySelector('[data-field="rate"]')
-      const currEl = row.querySelector('[data-field="currency"]')
-      if(typeEl && rateEl) {
-        const rateId = row.dataset.rateId
-        ratePromises.push(upsertRate(vpVendorId, {
-          id:           rateId || undefined,
-          session_type: typeEl.value,
-          rate:         parseFloat(rateEl.value)||0,
-          currency:     currEl?.value || 'EUR',
-        }))
-      }
-    })
-    try {
-      await Promise.all(ratePromises)
-      await loadData()
-      showToast(`Rates saved`, 'success')
-    } catch(err) {
-      showToast('Error saving rates: ' + err.message, 'warn')
-    }
-  } else {
-    showToast('Saved', 'success')
+    closePlanModal()
+    await reloadPlans()
+  } catch (err) {
+    console.error('[HSos] savePlanModal error:', err)
+    showToast('Save failed — check console', 'warn')
   }
 }
+window.savePlanModal = savePlanModal
 
-function addRate(vid) {
-  const v = VENDORS_EXT.find(x=>x.id===vid);
-  if(!v) return;
-  v.rates.push({session_type:'other',rate:0,currency:'EUR'});
-  renderVpBody();
-}
-function removeRate(vid, idx) {
-  const v = VENDORS_EXT.find(x=>x.id===vid);
-  if(!v) return;
-  v.rates.splice(idx,1);
-  renderVpBody();
-}
-async function assignClient(vid, cid) {
+async function deletePlanModal() {
+  if (!_editPlanId) return
+  const plan = _plans.find(p => p.id === _editPlanId)
+  if (!confirm(`Delete plan "${plan?.plan_name}"?`)) return
   try {
-    await assignClientToVendor(vid, cid)
-    await loadData()
-    renderVpBody()
-    showToast(`${getC(cid).name} assigned to ${getV(vid).name}`, 'success')
-  } catch(err) {
-    showToast('Error: ' + err.message, 'warn')
+    await deleteProductPlan(_editPlanId)
+    closePlanModal()
+    await reloadPlans()
+    showToast('Plan deleted')
+  } catch (err) {
+    console.error('[HSos] deletePlanModal error:', err)
+    showToast('Delete failed — check console', 'warn')
   }
 }
-async function unassignClient(vid, cid) {
-  try {
-    await unassignClientFromVendor(vid, cid)
-    await loadData()
-    renderVpBody()
-    showToast(`${getC(cid).name} unassigned`, 'info')
-  } catch(err) {
-    showToast('Error: ' + err.message, 'warn')
-  }
-}
-// TEMP COMPAT aliases
-async function assignStudent(vid, cid)   { return assignClient(vid, cid) }
-async function unassignStudent(vid, cid) { return unassignClient(vid, cid) }
-
-// ═══════════════════════════════════════════════════════════
-// PAYCHECK HELPERS
-// ═══════════════════════════════════════════════════════════
-function fmtMonth(m) {
-  const [y,mo]=m.split('-');
-  return new Date(+y,+mo-1,1).toLocaleDateString('en',{month:'long',year:'numeric'});
-}
-
-async function advancePc(id) {
-  try {
-    const updated = await advancePaycheckStatus(id)
-    await loadData()
-    if(document.getElementById('bd').classList.contains('open')) renderBdBody(id)
-    showToast(updated.status==='paid'?'Marked as paid':'Status updated to '+PC_LABELS[updated.status], 'success')
-  } catch(err) {
-    showToast('Error: ' + err.message, 'warn')
-  }
-}
-
-// breakdown panel
-let bdPcId = null;
-async function openBd(pcId) {
-  bdPcId = pcId;
-  const pc = PAYCHECKS.find(x=>x.id===pcId);
-  const v = VENDORS_EXT.find(x=>x.id===pc?.vendor_id);
-  document.getElementById('bd-title').textContent = `${v?.name||'Vendor'} — ${fmtMonth(pc?.month||'')}`;
-
-  // load sessions for this vendor/month on demand
-  try {
-    const hours = await getVendorHours(pc.vendor_id, pc.month)
-    const key = `${pc.vendor_id}__${pc.month}`
-    MONTH_SESSIONS[key] = hours
-  } catch(e) {}
-
-  renderBdBody(pcId);
-  document.getElementById('bd-ov').classList.add('open');
-  document.getElementById('bd').classList.add('open');
-}
-function closeBd() {
-  document.getElementById('bd-ov').classList.remove('open');
-  document.getElementById('bd').classList.remove('open');
-  bdPcId = null;
-}
-function renderBdBody(pcId) {
-  const pc = PAYCHECKS.find(x=>x.id===pcId);
-  if(!pc) return;
-  const v = VENDORS_EXT.find(x=>x.id===pc.vendor_id);
-  const cachedKey = `${pc.vendor_id}__${pc.month}`
-  const sessions = (MONTH_SESSIONS[cachedKey] || []).map(s => ({
-    date:   s.session_date,
-    entity: s.entity_name,
-    type:   s.session_type,
-    hours:  s.duration_hours,
-  }))
-
-  // group sessions by type
-  const byType = {};
-  sessions.forEach(s=>{
-    if(!byType[s.type]) byType[s.type]={count:0,hours:0};
-    byType[s.type].count++;
-    byType[s.type].hours+=s.hours;
-  });
-
-  const act = pcNextAction(pc.status);
-  const typeClass = {Private:'private',Group:'group',Service:'service','Design Work':'service','Workshop':'service','1:1 Session':'private','Office':'service'};
-
-  document.getElementById('bd-body').innerHTML = `
-    <div class="bd-sec">
-      <div class="bd-sec-t">Summary</div>
-      <div class="bd-row"><span class="bd-rl">Vendor</span><span style="font-weight:500">${v?.name||'—'}</span></div>
-      <div class="bd-row"><span class="bd-rl">Month</span><span>${fmtMonth(pc.month)}</span></div>
-      <div class="bd-row"><span class="bd-rl">Total hours</span><span style="font-family:'DM Mono',monospace">${pc.totalHours}h</span></div>
-      <div class="bd-row"><span class="bd-rl">Rate</span><span style="font-family:'DM Mono',monospace">${pc.currency} ${pc.rate}/hr</span></div>
-      <div class="bd-row" style="background:rgba(200,184,122,.05)"><span class="bd-rl" style="font-weight:600;color:var(--tx)">Total amount</span><span style="font-family:'DM Mono',monospace;color:var(--ac);font-size:15px;font-weight:500">${pc.currency} ${pc.amount.toLocaleString()}</span></div>
-      <div class="bd-row"><span class="bd-rl">Status</span><span class="pc-status ${pc.status}">${PC_LABELS[pc.status]}</span></div>
-      ${pc.paymentDate?`<div class="bd-row"><span class="bd-rl">Paid on</span><span style="font-family:'DM Mono',monospace">${pc.paymentDate}</span></div>`:''}
-    </div>
-    <div class="bd-sec">
-      <div class="bd-sec-t">Breakdown by type</div>
-      ${Object.entries(byType).map(([type,d])=>`
-        <div class="bd-row">
-          <span class="bd-rl"><span class="type-pill ${typeClass[type]||'service'}" style="font-size:9px">${type}</span></span>
-          <span style="font-family:'DM Mono',monospace">${d.count} session${d.count>1?'s':''} · ${d.hours}h</span>
-        </div>`).join('') || `<div class="bd-row"><span style="color:var(--mu2)">No session data</span></div>`}
-    </div>
-    ${sessions.length?`
-    <div class="bd-sec">
-      <div class="bd-sec-t">Sessions (${sessions.length})</div>
-      ${sessions.map(s=>`
-        <div class="bd-row">
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu2)">${s.date}</span>
-          <span style="flex:1;padding:0 10px;color:var(--mu)">${s.entity}</span>
-          <span><span class="type-pill ${typeClass[s.type]||'service'}" style="font-size:9px">${s.type}</span></span>
-          <span style="font-family:'DM Mono',monospace;margin-left:8px;color:var(--mu)">${s.hours}h</span>
-        </div>`).join('')}
-    </div>`:''}
-    ${pc.notes?`<div style="padding:10px 13px;font-size:11px;color:var(--mu);background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs)">📝 ${pc.notes}</div>`:''}`;
-
-  document.getElementById('bd-footer').innerHTML = act
-    ? `<button class="btn-primary${act.next==='paid'?'':''}" style="flex:1" onclick="advancePc('${pcId}')">${act.label}</button>
-       <button class="btn-cancel" onclick="closeBd()">Close</button>`
-    : `<div style="flex:1;font-size:12px;color:var(--gn);display:flex;align-items:center;gap:5px">✓ All settled</div>
-       <button class="btn-cancel" onclick="closeBd()">Close</button>`;
-}
-
-
-// ═══════════════════════════════════════════════════════════
-// FILTERS & NAV
-// ═══════════════════════════════════════════════════════════
-function toggleF(k,btn){filters.has(k)?filters.delete(k):filters.add(k);btn.classList.toggle('on',filters.has(k));render();}
-function doSearch(q){search=q;render();}
-function setView(v){
-  view=v;
-  document.getElementById('vb-k').classList.toggle('cur',v==='kanban');
-  document.getElementById('vb-l').classList.toggle('cur',v==='list');
-  document.getElementById('kanban-view').classList.toggle('hidden',v!=='kanban');
-  document.getElementById('list-view').classList.toggle('hidden',v!=='list');
-  render();
-}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-function toggleMod(){document.getElementById('mod-dd').classList.toggle('open');}
-function goModule(m){
-  document.getElementById('mod-dd').classList.remove('open');
-  if(m==='workload') window.open('workload.html','_self');
-  else if(m==='payments') window.open('payments.html','_self');
-  else if(m==='portal') window.open('clients-portal.html','_self');
-  else showToast(`${m.charAt(0).toUpperCase()+m.slice(1)} — coming soon`,'info');
-}
-document.addEventListener('click',e=>{if(!e.target.closest('.logo-wrap'))document.getElementById('mod-dd').classList.remove('open');});
-
-// ═══════════════════════════════════════════════════════════
-// SUPABASE MAPPING & INIT
-// ═══════════════════════════════════════════════════════════
-function mapDeal(d) {
-  return {
-    ...d,
-    clientId:        d.client_id,
-    vendorId:        d.primary_vendor_id,
-    managerId:       d.owner_vendor_id,
-    productId:       d.product_id,
-    fulfillment:     d.sales_status,
-    billing:         d.billing_status,
-    // Normalise vat_pct → vat so render helpers using d.vat still work
-    vat:             d.vat_pct ?? d.vat ?? 0,
-    vatMode:         d.vat_mode || 'excl',
-    processor:       d.payment_processor || d.processor || null,
-  }
-}
-
-function mapVendor(v) {
-  const colors = ['#c8b87a','#4caf82','#5a9de0','#a07de0','#e0a040','#3dbfb0','#e05a5a']
-  const bgs    = ['#2a2410','#1a2e24','#1a2233','#221a33','#2e2210','#0f2826','#2e1a1a']
-  // Prefer full_name; fallback to name for compatibility
-  const displayName = v.full_name || v.name || ''
-  const idx = displayName.charCodeAt(0) % colors.length
-  return {
-    ...v,
-    name:     displayName,
-    initials: displayName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2),
-    color:    colors[idx],
-    bg:       bgs[idx],
-    salaryMethod: v.salary_method,
-    calLink:  v.cal_link,
-    contractLink: v.contract_url || v.contract_link,
-    // Prefer new field names from getVendors() mapping
-    clients:  v.clients || v.students || [],
-    // TEMP COMPAT: normalise to array of IDs so renderVendors can call getC(id)
-    students: (v.clients || v.students || []).map(x => typeof x === 'object' && x !== null ? x.id : x),
-  }
-}
-
-function mapClient(c) {
-  const colors = ['#4caf82','#5a9de0','#c06edd','#e0a040','#e05a5a','#3dbfb0','#a07de0']
-  const bgs    = ['#1a2e24','#1a2233','#2a1a33','#2e2210','#2e1a1a','#0f2826','#221a33']
-  // Prefer full_name; fallback to name
-  const displayName = c.full_name || c.name || ''
-  const idx = (displayName.charCodeAt(0) || 0) % colors.length
-  const deals = c.deals || []
-  const totalValue = c.totalValue != null
-    ? c.totalValue
-    : deals.reduce((sum, d) => sum + (parseFloat(d.price) || 0), 0)
-  const paidValue = c.paidValue != null
-    ? c.paidValue
-    : deals
-      .filter(d => (d.billing_status || d.billing) === 'paid')
-      .reduce((sum, d) => sum + (parseFloat(d.price) || 0), 0)
-  return {
-    ...c,
-    name:     displayName,
-    initials: displayName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2),
-    color:    colors[idx],
-    bg:       bgs[idx],
-    deals,
-    dealCount: c.dealCount != null ? c.dealCount : deals.length,
-    totalValue,
-    paidValue,
-    outstandingValue: c.outstandingValue != null ? c.outstandingValue : (totalValue - paidValue),
-    clientKind: c.client_kind || c.clientKind || 'private',
-    paymentStatus:   c.payment_status,
-    packageSize:     c.package_size,
-    sessionsUsed:    c.sessions_used    || c.lessons_used    || 0,
-    sessionsRemaining: (c.package_size  || 0) - (c.sessions_used || c.lessons_used || 0),
-    // TEMP COMPAT aliases
-    lessonsUsed:      c.sessions_used   || c.lessons_used    || 0,
-    lessonsRemaining: (c.package_size   || 0) - (c.sessions_used || c.lessons_used || 0),
-  }
-}
-
-function mapPaycheck(pc) {
-  return {
-    ...pc,
-    vendorId:    pc.vendor_id,
-    totalHours:  parseFloat(pc.total_hours),
-    paymentDate: pc.payment_date,
-  }
-}
-
-async function loadData() {
-  try {
-    const [clients, vendors, managers, products, deals, paychecks] = await Promise.all([
-      getClientsWithMeta(),
-      getVendors(),
-      getManagers(), // TEMP COMPAT: legacy managers table; owner logic migrating to vendor records
-      getProducts(),
-      getDeals(),
-      getPaychecks(),
-    ])
-    CLIENTS     = clients.map(mapClient)
-    VENDORS     = vendors.map(mapVendor)
-    VENDORS_EXT = VENDORS
-    MANAGERS    = managers.map(m => {
-      const colors = ['#c8b87a','#4caf82','#5a9de0','#a07de0','#e0a040','#3dbfb0','#e05a5a']
-      const bgs    = ['#2a2410','#1a2e24','#1a2233','#221a33','#2e2210','#0f2826','#2e1a1a']
-      const n = m.full_name || m.name || ''
-      const idx = (n.charCodeAt(0) || 0) % colors.length
-      return {
-        ...m,
-        name: n,
-        initials: n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2),
-        color: colors[idx],
-        bg: bgs[idx],
-        role: m.system_role || m.role || '',
-        slack: m.slack || null,
-      }
-    })
-    PRODUCTS    = products
-    DEALS       = deals.map(mapDeal)
-    PAYCHECKS   = paychecks.map(mapPaycheck)
-    if (page === 'clients') renderSalesClients()
-    else if (page === 'products') renderProducts()
-    else if (page === 'vendors') renderVendors()
-    else if (page === 'settings') renderSettings()
-    else render()
-
-    if (selectedSalesClientId && page === 'clients') {
-      await selectSalesClient(selectedSalesClientId, { keepPage: true })
-    }
-    if (pendingSalesClientId) {
-      await openSalesClientFromNavigation(pendingSalesClientId)
-      pendingSalesClientId = null
-    }
-  } catch(err) {
-    showToast('Failed to load data: ' + err.message, 'warn')
-  }
-}
-
-function readSalesRouteContext(){
-  const params = new URLSearchParams(window.location.search)
-  const pageParam = (params.get('page') || '').toLowerCase()
-  if (['deals','clients','products','vendors','vp','settings'].includes(pageParam)) page = pageParam
-  const clientId = params.get('clientId')
-  if (clientId) pendingSalesClientId = clientId
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  readSalesRouteContext()
-  if (page !== 'deals') switchPage(page)
-  const clientModal = document.getElementById('sales-client-modal')
-  if (clientModal) {
-    clientModal.addEventListener('click', e => {
-      if (e.target === clientModal) closeSalesClientModal()
-    })
-  }
-  await requireAuth()
-  await loadData()
-})
+window.deletePlanModal = deletePlanModal
