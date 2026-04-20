@@ -37,6 +37,70 @@
     els.body.prepend(bar)
   }
 
+  function updateSaveBtn() {
+    if (!els.saveBtn) return
+    const dirty = Object.keys(state.edits).length > 0
+    els.saveBtn.style.display = dirty ? '' : 'none'
+  }
+
+  async function commitEdits(entry) {
+    if (!els.saveBtn) return
+    els.saveBtn.disabled = true
+    els.saveBtn.textContent = 'Saving\u2026'
+    removeSaveError()
+    try {
+      const fields = { ...state.edits }
+      if (entry.type === 'vendor') {
+        if (typeof global.updateVendor !== 'function') throw new Error('updateVendor() not available')
+        if ('is_active' in fields) fields.is_active = fields.is_active === 'true'
+        await global.updateVendor(entry.id, fields)
+      } else if (entry.type === 'client') {
+        if (typeof global.updateClient !== 'function') throw new Error('updateClient() not available')
+        if ('active' in fields) fields.active = fields.active === 'true'
+        await global.updateClient(entry.id, fields)
+      } else if (entry.type === 'deal') {
+        if (typeof global.updateDeal !== 'function') throw new Error('updateDeal() not available')
+        await global.updateDeal(entry.id, fields)
+      } else if (entry.type === 'package') {
+        if (typeof global.updatePackage !== 'function') throw new Error('updatePackage() not available')
+        await global.updatePackage(entry.id, fields)
+      } else if (entry.type === 'product') {
+        if (typeof global.updateProductFull !== 'function') throw new Error('updateProductFull() not available')
+        await global.updateProductFull(entry.id, fields)
+      } else if (entry.type === 'plan') {
+        if (typeof global.updatePlanFull !== 'function') throw new Error('updatePlanFull() not available')
+        await global.updatePlanFull(entry.id, fields)
+      } else {
+        throw new Error('No save handler for type: ' + entry.type)
+      }
+      resetEditState()
+      updateSaveBtn()
+      await renderCurrent()
+    } catch (err) {
+      showSaveError(err && err.message ? err.message : 'Save failed')
+    } finally {
+      if (els.saveBtn) {
+        els.saveBtn.disabled = false
+        els.saveBtn.textContent = 'Save'
+      }
+    }
+  }
+
+  function showSaveError(msg) {
+    removeSaveError()
+    if (!els.body) return
+    const el = document.createElement('div')
+    el.id = 'pm-save-error'
+    el.style.cssText = 'padding:6px 12px;font-size:12px;color:var(--red-text,#dc2626);background:var(--red-bg,#fef2f2);border-bottom:1px solid var(--red,#dc2626)'
+    el.textContent = msg
+    els.body.prepend(el)
+  }
+
+  function removeSaveError() {
+    const el = document.getElementById('pm-save-error')
+    if (el) el.remove()
+  }
+
   const TAX_TREATMENTS = [
     'non_deductible',
     'mixed_review',
@@ -60,6 +124,7 @@
     entityHead: null,
     body: null,
     fullLink: null,
+    saveBtn: null,
   }
 
   const vendorClassificationLookup = { categories: [], tags: [] }
@@ -112,6 +177,7 @@
         <div class="panel-manager-head-row">
           <div class="panel-manager-crumbs" id="panel-manager-crumbs"></div>
           <div class="panel-manager-head-actions">
+            <button class="pm-save-btn" id="pm-save-btn" style="display:none">Save</button>
             <a class="panel-manager-full" id="panel-manager-full" data-allow-navigation="true" href="#">Open full profile →</a>
             <button class="panel-manager-close" id="panel-manager-close" aria-label="Close">×</button>
           </div>
@@ -130,6 +196,12 @@
     els.entityHead = panel.querySelector('#panel-manager-entity-head')
     els.body = panel.querySelector('#panel-manager-body')
     els.fullLink = panel.querySelector('#panel-manager-full')
+    els.saveBtn = panel.querySelector('#pm-save-btn')
+    els.saveBtn.addEventListener('click', async () => {
+      const entry = currentEntry()
+      if (!entry || !Object.keys(state.edits).length) return
+      await commitEdits(entry)
+    })
 
     overlay.addEventListener('click', () => {
       if (Object.keys(state.edits).length) {
