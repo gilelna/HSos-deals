@@ -936,6 +936,18 @@
     const productName = deal?.products?.name || pkg.product_name || '—'
     const vendor = pkg.vendors || null
 
+    const statusKv = [
+      editableField('Sales status', 'sales_status', pkg.sales_status, 'select', [
+        { value: 'lead', label: 'Lead' }, { value: 'active', label: 'Active' },
+        { value: 'delivered', label: 'Delivered' }, { value: 'closed', label: 'Closed' },
+      ]),
+      editableField('Billing status', 'billing_status', pkg.billing_status, 'select', [
+        { value: 'pending', label: 'Pending' }, { value: 'invoiced', label: 'Invoiced' },
+        { value: 'partial', label: 'Partial' }, { value: 'paid', label: 'Paid' },
+        { value: 'overdue', label: 'Overdue' },
+      ]),
+    ].join('')
+
     return `
       <div class="ep-card">
         <div class="ep-row-head">
@@ -952,6 +964,18 @@
           <div class="ep-k">Total</div><div class="ep-v">${esc(String(total))}</div>
           <div class="ep-k">Used</div><div class="ep-v">${esc(String(used))}</div>
           <div class="ep-k">Left</div><div class="ep-v">${esc(String(left))}</div>
+        </div>
+      </div>
+
+      <div class="ep-card">
+        <div class="ep-section-title">Status</div>
+        <div class="ep-kv">${statusKv}</div>
+      </div>
+
+      <div class="ep-card">
+        <div class="ep-section-title">Notes</div>
+        <div class="ep-field" data-field="notes" data-input-type="textarea" data-current="${esc(pkg.notes || '')}">
+          <span class="ep-field-value editable">${pkg.notes ? esc(pkg.notes) : '<span class="ep-muted">No notes</span>'}</span>
         </div>
       </div>
 
