@@ -2871,7 +2871,7 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
 .ep-field-value.editing select,
 .ep-field-value.editing textarea {
   width: 100%;
-  border: 1px solid var(--blue, #3b82f6);
+  border: 1px solid var(--blue, #378ADD);
   border-radius: var(--r);
   padding: 4px 8px;
   font-size: 13px;
@@ -2901,8 +2901,8 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: var(--yellow-bg, #fef9c3);
-  border-bottom: 1px solid var(--yellow, #ca8a04);
+  background: var(--amber-bg);
+  border-bottom: 1px solid var(--amber);
   font-size: 12px;
   color: var(--ink);
 }
