@@ -905,7 +905,7 @@
   }
 
   function editableField(label, fieldKey, value, inputType, options) {
-    const optionsAttr = options ? ' data-options=\'' + JSON.stringify(options).replace(/'/g, '&#39;') + '\'' : ''
+    const optionsAttr = options ? ' data-options="' + esc(JSON.stringify(options)) + '"' : ''
     const displayVal = (value !== null && value !== undefined && value !== '')
       ? esc(String(value))
       : '<span class="ep-muted">\u2014</span>'
@@ -918,7 +918,7 @@
   }
 
   function editableFkField(label, fieldKey, entityType, entityId, entityLabel, fkItems) {
-    const itemsAttr = ' data-fk-items=\'' + JSON.stringify(fkItems || []).replace(/'/g, '&#39;') + '\''
+    const itemsAttr = ' data-fk-items="' + esc(JSON.stringify(fkItems || [])) + '"'
     let displayVal
     if (entityId) {
       displayVal = '<button class="ep-link" data-panel-type="' + esc(entityType) + '" data-panel-id="' + esc(entityId) + '">' + esc(entityLabel || '\u2014') + '</button>'
