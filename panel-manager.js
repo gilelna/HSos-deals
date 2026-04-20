@@ -1,6 +1,6 @@
 // panel-manager.js — unified right-side panel manager
 ;(function initPanelManager(global) {
-  const SUPPORTED_TYPES = new Set(['vendor', 'client', 'deal', 'transaction', 'package'])
+  const SUPPORTED_TYPES = new Set(['vendor', 'client', 'deal', 'transaction', 'package', 'product', 'plan'])
 
   const state = {
     stack: [],
@@ -270,6 +270,8 @@
     if (type === 'client') return `Client ${id}`
     if (type === 'deal') return `Deal #${id}`
     if (type === 'package') return `Package ${id}`
+    if (type === 'product') return `Product ${id}`
+    if (type === 'plan') return `Plan ${id}`
     return 'Transaction'
   }
 
@@ -634,6 +636,100 @@
       }
     }
     return { package: pkg, deal }
+  }
+
+  async function loadProductModel(id) {
+    const product = await global.getProduct(id)
+    return { product: product || {}, plans: (product && product.plans) || [] }
+  }
+
+  async function loadPlanModel(id) {
+    const plan = await global.getPlan(id)
+    const product = (plan && plan.products) || null
+    return { plan: plan || {}, product }
+  }
+
+  function renderProductBody(model) {
+    const product = (model && model.product) ? model.product : {}
+    const plans = (model && model.plans) || []
+    const links = Array.isArray(product.links) ? product.links : []
+
+    const kv = [
+      editableField('Name', 'name', product.name, 'text'),
+      editableField('Category', 'category', product.category, 'text'),
+      editableField('Status', 'status', product.status, 'select', [
+        { value: 'active', label: 'Active' },
+        { value: 'draft', label: 'Draft' },
+        { value: 'archived', label: 'Archived' },
+      ]),
+      editableField('Currency', 'currency', product.currency, 'select', [
+        { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' },
+        { value: 'ILS', label: 'ILS' }, { value: 'GBP', label: 'GBP' },
+      ]),
+      editableField('Price min', 'price_min', product.price_min, 'number'),
+      editableField('Price max', 'price_max', product.price_max, 'number'),
+    ].join('')
+
+    const planRows = plans.length
+      ? '<ul class="ep-list">' + plans.map(p => '<li><button class="ep-link" data-panel-type="plan" data-panel-id="' + esc(p.id) + '">' + esc(p.name || 'Plan') + '</button> \u00b7 ' + esc(fmtMoney(p.amount, p.currency)) + '</li>').join('') + '</ul>'
+      : '<div class="ep-muted">No plans</div>'
+
+    const linkRows = links.length
+      ? '<ul class="ep-list">' + links.map(l => '<li><a class="ep-link-anchor" href="' + esc(l.url || '') + '" target="_blank" rel="noopener">' + esc(l.label || l.url || 'Link') + '</a></li>').join('') + '</ul>'
+      : '<div class="ep-muted">No links</div>'
+
+    return '<div class="ep-card"><div class="ep-section-title">Product</div><div class="ep-kv">' + kv + '</div></div>' +
+      '<div class="ep-card"><div class="ep-section-title">Description</div>' +
+        '<div class="ep-field" data-field="description" data-input-type="textarea" data-current="' + esc(product.description || '') + '">' +
+          '<span class="ep-field-value editable">' + (product.description ? esc(product.description) : '<span class="ep-muted">No description</span>') + '</span>' +
+        '</div></div>' +
+      '<div class="ep-card"><div class="ep-section-title">Plans</div>' + planRows + '</div>' +
+      '<div class="ep-card"><div class="ep-section-title">Links</div>' + linkRows + '</div>'
+  }
+
+  function renderPlanBody(model) {
+    const plan = (model && model.plan) ? model.plan : {}
+    const product = (model && model.product) || null
+    const rawType = String(plan.plan_type || '').toLowerCase()
+    const isInstallment = rawType.includes('payment') || rawType.includes('installment')
+
+    const kv = [
+      editableField('Name', 'name', plan.name, 'text'),
+      editableField('Type', 'plan_type', plan.plan_type, 'select', [
+        { value: 'One payment', label: 'One payment' },
+        { value: '3 payments', label: '3 payments' },
+        { value: 'Subscription', label: 'Subscription' },
+      ]),
+      editableField('Amount', 'amount', plan.amount, 'number'),
+      editableField('Currency', 'currency', plan.currency, 'select', [
+        { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' },
+        { value: 'ILS', label: 'ILS' }, { value: 'GBP', label: 'GBP' },
+      ]),
+      isInstallment ? editableField('Installments', 'installments_count', plan.installments_count, 'number') : '',
+      editableField('Status', 'status', plan.status, 'select', [
+        { value: 'active', label: 'Active' },
+        { value: 'draft', label: 'Draft' },
+        { value: 'archived', label: 'Archived' },
+      ]),
+      editableField('Source', 'link_source', plan.link_source, 'select', [
+        { value: 'ThriveCart', label: 'ThriveCart' },
+        { value: 'Green Invoice', label: 'Green Invoice' },
+        { value: 'Stripe', label: 'Stripe' },
+        { value: 'Manual', label: 'Manual' },
+      ]),
+      editableField('Link URL', 'link_url', plan.link_url, 'text'),
+    ].join('')
+
+    const productEl = product
+      ? entityLink('product', product.id, product.name || '\u2014')
+      : '<span class="ep-muted">\u2014</span>'
+
+    return '<div class="ep-card"><div class="ep-section-title">Plan</div><div class="ep-kv">' + kv + '</div></div>' +
+      '<div class="ep-card"><div class="ep-section-title">Description</div>' +
+        '<div class="ep-field" data-field="description" data-input-type="textarea" data-current="' + esc(plan.description || '') + '">' +
+          '<span class="ep-field-value editable">' + (plan.description ? esc(plan.description) : '<span class="ep-muted">No description</span>') + '</span>' +
+        '</div></div>' +
+      '<div class="ep-card"><div class="ep-section-title">Product</div><div class="ep-v">' + productEl + '</div></div>'
   }
 
   function renderDealBody(model) {
@@ -1443,6 +1539,19 @@
         model = await loadPackageModel(entry.id)
         const pkg = model?.package || {}
         entry.label = pkg.plan_name || `${pkg.total_sessions || 0}-session package`
+      } else if (entry.type === 'product') {
+        model = await loadProductModel(entry.id)
+        entry.label = (model.product && model.product.name) || fallbackLabel(entry.type, entry.id)
+      } else if (entry.type === 'plan') {
+        model = await loadPlanModel(entry.id)
+        entry.label = (model.plan && model.plan.name) || fallbackLabel(entry.type, entry.id)
+        if (state.stack.length === 1 && model.product && model.product.id) {
+          state.stack.unshift({
+            type: 'product',
+            id: model.product.id,
+            label: model.product.name || fallbackLabel('product', model.product.id),
+          })
+        }
       }
 
       if (token !== state.token) return
@@ -1481,6 +1590,20 @@
         vendorClassificationLookup.categories = []
         vendorClassificationLookup.tags = []
         els.body.innerHTML = renderPackageBody(model)
+        return
+      }
+
+      if (entry.type === 'product') {
+        vendorClassificationLookup.categories = []
+        vendorClassificationLookup.tags = []
+        els.body.innerHTML = renderProductBody(model)
+        return
+      }
+
+      if (entry.type === 'plan') {
+        vendorClassificationLookup.categories = []
+        vendorClassificationLookup.tags = []
+        els.body.innerHTML = renderPlanBody(model)
         return
       }
 
