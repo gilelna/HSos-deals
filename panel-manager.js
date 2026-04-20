@@ -904,6 +904,35 @@
     `
   }
 
+  function editableField(label, fieldKey, value, inputType, options) {
+    const optionsAttr = options ? ' data-options=\'' + JSON.stringify(options).replace(/'/g, '&#39;') + '\'' : ''
+    const displayVal = (value !== null && value !== undefined && value !== '')
+      ? esc(String(value))
+      : '<span class="ep-muted">\u2014</span>'
+    return '<div class="ep-k">' + esc(label) + '</div>' +
+      '<div class="ep-v">' +
+        '<div class="ep-field" data-field="' + esc(fieldKey) + '" data-input-type="' + esc(inputType || 'text') + '" data-current="' + esc(value !== null && value !== undefined ? String(value) : '') + '"' + optionsAttr + '>' +
+          '<span class="ep-field-value editable">' + displayVal + '</span>' +
+        '</div>' +
+      '</div>'
+  }
+
+  function editableFkField(label, fieldKey, entityType, entityId, entityLabel, fkItems) {
+    const itemsAttr = ' data-fk-items=\'' + JSON.stringify(fkItems || []).replace(/'/g, '&#39;') + '\''
+    let displayVal
+    if (entityId) {
+      displayVal = '<button class="ep-link" data-panel-type="' + esc(entityType) + '" data-panel-id="' + esc(entityId) + '">' + esc(entityLabel || '\u2014') + '</button>'
+    } else {
+      displayVal = '<span class="ep-muted">\u2014</span>'
+    }
+    return '<div class="ep-k">' + esc(label) + '</div>' +
+      '<div class="ep-v">' +
+        '<div class="ep-field" data-field="' + esc(fieldKey) + '" data-input-type="fk" data-fk-type="' + esc(entityType) + '" data-current="' + esc(entityId || '') + '"' + itemsAttr + '>' +
+          '<span class="ep-field-value editable">' + displayVal + '</span>' +
+        '</div>' +
+      '</div>'
+  }
+
   function parseTagsInput(raw) {
     return [...new Set(
       String(raw || '')
