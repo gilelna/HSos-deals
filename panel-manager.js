@@ -691,14 +691,14 @@
     const plan = (model && model.plan) ? model.plan : {}
     const product = (model && model.product) || null
     const rawType = String(plan.plan_type || '').toLowerCase()
-    const isInstallment = rawType.includes('payment') || rawType.includes('installment')
+    const isInstallment = rawType === 'installments'
 
     const kv = [
       editableField('Name', 'name', plan.name, 'text'),
       editableField('Type', 'plan_type', plan.plan_type, 'select', [
-        { value: 'One payment', label: 'One payment' },
-        { value: '3 payments', label: '3 payments' },
-        { value: 'Subscription', label: 'Subscription' },
+        { value: 'one-payment', label: 'One payment' },
+        { value: 'installments', label: 'Installments' },
+        { value: 'subscription', label: 'Subscription' },
       ]),
       editableField('Amount', 'amount', plan.amount, 'number'),
       editableField('Currency', 'currency', plan.currency, 'select', [
