@@ -508,19 +508,6 @@
       closePanel({ skipRouterClose: true })
     })
 
-    // Vendor Edit button — close panel then enter edit mode (deals page) or navigate to profile
-    panel.addEventListener('click', e => {
-      const editBtn = e.target.closest('#pm-v-edit-btn')
-      if (!editBtn) return
-      e.preventDefault()
-      const vendorId = editBtn.getAttribute('data-vendor-id') || ''
-      closePanel({ skipRouterClose: true })
-      if (typeof global.enterVendorEditMode === 'function') {
-        global.enterVendorEditMode()
-      } else {
-        global.location.href = `vendor-profile.html?id=${encodeURIComponent(vendorId)}`
-      }
-    })
   }
 
   function currentEntry() {
@@ -756,6 +743,25 @@
       ? vendorTags.map(t => `<span class="cl-tag">${esc(t)}</span>`).join('')
       : '<span class="cl-placeholder">+ Add tags</span>'
 
+    const coreKv = [
+      editableField('Name', 'full_name', vendor.full_name || vendor.name, 'text'),
+      editableField('Email', 'email', vendor.email, 'text'),
+      editableField('Phone', 'phone', vendor.phone, 'text'),
+      editableField('Type', 'vendor_type', vendor.vendor_type, 'select', [
+        { value: 'coach', label: 'Coach' },
+        { value: 'contractor', label: 'Contractor' },
+        { value: 'team_member', label: 'Team member' },
+        { value: 'merchant', label: 'Merchant' },
+      ]),
+      editableField('Payout currency', 'payout_currency', vendor.payout_currency || vendor.preferred_currency || vendor.currency, 'select', [
+        { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' },
+        { value: 'ILS', label: 'ILS' }, { value: 'GBP', label: 'GBP' },
+      ]),
+      editableField('Active', 'is_active', (vendor.is_active !== false) ? 'true' : 'false', 'select', [
+        { value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' },
+      ]),
+    ].join('')
+
     return `
       <div class="ep-card">
         <div class="ep-row-head">
@@ -764,15 +770,18 @@
             <div class="ep-name">${esc(vendor.full_name || vendor.name || '—')}</div>
             <div class="ep-badges">${vendorTypeBadge(vendor.vendor_type)} ${statusBadge(vendor.status, vendor.active !== false && vendor.is_active !== false)}</div>
           </div>
-          <button class="btn btn-sm" id="pm-v-edit-btn" data-vendor-id="${esc(vendor.id)}">Edit</button>
         </div>
       </div>
 
       <div class="ep-card">
         <div class="ep-section-title">Core</div>
-        <div class="ep-kv">
-          <div class="ep-k">Paying company</div><div class="ep-v">${esc(company)}</div>
-          <div class="ep-k">Payout currency</div><div class="ep-v">${esc(vendor.payout_currency || vendor.preferred_currency || vendor.currency || '—')}</div>
+        <div class="ep-kv">${coreKv}</div>
+      </div>
+
+      <div class="ep-card">
+        <div class="ep-section-title">Notes</div>
+        <div class="ep-field" data-field="notes" data-input-type="textarea" data-current="${esc(vendor.notes || '')}">
+          <span class="ep-field-value editable">${vendor.notes ? esc(vendor.notes) : '<span class="ep-muted">No notes</span>'}</span>
         </div>
       </div>
 
