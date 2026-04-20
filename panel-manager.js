@@ -578,11 +578,20 @@
   }
 
   async function loadDealModel(id) {
-    const [deal, packages] = await Promise.all([
+    const [deal, packages, clients, vendors, products] = await Promise.all([
       global.getDeal(id),
       typeof global.getPackages === 'function' ? global.getPackages({ deal_id: id }) : Promise.resolve([]),
+      typeof global.getClients === 'function' ? global.getClients().catch(() => []) : Promise.resolve([]),
+      typeof global.getVendors === 'function' ? global.getVendors().catch(() => []) : Promise.resolve([]),
+      typeof global.getProducts === 'function' ? global.getProducts().catch(() => []) : Promise.resolve([]),
     ])
-    return { deal, packages: packages || [] }
+    return {
+      deal,
+      packages: packages || [],
+      clientOptions: (clients || []).map(c => ({ id: c.id, label: c.full_name || c.id })),
+      vendorOptions: (vendors || []).map(v => ({ id: v.id, label: v.full_name || v.name || v.id })),
+      productOptions: (products || []).map(p => ({ id: p.id, label: p.name || p.id })),
+    }
   }
 
   async function loadVendorModel(id) {
@@ -647,20 +656,52 @@
     const vendor = deal.vendors || {}
     const reminders = Array.isArray(deal.deal_reminders) ? deal.deal_reminders : []
     const docs = Array.isArray(deal.deal_documents) ? deal.deal_documents : []
+    const clientOpts = model?.clientOptions || []
+    const vendorOpts = model?.vendorOptions || []
+    const productOpts = model?.productOptions || []
 
-    const rows = [
-      ['Client', entityLink('client', client.id, client.full_name || '—')],
-      ['Vendor', entityLink('vendor', vendor.id, vendor.full_name || '—')],
-      ['Product', esc(deal.products?.name || '—')],
-      ['Sales status', statusBadge(deal.sales_status || '—')],
-      ['Billing status', statusBadge(deal.billing_status || '—')],
-      ['Price', esc(fmtMoney(deal.price, deal.currency))],
-      ['VAT', deal.vat_pct != null ? `${esc(deal.vat_pct)}% (${esc(deal.vat_mode || '—')})` : '—'],
-      ['Start', esc(fmtDate(deal.start_date || deal.created_at))],
-      ['End', esc(fmtDate(deal.end_date))],
-      ['Origin', esc(deal.origin || '—')],
-      ['Processor', esc(deal.payment_processor || '—')],
+    const SALES = [
+      { value: 'lead', label: 'Lead' }, { value: 'qualified', label: 'Qualified' },
+      { value: 'active', label: 'Active' }, { value: 'delivered', label: 'Delivered' },
+      { value: 'closed', label: 'Closed' },
     ]
+    const BILLING = [
+      { value: 'pending', label: 'Pending' }, { value: 'invoiced', label: 'Invoiced' },
+      { value: 'partial', label: 'Partial' }, { value: 'paid', label: 'Paid' },
+      { value: 'overdue', label: 'Overdue' },
+    ]
+    const CURRENCIES = ['USD', 'EUR', 'ILS', 'GBP'].map(c => ({ value: c, label: c }))
+    const VAT_MODES = [{ value: 'excl', label: 'Excl.' }, { value: 'incl', label: 'Incl.' }]
+    const PROCESSORS = ['ThriveCart', 'Green Invoice', 'Stripe', 'Manual', 'PayPal'].map(p => ({ value: p, label: p }))
+
+    const kv = [
+      editableFkField('Client', 'client_id', 'client', client.id, client.full_name, clientOpts),
+      editableFkField('Vendor', 'primary_vendor_id', 'vendor', vendor.id, vendor.full_name || vendor.name, vendorOpts),
+      editableFkField('Product', 'product_id', 'product', deal.product_id, deal.products && deal.products.name, productOpts),
+      editableField('Sales status', 'sales_status', deal.sales_status, 'select', SALES),
+      editableField('Billing status', 'billing_status', deal.billing_status, 'select', BILLING),
+      editableField('Price', 'price', deal.price, 'number'),
+      editableField('Currency', 'currency', deal.currency, 'select', CURRENCIES),
+      editableField('VAT %', 'vat_pct', deal.vat_pct, 'number'),
+      editableField('VAT mode', 'vat_mode', deal.vat_mode, 'select', VAT_MODES),
+      editableField('Discount', 'discount', deal.discount, 'text'),
+      editableField('Processor', 'payment_processor', deal.payment_processor, 'select', PROCESSORS),
+      editableField('Payment link', 'payment_link', deal.payment_link, 'text'),
+    ].join('')
+
+    const packageRows = packages.length
+      ? `<table class="tbl ep-mini-table"><thead><tr><th>Sessions</th><th>Used</th><th>Status</th></tr></thead><tbody>${
+          packages.map(p => `<tr><td>${esc(String(p.total_sessions || 0))}</td><td>${esc(String(p.sessions_used || 0))}</td><td>${statusBadge(p.status || 'active')}</td></tr>`).join('')
+        }</tbody></table>`
+      : '<div class="ep-muted">No packages</div>'
+
+    const reminderRows = reminders.length
+      ? `<ul class="ep-list">${reminders.map(r => `<li>${statusBadge(r.done ? 'done' : 'pending')} ${esc(r.text || 'Reminder')}</li>`).join('')}</ul>`
+      : '<div class="ep-muted">No reminders</div>'
+
+    const docRows = docs.length
+      ? `<ul class="ep-list">${docs.map(d => `<li>${d.url ? `<a class="ep-link-anchor" href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name || d.title || 'Document')}</a>` : esc(d.name || d.title || 'Document')}</li>`).join('')}</ul>`
+      : '<div class="ep-muted">No documents</div>'
 
     return `
       <div class="ep-card">
@@ -671,45 +712,25 @@
             <div class="ep-sub">${esc(client.full_name || '—')}</div>
           </div>
         </div>
-        <div class="ep-kv">
-          ${rows.map(([k, v]) => `<div class="ep-k">${esc(k)}</div><div class="ep-v">${v}</div>`).join('')}
-        </div>
+        <div class="ep-kv">${kv}</div>
       </div>
-
-      ${deal.payment_link ? `
-      <div class="ep-card">
-        <div class="ep-section-title">Payment Link</div>
-        <a class="ep-link-anchor" href="${esc(deal.payment_link)}" target="_blank" rel="noopener">${esc(deal.payment_link)}</a>
-      </div>` : ''}
-
       <div class="ep-card">
         <div class="ep-section-title">Notes</div>
-        <div class="ep-text">${deal.notes ? esc(deal.notes) : '<span class="ep-muted">No notes</span>'}</div>
+        <div class="ep-field" data-field="notes" data-input-type="textarea" data-current="${esc(deal.notes || '')}">
+          <span class="ep-field-value editable">${deal.notes ? esc(deal.notes) : '<span class="ep-muted">No notes</span>'}</span>
+        </div>
       </div>
-
       <div class="ep-card">
         <div class="ep-section-title">Packages</div>
-        ${packages.length ? `
-          <table class="tbl ep-mini-table">
-            <thead><tr><th>Sessions</th><th>Used</th><th>Status</th></tr></thead>
-            <tbody>
-              ${packages.map(p => `<tr><td>${esc(String(p.total_sessions || 0))}</td><td>${esc(String(p.sessions_used || 0))}</td><td>${statusBadge(p.status || 'active')}</td></tr>`).join('')}
-            </tbody>
-          </table>` : '<div class="ep-muted">No packages</div>'}
+        ${packageRows}
       </div>
-
       <div class="ep-card">
         <div class="ep-section-title">Reminders</div>
-        ${reminders.length
-          ? `<ul class="ep-list">${reminders.map(r => `<li>${statusBadge(r.done ? 'done' : 'pending')} ${esc(r.text || 'Reminder')}</li>`).join('')}</ul>`
-          : '<div class="ep-muted">No reminders</div>'}
+        ${reminderRows}
       </div>
-
       <div class="ep-card">
         <div class="ep-section-title">Documents</div>
-        ${docs.length
-          ? `<ul class="ep-list">${docs.map(d => `<li>${d.url ? `<a class="ep-link-anchor" href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name || d.title || 'Document')}</a>` : esc(d.name || d.title || 'Document')}</li>`).join('')}</ul>`
-          : '<div class="ep-muted">No documents</div>'}
+        ${docRows}
       </div>
     `
   }
