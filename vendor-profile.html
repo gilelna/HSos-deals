@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Vendor Profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="app">
+
+  <div id="layout-topbar"></div>
+
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+
+    <!-- Content -->
+    <div class="app-content" style="position:relative">
+
+      <!-- ── Hero ─────────────────────────────────────────────── -->
+      <div class="prof-hero" id="prof-hero">
+        <div class="prof-hero__bg"></div>
+        <div class="prof-hero__overlay"></div>
+
+        <!-- Action buttons (top right) -->
+        <div class="prof-actions" id="prof-actions">
+          <div style="position:relative">
+            <button class="prof-action-btn" id="rates-btn" onclick="toggleRatesCard()">Rates ↓</button>
+            <!-- Rates card — rendered by JS -->
+            <div class="prof-rates-card hidden" id="rates-card"></div>
+          </div>
+          <a class="prof-action-btn" id="log-session-btn" href="#">Log session ↗</a>
+          <button class="prof-action-btn primary" onclick="openNewBill()">+ New bill</button>
+        </div>
+
+        <div class="prof-hero__content" id="prof-hero-content">
+          <!-- Breadcrumb -->
+          <div class="prof-breadcrumb" id="prof-breadcrumb">
+            <a href="deals.html">Operations</a>
+            <span>·</span>
+            <a href="deals.html?page=vendors">Vendors</a>
+            <span>·</span>
+            <span id="bc-name">—</span>
+          </div>
+
+          <!-- Identity -->
+          <div class="prof-id">
+            <div class="prof-avatar" id="prof-avatar">?</div>
+            <div class="prof-id-right">
+              <div class="prof-name-row">
+                <div class="prof-name" id="prof-name">Loading…</div>
+                <button class="prof-name-edit" title="Edit profile" onclick="openVendorEditModal()">✎</button>
+              </div>
+              <div class="prof-subline" id="prof-subline">—</div>
+              <div class="prof-badges" id="prof-badges"></div>
+              <div class="prof-qlinks" id="prof-qlinks"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meta strip -->
+        <div class="prof-meta" id="prof-meta"></div>
+
+        <!-- Stats -->
+        <div class="prof-stats" id="prof-stats">
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">Sessions this month</div>
+            <div class="prof-stat-val" id="stat-sessions-month">—</div>
+            <div class="prof-stat-sub" id="stat-sessions-pending">—</div>
+          </div>
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">Unbilled sessions</div>
+            <div class="prof-stat-val" id="stat-unbilled">—</div>
+            <div class="prof-stat-sub" id="stat-unbilled-sub">ready to bill</div>
+          </div>
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">Last payout</div>
+            <div class="prof-stat-val" id="stat-last-payout">—</div>
+            <div class="prof-stat-sub" id="stat-last-payout-date">—</div>
+          </div>
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">Total paid YTD</div>
+            <div class="prof-stat-val" id="stat-ytd">—</div>
+            <div class="prof-stat-sub" id="stat-ytd-sub">—</div>
+          </div>
+        </div>
+      </div>
+      <!-- /hero -->
+
+      <!-- ── Body ──────────────────────────────────────────────── -->
+      <div class="prof-body" id="prof-body">
+        <div class="prof-body-inner">
+
+          <!-- Two-column section -->
+          <div class="prof-two-col">
+
+            <!-- Left: Assigned clients -->
+            <div class="block prof-section">
+              <div class="prof-section-head">
+                <div class="prof-section-title">Assigned Clients</div>
+              </div>
+              <div id="clients-list">
+                <div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">Loading…</div>
+              </div>
+            </div>
+
+            <!-- Right: Bills & payouts -->
+            <div class="block prof-section">
+              <div class="prof-section-head">
+                <div class="prof-section-title">Bills &amp; Payouts</div>
+              </div>
+              <div id="bills-list">
+                <div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">Loading…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Communications -->
+          <div class="block prof-section">
+            <div class="prof-section-head">
+              <div class="prof-section-title">Communications</div>
+              <div style="display:flex;gap:2px" id="comms-tabs">
+                <button class="det-tab cur" data-tab="all"   onclick="switchCommsTab('all')">All</button>
+                <button class="det-tab"     data-tab="slack" onclick="switchCommsTab('slack')">Slack</button>
+                <button class="det-tab"     data-tab="email" onclick="switchCommsTab('email')">Email</button>
+                <button class="det-tab"     data-tab="sms"   onclick="switchCommsTab('sms')">SMS</button>
+                <button class="det-tab"     data-tab="notes" onclick="switchCommsTab('notes')">Notes</button>
+              </div>
+            </div>
+            <div id="comms-body" class="prof-comms-empty">No communications logged yet.</div>
+          </div>
+
+          <!-- Documents -->
+          <div class="block prof-section">
+            <div class="prof-section-head">
+              <div class="prof-section-title">Documents</div>
+              <button class="btn btn-sm" onclick="openDocUpload()">+ Add</button>
+            </div>
+            <div class="prof-docs-grid" id="docs-grid">
+              <div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--mu2);font-size:12px">No documents yet.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- /body -->
+
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
+
+<!-- Rate edit overlay -->
+<div class="overlay" id="rate-edit-overlay">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:420px;max-width:92vw;padding:24px">
+    <input type="hidden" id="re-id">
+    <div style="font-size:16px;font-weight:600;margin-bottom:16px" id="re-title">Add Rate</div>
+    <div class="fg" style="margin-bottom:10px">
+      <label class="fl">Task type</label>
+      <input type="text" id="re-type" class="fi" placeholder="coaching / admin / design…">
+    </div>
+    <div class="form-row" style="gap:10px;margin-bottom:10px">
+      <div class="fg" style="flex:1">
+        <label class="fl">Rate</label>
+        <input type="number" id="re-rate" class="fi" step="0.01" min="0">
+      </div>
+      <div class="fg" style="width:130px">
+        <label class="fl">Currency</label>
+        <select id="re-currency" class="fi fsel">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="ILS">ILS</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Effective date</label>
+      <input type="date" id="re-date" class="fi">
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <button class="btn btn-ghost" id="re-delete-btn" style="display:none" onclick="deleteRateFromModal()">Delete</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn" onclick="closeRateModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRateModal()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Doc upload overlay -->
+<div class="overlay" id="doc-upload-overlay">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:420px;padding:24px">
+    <div style="font-size:16px;font-weight:600;margin-bottom:16px">Add Document</div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Title</label>
+      <input type="text" id="doc-title" class="fi" placeholder="Document title">
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">URL (optional)</label>
+      <input type="url" id="doc-url" class="fi" placeholder="https://…">
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Or upload file</label>
+      <input type="file" id="doc-file" class="fi" style="padding:4px 8px;height:auto">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeDocUpload()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDoc()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="router.js"></script>
+<script src="profile.js"></script>
+<script src="components/layout.js"></script>
+<script src="panel-manager.js"></script>
+<script src="vendor-profile.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    LAYOUT.init('Vendor Profile', 'operations')
+    initVendorProfile()
+  })
+</script>
+</body>
+</html>
