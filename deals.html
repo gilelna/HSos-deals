@@ -4,11 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — Sales</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+  <script src="env-keys.js"></script>
+  <script src="env-config.js"></script>
   <script src="db.js"></script>
   <script src="app.js"></script>
   <script src="router.js"></script>
@@ -23,71 +27,138 @@
 <body>
 <div class="app">
 
-  <!-- Topbar -->
-  <div class="topbar">
-    <span class="tb-logo">HSos</span>
-    <div class="role-selector" id="role-selector"></div>
-    <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
-  </div>
+  <!-- Layout containers — filled by layout.js -->
+  <div id="layout-topbar"></div>
 
   <!-- App body -->
   <div class="app-body" id="app-body" style="position:relative">
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sb-space-selector">
-        <button class="sb-space-btn cur" onclick="window.location.href='deals.html'">
-          <span class="sb-space-dot sales"></span> Sales
-        </button>
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('operations')">
-          <span class="sb-space-dot operations"></span> Operations
-        </button>
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('payments')">
-          <span class="sb-space-dot payments"></span> Payments
-        </button>
-        <button class="sb-space-btn" disabled style="opacity:.4;cursor:default">
-          <span class="sb-space-dot clients"></span> Clients Portal
-        </button>
-      </div>
-      <div class="sb-nav">
-        <div class="sb-section-label">Sales</div>
-        <button class="sb-link cur" id="nav-deals"    onclick="switchPage('deals',null)">Deals</button>
-        <button class="sb-link"    id="nav-clients"   onclick="switchPage('clients',null)">Clients</button>
-        <button class="sb-link"    id="nav-vendors"   onclick="switchPage('vendors',null)">Vendors</button>
-        <button class="sb-link"    id="nav-products"  onclick="switchPage('products',null)">Products</button>
-        <div class="sb-section-label" style="margin-top:8px">Tools</div>
-        <a class="sb-link" href="import.html">Import</a>
-      </div>
-    </div>
+    <!-- Layout containers — filled by layout.js -->
+    <div id="layout-sidebar"></div>
 
     <!-- Content area -->
     <div class="app-content">
 
       <!-- Space cover -->
-      <div class="space-cover sales" id="space-cover">
-        <div class="space-cover-eyebrow" id="cover-eyebrow">Sales · Admin</div>
+      <div class="space-cover operations" id="space-cover">
+        <div class="space-cover__bg" style="background-image:url('files/sales.png')"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow" id="cover-eyebrow">Operations · Admin</div>
         <div class="space-cover-title"   id="cover-title">Deals</div>
+        <div class="cover-widgets">
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val">—</div>
+            <div class="alert-card-label">Bills to approve</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val">—</div>
+            <div class="alert-card-label">Packages expiring soon</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val">—</div>
+            <div class="alert-card-label">Ready to pay</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val">—</div>
+            <div class="alert-card-label">Deals to follow up</div>
+          </a>
+        </div>
       </div>
 
-      <!-- Alert bar -->
-      <div class="alert-bar">
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Bills to approve</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Packages expiring soon</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Ready to pay</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Deals to follow up</div>
-        </a>
-      </div>
+      <!-- Alert bar (kept for JS compatibility, hidden via CSS) -->
+      <div class="alert-bar"></div>
+
+      <!-- OPERATIONS DASHBOARD -->
+      <div id="page-dashboard" class="main hidden">
+        <div class="dash-scroll" id="dash-scroll-root">
+
+          <!-- Header -->
+          <div class="dash-header">
+            <div class="dash-header-title">Operations</div>
+            <div class="dash-header-actions">
+              <button class="btn btn-sm" onclick="openAddClientPanel()">+ New client</button>
+              <button class="btn btn-primary btn-sm" onclick="openNewDeal()">+ New deal</button>
+            </div>
+          </div>
+
+          <!-- Metrics row -->
+          <div class="dash-metrics" id="dash-metrics">
+            <div class="dash-metric-card">
+              <div class="dash-metric-val" id="dm-active-deals">—</div>
+              <div class="dash-metric-label">Active deals</div>
+              <div class="dash-metric-sub" id="dm-active-deals-sub">—</div>
+            </div>
+            <div class="dash-metric-card">
+              <div class="dash-metric-val" id="dm-active-clients">—</div>
+              <div class="dash-metric-label">Active clients</div>
+              <div class="dash-metric-sub" id="dm-active-clients-sub">—</div>
+            </div>
+            <div class="dash-metric-card">
+              <div class="dash-metric-val" id="dm-coaches">—</div>
+              <div class="dash-metric-label">Coaches</div>
+              <div class="dash-metric-sub" id="dm-coaches-sub">—</div>
+            </div>
+            <div class="dash-metric-card" id="dm-attention-card">
+              <div class="dash-metric-val" id="dm-attention">—</div>
+              <div class="dash-metric-label">Needs attention</div>
+              <div class="dash-metric-sub" id="dm-attention-sub">—</div>
+            </div>
+          </div>
+
+          <!-- Deals kanban section -->
+          <div class="dash-section">
+            <div class="dash-section-head">
+              <div class="dash-section-title">Deals</div>
+              <button class="dash-view-all" onclick="switchPage('deals')">View all →</button>
+            </div>
+            <div class="dash-kanban" id="dash-kanban">
+              <div class="dash-kanban-col">
+                <div class="dash-kanban-col-head"><span>Lead</span><span id="dkh-lead-count"></span></div>
+                <div id="dk-lead"></div>
+              </div>
+              <div class="dash-kanban-col">
+                <div class="dash-kanban-col-head"><span>Active</span><span id="dkh-active-count"></span></div>
+                <div id="dk-active"></div>
+              </div>
+              <div class="dash-kanban-col">
+                <div class="dash-kanban-col-head"><span>Completed</span><span id="dkh-completed-count"></span></div>
+                <div id="dk-completed"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Two-column row: Coaches + Clients -->
+          <div class="dash-two-col">
+
+            <!-- Coaches widget -->
+            <div class="dash-section">
+              <div class="dash-section-head">
+                <div class="dash-section-title">Coaches</div>
+                <button class="dash-view-all" onclick="switchPage('vendors')">View all →</button>
+              </div>
+              <div class="dash-widget">
+                <div id="dash-coaches-rows" class="dash-widget-rows">
+                  <div class="dash-widget-empty">Loading…</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Clients widget -->
+            <div class="dash-section">
+              <div class="dash-section-head">
+                <div class="dash-section-title">Clients</div>
+                <button class="dash-view-all" onclick="switchPage('clients')">View all →</button>
+              </div>
+              <div class="dash-widget">
+                <div id="dash-clients-rows" class="dash-widget-rows">
+                  <div class="dash-widget-empty">Loading…</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /.dash-two-col -->
+        </div><!-- /.dash-scroll -->
+      </div><!-- /#page-dashboard -->
 
       <!-- Deals toolbar -->
       <div id="deals-toolbar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap">
@@ -117,12 +188,12 @@
       </div>
 
     <!-- DEALS — kanban -->
-    <div id="page-deals-kanban" class="main scroll" style="padding:16px;flex-direction:row;gap:12px;align-items:flex-start">
+    <div id="page-deals-kanban" class="main scroll" style="padding:16px;flex-direction:row;gap:12px;align-items:flex-start;overflow-y:auto">
       <div style="color:var(--mu2);font-size:13px;padding:20px">Loading deals…</div>
     </div>
 
     <!-- DEALS — list -->
-    <div id="page-deals-list" class="main scroll hidden" style="padding:16px">
+    <div id="page-deals-list" class="main hidden" style="padding:16px">
       <div class="block">
         <table class="tbl" id="deals-list-table">
           <thead>
@@ -146,8 +217,12 @@
     <!-- CLIENTS page -->
     <div id="page-clients" class="main hidden" style="flex-direction:row">
       <div style="width:280px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border2);flex-shrink:0">
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border2);flex-shrink:0;display:flex;flex-direction:column;gap:8px">
           <input type="text" class="fi" style="height:32px" placeholder="Search clients…" oninput="setClientsSearch(this.value)">
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-primary btn-sm" style="flex:1" onclick="openAddClientPanel()">+ New Client</button>
+            <button class="btn btn-sm" style="flex:1;font-size:10px" onclick="openAcImportPanel()">Import from AC</button>
+          </div>
         </div>
         <div class="scroll" id="clients-list">
           <div style="padding:24px;text-align:center;color:var(--mu2)">Loading…</div>
@@ -187,6 +262,7 @@
           <select class="fi fsel" style="height:30px;font-size:12px;width:140px" id="filter-vendor-manager" onchange="setFilterVendorManager(this.value)">
             <option value="">All managers</option>
           </select>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openAddVendorPanel()">+ Add Vendor</button>
         </div>
         <!-- Table -->
         <div class="scroll" style="flex:1;padding:20px">
@@ -214,51 +290,22 @@
     </div>
 
     <!-- PRODUCTS page -->
-    <div id="page-products" class="main hidden" style="position:relative">
-      <!-- Product list view -->
-      <div id="products-list-view" class="scroll" style="padding:20px">
-        <div id="products-container">
-          <div style="text-align:center;color:var(--mu2);padding:40px">Loading…</div>
+    <div id="page-products" class="main hidden">
+      <div id="products-list-view" class="scroll products-page-scroll">
+        <div id="products-container" class="products-page-root">
+          <div class="products-page-loading">Loading products…</div>
         </div>
       </div>
-      <!-- Plans detail view -->
-      <div id="plans-detail-view" class="main hidden" style="background:var(--bg)">
-        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px;flex-shrink:0">
-          <button class="btn btn-sm btn-ghost" onclick="closePlansView()">← Back</button>
-          <div style="flex:1">
-            <div style="font-size:16px;font-weight:600;color:var(--ink)" id="plans-product-name"></div>
-            <div style="font-size:11px;color:var(--mu);font-family:var(--font-mono)" id="plans-product-meta"></div>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="openPlanModal(null)">+ Add Plan</button>
-        </div>
-        <div class="scroll" style="padding:20px">
-          <div id="plans-container"></div>
-        </div>
+      <div id="plans-detail-view" class="main hidden">
+        <div id="plans-product-name" class="hidden"></div>
+        <div id="plans-product-meta" class="hidden"></div>
+        <div id="plans-container"></div>
       </div>
     </div>
 
     </div><!-- /.app-content -->
   </div><!-- /.app-body -->
 </div><!-- /.app -->
-
-<!-- Deal Edit Modal -->
-<div class="overlay" id="modal-edit-deal">
-  <div style="background:var(--surface);border-radius:var(--r-lg);width:560px;max-height:90vh;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:17px;font-weight:600">Edit Deal</div>
-      <button class="btn btn-ghost btn-sm" onclick="closeEditDeal()">✕</button>
-    </div>
-    <div id="edit-deal-body"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px">
-      <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg)"
-        onclick="deleteEditDeal()">Delete deal</button>
-      <div style="display:flex;gap:8px">
-        <button class="btn" onclick="closeEditDeal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveEditDeal()">Save changes</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- New Deal Modal — Step 1: Client + Product + Plan selection -->
 <div class="overlay" id="modal-new-deal">
@@ -420,25 +467,221 @@
   </div>
 </div>
 
-<!-- Plan Modal -->
-<div class="overlay" id="modal-plan">
-  <div style="background:var(--surface);border-radius:var(--r-lg);width:520px;max-height:90vh;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:17px;font-weight:600" id="plan-modal-title">Plan</div>
-      <button class="btn btn-ghost btn-sm" onclick="closePlanModal()">✕</button>
+<!-- Add Client slide-in panel -->
+<div id="add-client-overlay" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,0.3)" onclick="closeAddClientPanel()"></div>
+<div id="add-client-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--surface);border-left:1px solid var(--border);z-index:81;flex-direction:column;overflow:hidden">
+  <div class="sp-head">
+    <div>
+      <div class="sp-title">New Client</div>
+      <div class="sp-sub">Add a client to the system</div>
     </div>
-    <div id="plan-modal-body"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px">
-      <button class="btn btn-sm" id="plan-delete-btn" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg);display:none"
-        onclick="deletePlanModal()">Delete</button>
-      <div style="display:flex;gap:8px;margin-left:auto">
-        <button class="btn" onclick="closePlanModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="savePlanModal()">Save</button>
+    <button class="sp-close" onclick="closeAddClientPanel()">✕</button>
+  </div>
+  <div class="sp-body" style="display:flex;flex-direction:column;gap:12px">
+    <div class="fg">
+      <label class="fl">Full name <span style="color:var(--red)">*</span></label>
+      <input class="fi" id="ac-name" type="text" placeholder="First Last">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">Email</label>
+        <input class="fi" id="ac-email" type="email" placeholder="email@example.com">
+      </div>
+      <div class="fg">
+        <label class="fl">Phone</label>
+        <input class="fi" id="ac-phone" type="tel" placeholder="+1 555…">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Client kind</label>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="radio" name="ac-kind" value="private" checked onchange="acToggleCompany(this.value)"> Private
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="radio" name="ac-kind" value="corporate" onchange="acToggleCompany(this.value)"> Corporate
+        </label>
+      </div>
+    </div>
+    <div class="fg" id="ac-company-row" style="display:none">
+      <label class="fl">Company name</label>
+      <input class="fi" id="ac-company" type="text" placeholder="Acme Corp">
+    </div>
+    <div class="fg">
+      <label class="fl">Source</label>
+      <select class="fi fsel" id="ac-source">
+        <option value="manual">Manual</option>
+        <option value="activecampaign">ActiveCampaign</option>
+        <option value="referral">Referral</option>
+        <option value="website">Website</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">Notes</label>
+      <textarea class="fi" id="ac-notes" rows="3" style="resize:vertical;min-height:72px" placeholder="Any notes…"></textarea>
+    </div>
+  </div>
+  <div class="sp-actions" style="justify-content:flex-end">
+    <button class="btn" onclick="closeAddClientPanel()">Cancel</button>
+    <button class="btn btn-primary" onclick="submitAddClient()">Create client</button>
+  </div>
+</div>
+
+<!-- Add Vendor slide-in panel -->
+<div id="add-vendor-overlay" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,0.3)" onclick="closeAddVendorPanel()"></div>
+<div id="add-vendor-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--surface);border-left:1px solid var(--border);z-index:81;flex-direction:column;overflow:hidden">
+  <div class="sp-head">
+    <div>
+      <div class="sp-title">New Vendor</div>
+      <div class="sp-sub">Add a vendor, coach, or service</div>
+    </div>
+    <button class="sp-close" onclick="closeAddVendorPanel()">&#x2715;</button>
+  </div>
+  <div class="sp-body" style="display:flex;flex-direction:column;gap:12px">
+    <div class="fg">
+      <label class="fl">Full name <span style="color:var(--red)">*</span></label>
+      <input class="fi" id="av-name" type="text" placeholder="Name or company">
+    </div>
+    <div class="fg">
+      <label class="fl">Type <span style="color:var(--red)">*</span></label>
+      <select class="fi fsel" id="av-type">
+        <option value="coach">Coach</option>
+        <option value="contractor">Contractor</option>
+        <option value="team_member">Team Member</option>
+        <option value="subscription">Subscription</option>
+        <option value="software_saas">Software &amp; SaaS</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">Email</label>
+        <input class="fi" id="av-email" type="email" placeholder="email@example.com">
+      </div>
+      <div class="fg">
+        <label class="fl">Phone</label>
+        <input class="fi" id="av-phone" type="tel" placeholder="+1 555…">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">Currency</label>
+        <select class="fi fsel" id="av-currency">
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+          <option value="ILS">ILS</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Payout currency</label>
+        <select class="fi fsel" id="av-payout-currency">
+          <option value="">— not set —</option>
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+          <option value="ILS">ILS</option>
+          <option value="GBP">GBP</option>
+          <option value="MULTI">MULTI</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">Paid by (company)</label>
+        <select class="fi fsel" id="av-paying-company">
+          <option value="">— not assigned —</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Status</label>
+        <select class="fi fsel" id="av-status">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Notes</label>
+      <textarea class="fi" id="av-notes" rows="3" style="resize:vertical;min-height:72px" placeholder="Any notes…"></textarea>
+    </div>
+  </div>
+  <div class="sp-actions" style="justify-content:flex-end">
+    <button class="btn" onclick="closeAddVendorPanel()">Cancel</button>
+    <button class="btn btn-primary" onclick="submitAddVendor()">Create vendor</button>
+  </div>
+</div>
+
+<!-- Import from ActiveCampaign slide-in panel -->
+<div id="ac-import-overlay" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,0.3)" onclick="closeAcImportPanel()"></div>
+<div id="ac-import-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:680px;background:var(--surface);border-left:1px solid var(--border);z-index:81;flex-direction:column;overflow:hidden">
+  <div class="sp-head">
+    <div>
+      <div class="sp-title" id="ac-import-title">Import from ActiveCampaign</div>
+      <div class="sp-sub" id="ac-import-sub">Paste contact data to import</div>
+    </div>
+    <button class="sp-close" onclick="closeAcImportPanel()">✕</button>
+  </div>
+
+  <!-- Step 1 -->
+  <div id="ac-step-1" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+    <div class="sp-body" style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;color:var(--mu2);line-height:1.5">
+        Paste exported contact data from ActiveCampaign. Accepts JSON array or CSV (with headers: first_name, last_name, email, phone, tags).
+      </div>
+      <div class="fg" style="flex:1">
+        <label class="fl">Contact data</label>
+        <textarea class="fi" id="ac-paste-input" rows="14"
+          style="resize:vertical;min-height:260px;font-family:var(--font-mono);font-size:11px"
+          placeholder='[{"first_name":"Jane","last_name":"Doe","email":"jane@example.com","phone":"+1555","tags":["lead"]}]&#10;&#10;— or CSV —&#10;&#10;first_name,last_name,email,phone,tags&#10;Jane,Doe,jane@example.com,+1555,lead'></textarea>
+      </div>
+      <div id="ac-parse-error" style="display:none;font-size:12px;color:var(--red-text);background:var(--red-bg);padding:8px 12px;border-radius:var(--r)"></div>
+    </div>
+    <div class="sp-actions" style="justify-content:flex-end">
+      <button class="btn" onclick="closeAcImportPanel()">Cancel</button>
+      <button class="btn btn-primary" onclick="acParseAndReview()">Parse & Review →</button>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div id="ac-step-2" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+    <div style="padding:12px 20px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="ac-select-all" onchange="acToggleSelectAll(this.checked)"> Select all
+      </label>
+      <span id="ac-review-count" style="font-size:11px;color:var(--mu2);font-family:var(--font-mono)"></span>
+    </div>
+    <div class="scroll" style="flex:1">
+      <table class="tbl" style="width:100%">
+        <thead>
+          <tr>
+            <th style="width:32px"></th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Tags</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="ac-review-tbody"></tbody>
+      </table>
+    </div>
+    <div class="sp-actions" style="justify-content:space-between">
+      <button class="btn" onclick="acBackToStep1()">← Back</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="closeAcImportPanel()">Cancel</button>
+        <button class="btn btn-primary" onclick="acImportSelected()">Import selected</button>
       </div>
     </div>
   </div>
 </div>
 
+<script src="components/layout.js"></script>
+<script src="panel-manager.js"></script>
 <script src="deals.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    LAYOUT.init('Operations', 'operations')
+  })
+</script>
 </body>
 </html>

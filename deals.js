@@ -2,19 +2,7 @@
 // Depends on: db.js, app.js
 
 // ─── rich text editor (Quill) instances ──────────────────────
-let _edNotesQuill = null   // Edit deal modal
 let _ndNotesQuill = null   // New deal modal
-
-function _initEdNotesQuill(initialHtml) {
-  if (!_edNotesQuill) {
-    _edNotesQuill = new Quill('#ed-notes-editor', {
-      theme: 'snow',
-      placeholder: 'Add notes…',
-      modules: { toolbar: [['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['link'],['clean']] },
-    })
-  }
-  _edNotesQuill.root.innerHTML = initialHtml || ''
-}
 
 function _initNdNotesQuill() {
   if (!_ndNotesQuill) {
@@ -47,17 +35,14 @@ let _fVendor  = ''               // vendor filter id
 let _fProduct = ''               // product filter id
 let _fBilling = ''               // billing_status filter
 
-// deal edit modal
-let _editDealId = null
-
-// client selector in edit modal
-let _edCsOpen    = false
-let _edCsSearch  = ''
-let _edCsFocused = -1
-let _edSelClient = null
-
 // products page
 let _editProductId = null        // null = new
+let _programsWithProducts = []
+let _productsPageLoaded = false
+let _productsPageLoading = false
+let _collapsedPrograms = new Set()
+let _productInlineEdit = { id: null, draft: null }
+let _planInlineEdit = { productId: null, planId: null, isNew: false, draft: null }
 
 // clients page
 let _clientSearch = ''
@@ -144,6 +129,7 @@ async function _detectPlansSchema() {
 // ─── init ─────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!guardSpace('operations', 'workload.html')) return
   // Detect whether the product-plans migration has been applied.
   // Silently sets window._plansSchemaReady so deal creation can include
   // product_plan_id / payment_link without causing PGRST204 errors.
@@ -153,16 +139,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Restore page + view from URL params
   const _initParams = new URLSearchParams(window.location.search)
-  const _initPage   = _initParams.get('page') || 'deals'
+  const _initPage   = _initParams.get('page') || 'dashboard'
   const _initView   = _initParams.get('view') || 'kanban'
   const _hasEntity  = !!_initParams.get('entity')
 
   if (!_hasEntity) {
     // No entity deep-link — restore page/view
     setView(_initView, { pushUrl: false })
-    if (_initPage !== 'deals') {
-      switchPage(_initPage, null, { pushUrl: false })
-    }
+    switchPage(_initPage, null, { pushUrl: false })
   } else {
     setView(_initView, { pushUrl: false })
   }
@@ -172,15 +156,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!e.target.closest('.mod-wrap'))
       document.getElementById('mod-dd')?.classList.remove('open')
     // close edit modal on overlay click
-    if (e.target === document.getElementById('modal-edit-deal'))
-      closeEditDeal()
     if (e.target === document.getElementById('modal-new-deal'))
       closeNewDeal()
     if (e.target === document.getElementById('modal-product'))
       closeProductModal()
-    // close CS dropdown on outside click
-    if (_edCsOpen && !e.target.closest('#ed-cs-wrap'))
-      _edCsClose()
     // close vendor-clients dropdown on outside click
     const vcDd = document.getElementById('vc-cs-dropdown')
     if (vcDd && vcDd.style.display !== 'none' && !e.target.closest('#vc-cs-wrap'))
@@ -244,21 +223,24 @@ function switchPage(name, linkEl, { pushUrl = true } = {}) {
   document.getElementById('nav-' + name)?.classList.add('cur')
 
   // Update space cover title
-  const pageTitles = { deals: 'Deals', clients: 'Clients', vendors: 'Vendors', products: 'Products' }
+  const pageTitles = { dashboard: 'Operations', deals: 'Deals', clients: 'Clients', vendors: 'Vendors', products: 'Products' }
   const titleEl = document.getElementById('cover-title')
   if (titleEl) titleEl.textContent = pageTitles[name] || name.charAt(0).toUpperCase() + name.slice(1)
   const eyebrowEl = document.getElementById('cover-eyebrow')
-  if (eyebrowEl) eyebrowEl.textContent = `Sales · ${window.Role?.get() || 'Admin'}`
+  if (eyebrowEl) eyebrowEl.textContent = `Operations · ${window.Role?.get() || 'Admin'}`
 
   const toolbar = document.getElementById('deals-toolbar')
   toolbar.style.display = name === 'deals' ? 'flex' : 'none'
 
-  const pages = ['deals-kanban', 'deals-list', 'clients', 'vendors', 'products']
+  const pages = ['dashboard', 'deals-kanban', 'deals-list', 'clients', 'vendors', 'products']
   pages.forEach(p => document.getElementById(`page-${p}`)?.classList.add('hidden'))
 
   if (name === 'deals') {
     document.getElementById(_view === 'kanban' ? 'page-deals-kanban' : 'page-deals-list').classList.remove('hidden')
     render()
+  } else if (name === 'dashboard') {
+    document.getElementById('page-dashboard').classList.remove('hidden')
+    renderDashboard()
   } else {
     document.getElementById(`page-${name}`)?.classList.remove('hidden')
     if (name === 'clients')  renderClients()
@@ -267,7 +249,7 @@ function switchPage(name, linkEl, { pushUrl = true } = {}) {
       // Always reset to list view when navigating to products page
       document.getElementById('products-list-view')?.classList.remove('hidden')
       document.getElementById('plans-detail-view')?.classList.add('hidden')
-      renderProducts()
+      initProductsPage()
     }
   }
 }
@@ -295,37 +277,26 @@ function registerRouterHandlers() {
   if (!window.Router || _routerRegistered) return
   _routerRegistered = true
 
-  Router.register('deal', ({ id, from }) => {
+  Router.register('deal', ({ id }) => {
     runWithRouterDispatch(() => {
-      const navDeals = document.getElementById('nav-deals')
-      switchPage('deals', navDeals)
-      if (from === 'list' || from === 'kanban') setView(from)
       openEditDeal(id)
     })
   })
 
   Router.register('vendor', ({ id }) => {
-    runWithRouterDispatchAsync(async () => {
-      const navVendors = document.getElementById('nav-vendors')
-      switchPage('vendors', navVendors)
-      await openVendorDetail(id)
+    runWithRouterDispatch(() => {
+      openVendorDetail(id)
     })
   })
 
   Router.register('client', ({ id, from }) => {
-    const url = Router.urlFor({
-      path: 'client-profile.html',
-      entity: 'client',
-      id,
-      view: 'page',
-      from: from || 'list',
+    runWithRouterDispatch(() => {
+      showClientDetail(id, null, from || 'list')
     })
-    window.location.href = url
   })
 
   document.addEventListener('router:close', () => {
     runWithRouterDispatch(() => {
-      closeEditDeal()
       clearVendorDetail()
     })
   })
@@ -334,7 +305,7 @@ function registerRouterHandlers() {
     const qs = new URLSearchParams(window.location.search)
     const entity = qs.get('entity')
     if (entity) return  // router handles entity popstate
-    const pg = qs.get('page') || 'deals'
+    const pg = qs.get('page') || 'dashboard'
     const vw = qs.get('view') || 'kanban'
     runWithRouterDispatch(() => {
       if (pg === 'deals') {
@@ -401,6 +372,365 @@ function render() {
       _products.map(p => `<option value="${p.id}"${_fProduct === p.id ? ' selected' : ''}>${p.name}</option>`).join('')
   }
 }
+
+// ─── operations dashboard ────────────────────────────────────
+
+let _dashData = null  // cached dashboard supplemental data
+
+async function renderDashboard() {
+  renderDashMetrics()
+  renderDashKanban()
+  // Fetch supplemental data (packages, sessions, bills) in parallel
+  try {
+    const [allVendors, allPackages, allBills] = await Promise.all([
+      // All active vendors (already in _vendors, just use it)
+      Promise.resolve(_vendors),
+      // Active packages for sessions-remaining info
+      getPackages({ status: 'active' }).catch(() => []),
+      // Draft/submitted bills awaiting approval
+      getAllBills({ status: 'draft' }).catch(() => []),
+    ])
+    // Also get unpaid (no bill) sessions count per vendor
+    const { data: unbilledSessions } = await _sb
+      .from('sessions')
+      .select('vendor_id')
+      .is('bill_id', null)
+      .not('task_type_id', 'is', null)
+    _dashData = {
+      allPackages,
+      draftBills: allBills,
+      unbilledSessions: unbilledSessions || [],
+    }
+    // Re-render kanban now that we have package data (adds "Package almost empty" flags)
+    renderDashKanbanWithPackages()
+    renderDashCoaches()
+    renderDashClients()
+    renderDashMetricsAttention()
+  } catch(e) {
+    console.error('[Dashboard]', e)
+  }
+}
+
+function renderDashMetrics() {
+  // Active deals — status != 'completed' (using sales_status)
+  const activeDeals = _deals.filter(d => d.sales_status !== 'completed' && d.sales_status !== 'closed')
+  const leadDeals   = _deals.filter(d => d.sales_status === 'lead')
+
+  // Active clients — DB field is `active` (boolean)
+  const activeClients = _clients.filter(c => c.active === true)
+  // Count unique coaches who have active clients
+  const coaches = _vendors.filter(v => v.vendor_type === 'coach' && (v.active || v.is_active))
+  const contractors = _vendors.filter(v => v.vendor_type === 'contractor' && (v.active || v.is_active))
+
+  _el('dm-active-deals').textContent     = activeDeals.length
+  _el('dm-active-deals-sub').textContent = `${leadDeals.length} leads pending`
+
+  _el('dm-active-clients').textContent   = activeClients.length
+  // Count coaches serving active clients (vendors that have vendor_clients with active clients)
+  const coachesWithClients = coaches.filter(v => (v.clients || []).length > 0)
+  _el('dm-active-clients-sub').textContent = `across ${coachesWithClients.length} coaches`
+
+  _el('dm-coaches').textContent    = coaches.length
+  _el('dm-coaches-sub').textContent = `${contractors.length} contractors`
+}
+
+function renderDashMetricsAttention() {
+  if (!_dashData) return
+
+  // Flag: deals with no vendor
+  const noVendorDeals = _deals.filter(d =>
+    d.sales_status !== 'completed' && d.sales_status !== 'closed' && !d.primary_vendor_id
+  )
+  // Flag: packages with 1-2 sessions remaining
+  const almostEmptyPkgs = _dashData.allPackages.filter(p => {
+    const rem = (p.sessions_remaining != null) ? p.sessions_remaining : Math.max(0, (p.total_sessions || 0) - (p.sessions_used || 0))
+    return rem >= 1 && rem <= 2
+  })
+  // Flag: vendors with draft bills awaiting approval
+  const vendorsWithDraftBills = new Set(_dashData.draftBills.map(b => b.vendor_id))
+
+  // Breakdown: clients = deals with no coach; coaches = vendors with draft bill; bills = draft bills count
+  const flaggedClients = noVendorDeals.length
+  const flaggedCoaches = vendorsWithDraftBills.size
+  const flaggedBills   = _dashData.draftBills.length + almostEmptyPkgs.length
+
+  const total = flaggedClients + flaggedCoaches + flaggedBills
+  const card  = document.getElementById('dm-attention-card')
+
+  _el('dm-attention').textContent = total
+  _el('dm-attention-sub').textContent = `${flaggedClients} clients · ${flaggedCoaches} coaches · ${flaggedBills} bills`
+
+  if (total > 0) {
+    card.classList.add('alert')
+  } else {
+    card.classList.remove('alert')
+  }
+}
+
+function renderDashKanban() {
+  const DASH_STAGES = ['lead', 'active', 'completed']
+  const stageMap = { lead: [], active: [], completed: [] }
+
+  for (const d of _deals) {
+    const s = d.sales_status
+    if (stageMap[s]) stageMap[s].push(d)
+    else if (s === 'delivered') stageMap.completed.push(d)
+    // qualified / closed skipped in compact view
+  }
+
+  for (const stage of DASH_STAGES) {
+    const col   = document.getElementById(`dk-${stage}`)
+    const count = document.getElementById(`dkh-${stage}-count`)
+    const items = stageMap[stage]
+    if (!col) continue
+    if (count) count.textContent = items.length
+
+    if (!items.length) {
+      col.innerHTML = `<div style="font-size:11px;color:var(--mu2);padding:8px 2px">No deals</div>`
+      continue
+    }
+
+    col.innerHTML = items.slice(0, 8).map(d => {
+      const client  = d.clients?.full_name || '—'
+      const product = d.products?.name || 'Custom'
+      const hasVendor = !!d.primary_vendor_id
+      const pkg = null  // package data not available until supplemental load
+
+      const flags = []
+      if (!hasVendor && stage === 'active') flags.push('No coach assigned')
+
+      return `<div class="dash-kanban-card${flags.length ? ' flagged' : ''}" onclick="openEditDeal('${d.id}',event)">
+        <div class="dash-kc-client">${escHtml(client)}</div>
+        <div class="dash-kc-product">${escHtml(product)}</div>
+        ${flags.map(f => `<div class="dash-kc-flag">${escHtml(f)}</div>`).join('')}
+      </div>`
+    }).join('')
+  }
+}
+
+function renderDashKanbanWithPackages() {
+  if (!_dashData) return
+  const DASH_STAGES = ['lead', 'active', 'completed']
+  const stageMap = { lead: [], active: [], completed: [] }
+  for (const d of _deals) {
+    const s = d.sales_status
+    if (stageMap[s]) stageMap[s].push(d)
+    else if (s === 'delivered') stageMap.completed.push(d)
+  }
+  // Build package map by client_id
+  const pkgByClient = {}
+  for (const pkg of _dashData.allPackages) {
+    if (!pkgByClient[pkg.client_id]) pkgByClient[pkg.client_id] = pkg
+  }
+  for (const stage of DASH_STAGES) {
+    const col   = document.getElementById(`dk-${stage}`)
+    if (!col) continue
+    const items = stageMap[stage]
+    if (!items.length) continue
+    col.innerHTML = items.slice(0, 8).map(d => {
+      const pkg = pkgByClient[d.client_id] || null
+      return _dashKanbanCardWithPackage(d, pkg)
+    }).join('')
+  }
+}
+
+function _dashKanbanCardWithPackage(d, pkg) {
+  const client  = d.clients?.full_name || '—'
+  const product = d.products?.name || 'Custom'
+  const hasVendor = !!d.primary_vendor_id
+
+  const flags = []
+  if (!hasVendor && d.sales_status === 'active') flags.push('No coach assigned')
+  if (pkg) {
+    const rem = pkg.sessions_remaining
+    if (rem != null && rem >= 1 && rem <= 2) flags.push('Package almost empty')
+  }
+
+  return `<div class="dash-kanban-card${flags.length ? ' flagged' : ''}" onclick="openEditDeal('${d.id}',event)">
+    <div class="dash-kc-client">${escHtml(client)}</div>
+    <div class="dash-kc-product">${escHtml(product)}</div>
+    ${d.sales_status === 'active' && pkg ? `<div class="dash-kc-sessions">${pkg.sessions_remaining} sessions left</div>` : ''}
+    ${flags.map(f => `<div class="dash-kc-flag">${escHtml(f)}</div>`).join('')}
+  </div>`
+}
+
+function renderDashCoaches() {
+  const el = document.getElementById('dash-coaches-rows')
+  if (!el) return
+
+  const coaches = _vendors.filter(v => v.vendor_type === 'coach' && (v.active || v.is_active))
+  if (!coaches.length) {
+    el.innerHTML = `<div class="dash-widget-empty">No coaches found</div>`
+    return
+  }
+
+  // Map: vendor_id → count of unbilled sessions
+  const unbilledByVendor = {}
+  for (const s of (_dashData?.unbilledSessions || [])) {
+    if (s.vendor_id) unbilledByVendor[s.vendor_id] = (unbilledByVendor[s.vendor_id] || 0) + 1
+  }
+
+  const draftBillVendors = new Set((_dashData?.draftBills || []).map(b => b.vendor_id))
+
+  el.innerHTML = coaches.map(v => {
+    const name     = v.full_name || v.name || '—'
+    const initStr  = initials(name)
+    const bg       = avatarBg(name)
+    const fg       = avatarFg(name)
+    const clientCt = (v.clients || []).length
+    const subject  = v.subject || v.specialty || ''
+
+    const badges = []
+    const unbilled = unbilledByVendor[v.id] || 0
+    if (unbilled > 0) {
+      badges.push(`<span class="dash-badge dash-badge-amber">${unbilled} pending session${unbilled !== 1 ? 's' : ''}</span>`)
+    }
+    if (draftBillVendors.has(v.id)) {
+      badges.push(`<span class="dash-badge dash-badge-blue">bill to approve</span>`)
+    }
+    if (!badges.length) {
+      const isActive = v.active || v.is_active
+      badges.push(isActive
+        ? `<span class="dash-badge dash-badge-green">active</span>`
+        : `<span class="dash-badge dash-badge-gray">paused</span>`)
+    }
+
+    return `<div class="dash-widget-row" onclick="openDashboardVendor('${v.id}')">
+      <div class="av av-sm" style="background:${bg};color:${fg};flex-shrink:0">${escHtml(initStr)}</div>
+      <div class="dash-wr-info">
+        <div class="dash-wr-name">${escHtml(name)}</div>
+        <div class="dash-wr-sub">${clientCt} client${clientCt !== 1 ? 's' : ''}${subject ? ' · ' + escHtml(subject) : ''}</div>
+      </div>
+      <div class="dash-wr-badges">${badges.join('')}</div>
+    </div>`
+  }).join('')
+}
+
+function renderDashClients() {
+  const el = document.getElementById('dash-clients-rows')
+  if (!el) return
+
+  const activeClients = _clients.filter(c => c.status === 'active' || c.active === true)
+  if (!activeClients.length) {
+    el.innerHTML = `<div class="dash-widget-empty">No active clients</div>`
+    return
+  }
+
+  // Map: client_id → package
+  const pkgByClient = {}
+  for (const pkg of (_dashData?.allPackages || [])) {
+    if (!pkgByClient[pkg.client_id]) pkgByClient[pkg.client_id] = pkg
+  }
+
+  // Map: client_id → vendor name (from vendor_clients in _vendors)
+  const coachByClient = {}
+  for (const v of _vendors) {
+    for (const c of (v.clients || [])) {
+      if (c?.id) coachByClient[c.id] = v.full_name || v.name
+    }
+  }
+
+  // Map: client_id → deals (for product name)
+  const dealByClient = {}
+  for (const d of _deals) {
+    if (!dealByClient[d.client_id] && d.sales_status !== 'closed') {
+      dealByClient[d.client_id] = d
+    }
+  }
+
+  el.innerHTML = activeClients.slice(0, 10).map(c => {
+    const name   = c.full_name || '—'
+    const bg     = avatarBg(name)
+    const fg     = avatarFg(name)
+    const initStr = initials(name)
+    const coach  = coachByClient[c.id] || null
+    const deal   = dealByClient[c.id] || null
+    const product = deal?.products?.name || null
+    const pkg    = pkgByClient[c.id] || null
+
+    let badge = ''
+    if (pkg) {
+      const rem = pkg.sessions_remaining != null ? pkg.sessions_remaining : Math.max(0, (pkg.total_sessions || 0) - (pkg.sessions_used || 0))
+      if (rem <= 2) {
+        badge = `<span class="dash-badge dash-badge-red">${rem} session${rem !== 1 ? 's' : ''} left</span>`
+      }
+    }
+    if (!badge) {
+      // Check for unpaid sessions: session with no package
+      // (we use the _dashData.unbilledSessions but those are per vendor; skip for now — just show status)
+      const status = c.status || (c.active ? 'active' : 'paused')
+      badge = status === 'active'
+        ? `<span class="dash-badge dash-badge-green">active</span>`
+        : `<span class="dash-badge dash-badge-gray">paused</span>`
+    }
+
+    const sub = [product, coach ? `w/ ${coach}` : null].filter(Boolean).join(' · ')
+
+    return `<div class="dash-widget-row" onclick="openDashboardClient('${c.id}')">
+      <div class="av av-sm" style="background:${bg};color:${fg};flex-shrink:0">${escHtml(initStr)}</div>
+      <div class="dash-wr-info">
+        <div class="dash-wr-name">${escHtml(name)}</div>
+        ${sub ? `<div class="dash-wr-sub">${escHtml(sub)}</div>` : ''}
+      </div>
+      <div class="dash-wr-badges">${badge}</div>
+    </div>`
+  }).join('')
+}
+
+async function openDashboardVendor(vendorId) {
+  openVendorDetail(vendorId)
+}
+window.openDashboardVendor = openDashboardVendor
+
+function _renderClientDetailPanel(clientId) {
+  const detail = document.getElementById('client-detail')
+  const client = _clients.find(c => c.id === clientId)
+  if (!detail || !client) return
+
+  const deals = _deals.filter(d => d.client_id === clientId)
+  const activeDeal = deals.find(d => d.sales_status && d.sales_status !== 'closed') || deals[0] || null
+  const pkg = (_dashData?.allPackages || []).find(p => p.client_id === clientId && (p.status === 'active' || !p.status)) || null
+
+  detail.innerHTML = `
+    <div style="padding:20px;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="av av-lg" style="background:${avatarBg(client.full_name)};color:${avatarFg(client.full_name)}">${initials(client.full_name)}</div>
+        <div style="min-width:0">
+          <div style="font-size:17px;font-weight:600;color:var(--ink)">${escHtml(client.full_name || '—')}</div>
+          <div style="font-size:11px;color:var(--mu)">${escHtml(client.email || 'No email')}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        ${activeDeal ? `<span class="pill" style="font-size:10px">${escHtml(activeDeal.sales_status || 'active')}</span>` : '<span class="pill" style="font-size:10px">No active deal</span>'}
+        ${pkg ? `<span class="pill" style="font-size:10px">${pkg.sessions_remaining ?? Math.max(0, (pkg.total_sessions || 0) - (pkg.sessions_used || 0))} sessions left</span>` : '<span class="pill" style="font-size:10px">No active package</span>'}
+      </div>
+      <button class="btn btn-sm" style="margin-top:12px" onclick="showClientDetail('${clientId}', null, 'clients-panel')">Open full profile</button>
+    </div>
+    <div class="scroll" style="padding:14px 16px">
+      <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:8px">Deals</div>
+      <div class="block">
+        <table class="tbl">
+          <thead><tr><th>Product</th><th>Status</th><th>Billing</th><th></th></tr></thead>
+          <tbody>
+            ${deals.length ? deals.slice(0, 8).map(d => `
+              <tr>
+                <td>${escHtml(d.products?.name || 'Custom')}</td>
+                <td>${escHtml(d.sales_status || '—')}</td>
+                <td>${escHtml(d.billing_status || '—')}</td>
+                <td><button class="btn btn-sm btn-ghost" style="padding:2px 7px;font-size:11px" onclick="openEditDeal('${d.id}',event)">Edit</button></td>
+              </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--mu2);padding:16px">No deals yet</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`
+}
+
+function openDashboardClient(clientId) {
+  showClientDetail(clientId, null, 'dashboard')
+}
+window.openDashboardClient = openDashboardClient
+
+function _el(id) { return document.getElementById(id) }
 
 function filteredDeals() {
   let d = [..._deals]
@@ -539,448 +869,13 @@ function renderList() {
 function openEditDeal(id, e) {
   e?.stopPropagation()
   if (window.Router && !_routerDispatching) {
-    Router.open({
-      entity: 'deal',
-      id,
-      view: 'modal',
-      from: _view === 'list' ? 'list' : 'kanban',
-    })
+    Router.open({ entity: 'deal', id, view: 'panel', from: _view === 'list' ? 'list' : 'kanban' })
     return
   }
-
-  _editDealId = id
-  const deal = _deals.find(d => d.id === id)
-  if (!deal) return
-
-  // Init client selector state
-  _edSelClient = _clients.find(c => c.id === deal.client_id) || null
-  _edCsOpen    = false
-  _edCsSearch  = ''
-  _edCsFocused = -1
-
-  _renderEditDealModal(deal)
-  document.getElementById('modal-edit-deal').classList.add('open')
+  window.PanelManager?.open('deal', id)
 }
 window.openEditDeal = openEditDeal
 
-function closeEditDeal() {
-  _editDealId = null
-  document.getElementById('modal-edit-deal').classList.remove('open')
-  if (window.Router && !_routerDispatching && Router.getParams().entity === 'deal') {
-    Router.close()
-  }
-}
-window.closeEditDeal = closeEditDeal
-
-function _renderEditDealModal(deal) {
-  const body = document.getElementById('edit-deal-body')
-
-  // ── Payment info blocks ──────────────────────────────────────
-  // Payment link section (only if link exists)
-  const paymentLinkHtml = deal.payment_link ? `
-    <div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:var(--r);padding:10px 12px;margin-bottom:4px">
-      <div style="font-size:10px;font-family:var(--font-mono);color:var(--blue-text);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Payment Link</div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <a href="${escHtmlAttr(deal.payment_link)}" target="_blank" rel="noopener"
-           style="font-size:11px;font-family:var(--font-mono);color:var(--blue-text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none"
-           title="${escHtmlAttr(deal.payment_link)}">${escHtml(deal.payment_link)}</a>
-        <button class="btn btn-sm" style="flex-shrink:0;padding:3px 8px;font-size:11px"
-          onclick="copyDealLink('${escHtmlAttr(deal.payment_link)}')">Copy</button>
-        <a href="${escHtmlAttr(deal.payment_link)}" target="_blank" rel="noopener"
-           class="btn btn-sm" style="flex-shrink:0;padding:3px 8px;font-size:11px;text-decoration:none">Open ↗</a>
-      </div>
-    </div>` : ''
-
-  // Paid details (only when payment_status === 'paid')
-  const paidHtml = (deal.payment_status === 'paid' && deal.paid_at) ? (() => {
-    const amt = deal.paid_amount != null
-      ? `${SYM[deal.paid_currency] || deal.paid_currency || ''}${Number(deal.paid_amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : null
-    return `
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:4px">
-        <span>✅</span>
-        <span>${amt ? `Paid ${amt}` : 'Paid'} on ${formatDate(deal.paid_at)}</span>
-      </div>`
-  })() : ''
-
-  // Gateway / payment method badge
-  const gatewayHtml = deal.payment_method ? (() => {
-    const label = GATEWAY_LABELS[deal.payment_method] || deal.payment_method
-    return `<span style="font-size:10px;font-family:var(--font-mono);padding:2px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--border);color:var(--mu)">${label}</span>`
-  })() : ''
-
-  body.innerHTML = `
-    ${paidHtml}
-    ${paymentLinkHtml}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fg" style="grid-column:1/-1">
-        <label class="fl">Client</label>
-        <div class="cs-wrap" id="ed-cs-wrap">
-          ${_edBuildCsTrigger()}
-          ${_edBuildCsDropdown()}
-        </div>
-      </div>
-      <div class="fg">
-        <label class="fl">Vendor</label>
-        <select class="fi fsel" id="ed-vendor">
-          <option value="">— None —</option>
-          ${_vendors.map(v => `<option value="${v.id}"${deal.primary_vendor_id === v.id ? ' selected' : ''}>${v.full_name}</option>`).join('')}
-        </select>
-      </div>
-      <div class="fg">
-        <label class="fl">Product</label>
-        <select class="fi fsel" id="ed-product" onchange="onEdProductChange(this.value)">
-          <option value="">— Custom —</option>
-          ${_products.map(p => `<option value="${p.id}"${deal.product_id === p.id ? ' selected' : ''}>${p.name}</option>`).join('')}
-        </select>
-      </div>
-      <div class="fg">
-        <label class="fl">Price</label>
-        <input class="fi" type="number" id="ed-price" value="${deal.price != null ? deal.price : ''}" placeholder="0" oninput="calcEdVat()">
-      </div>
-      <div class="fg">
-        <label class="fl">Currency</label>
-        <select class="fi fsel" id="ed-currency" onchange="calcEdVat()">
-          ${['EUR','USD','ILS','GBP'].map(c => `<option value="${c}"${deal.currency === c ? ' selected' : ''}>${c}</option>`).join('')}
-        </select>
-      </div>
-      <div class="fg">
-        <label class="fl">VAT %</label>
-        <input class="fi" type="number" id="ed-vat" value="${deal.vat_pct || ''}" placeholder="0" oninput="calcEdVat()">
-      </div>
-      <div class="fg">
-        <label class="fl">VAT mode</label>
-        <select class="fi fsel" id="ed-vatmode" onchange="calcEdVat()">
-          <option value="excl"${deal.vat_mode !== 'incl' ? ' selected' : ''}>+ on top</option>
-          <option value="incl"${deal.vat_mode === 'incl' ? ' selected' : ''}>included</option>
-        </select>
-      </div>
-      <div class="fg" style="grid-column:1/-1">
-        <div id="ed-vat-preview" style="font-family:var(--font-mono);font-size:11px;color:var(--mu2);background:var(--bg);padding:8px 10px;border-radius:var(--r);display:none"></div>
-      </div>
-      <div class="fg">
-        <label class="fl">Sales status</label>
-        <select class="fi fsel" id="ed-sales">
-          ${STAGES.map(s => `<option value="${s.key}"${deal.sales_status === s.key ? ' selected' : ''}>${s.label}</option>`).join('')}
-        </select>
-      </div>
-      <div class="fg">
-        <label class="fl">Billing status</label>
-        <select class="fi fsel" id="ed-billing">
-          ${['pending','invoiced','partial','paid','overdue'].map(s => `<option value="${s}"${deal.billing_status === s ? ' selected' : ''}>${s}</option>`).join('')}
-        </select>
-      </div>
-      <div class="fg" style="grid-column:1/-1">
-        <label class="fl">
-          Payment processor
-          ${gatewayHtml}
-        </label>
-        <input class="fi" id="ed-processor" value="${deal.payment_processor || ''}" placeholder="stripe, thrivecart, wise…">
-      </div>
-      <div class="fg" style="grid-column:1/-1">
-        <label class="fl">Notes</label>
-        <div id="ed-notes-editor"></div>
-      </div>
-    </div>
-    <div id="ed-reminders-section" style="margin-top:12px">
-      <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.14em;color:var(--mu2);margin-bottom:8px">Reminders</div>
-      <div id="ed-reminders-list"></div>
-      <div style="display:flex;gap:6px;margin-top:8px" id="ed-reminder-add-row">
-        <input class="fi" id="ed-reminder-text" style="flex:1;height:32px;font-size:12px" placeholder="Add reminder…" onkeydown="if(event.key==='Enter')addEdReminder()">
-        <input type="date" class="fi" id="ed-reminder-date" style="width:130px;height:32px;font-size:12px">
-        <button class="btn btn-sm" onclick="addEdReminder()" style="height:32px">+ Add</button>
-      </div>
-    </div>
-    <div style="font-size:10px;color:var(--mu2);font-family:var(--font-mono);margin-top:8px">Created ${formatDate(deal.created_at)}</div>
-  `
-  calcEdVat()
-  requestAnimationFrame(() => {
-    _initEdNotesQuill(deal.notes || '')
-    _renderEdReminders(deal.deal_reminders || [])
-  })
-}
-
-// ── helpers used inside the modal HTML ───────────────────────
-
-function escHtmlAttr(str) {
-  return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
-
-function escHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
-function copyDealLink(url) {
-  navigator.clipboard.writeText(url).then(() => showToast('Link copied'))
-}
-window.copyDealLink = copyDealLink
-
-// ─── client selector inside edit modal ───────────────────────
-
-function _edBuildCsTrigger() {
-  if (_edSelClient) {
-    return `
-      <div class="cs-trigger" onclick="edCsToggle()">
-        <div class="av" style="background:${avatarBg(_edSelClient.full_name)};color:${avatarFg(_edSelClient.full_name)};width:20px;height:20px;font-size:9px;flex-shrink:0">${initials(_edSelClient.full_name)}</div>
-        <span style="flex:1;color:var(--ink)">${_edSelClient.full_name}</span>
-        <span onclick="edCsClear(event)" style="color:var(--mu2);font-size:14px;line-height:1;cursor:pointer;padding:0 2px">×</span>
-      </div>
-    `
-  }
-  return `
-    <div class="cs-trigger" onclick="edCsToggle()">
-      <span style="color:var(--mu2);flex:1">Select client…</span>
-      <span style="color:var(--mu2);font-size:10px">▾</span>
-    </div>
-  `
-}
-
-function _edBuildCsDropdown() {
-  if (!_edCsOpen) return ''
-  const filtered = _edCsSearch
-    ? _clients.filter(c => c.full_name.toLowerCase().includes(_edCsSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(_edCsSearch.toLowerCase()))
-    : _clients
-  return `
-    <div class="cs-dropdown">
-      <div style="padding:6px 8px;border-bottom:1px solid var(--border2)">
-        <input class="fi" style="height:30px;font-size:12px" placeholder="Search…" id="ed-cs-search"
-          oninput="edCsSearch(this.value)" onkeydown="edCsKeydown(event)"
-          value="${_edCsSearch}" autocomplete="off">
-      </div>
-      <div class="cs-list">
-        ${filtered.length ? filtered.map((c, i) => `
-          <div class="cs-item${_edSelClient?.id === c.id ? ' cs-sel' : ''}${_edCsFocused === i ? ' cs-focused' : ''}"
-            onclick="edCsSelect('${c.id}')">
-            <div class="av" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)};width:20px;height:20px;font-size:9px;flex-shrink:0">${initials(c.full_name)}</div>
-            <div>
-              <div style="font-size:13px;color:var(--ink)">${c.full_name}</div>
-              ${c.email ? `<div style="font-size:11px;color:var(--mu2)">${c.email}</div>` : ''}
-            </div>
-          </div>
-        `).join('') : `<div style="padding:12px;text-align:center;font-size:12px;color:var(--mu2)">No clients found</div>`}
-      </div>
-    </div>
-  `
-}
-
-function _edRenderCs() {
-  const wrap = document.getElementById('ed-cs-wrap')
-  if (!wrap) return
-  wrap.innerHTML = _edBuildCsTrigger() + _edBuildCsDropdown()
-  if (_edCsOpen) {
-    const inp = document.getElementById('ed-cs-search')
-    inp?.focus()
-  }
-}
-
-function edCsToggle() { _edCsOpen = !_edCsOpen; _edCsFocused = -1; _edRenderCs() }
-window.edCsToggle = edCsToggle
-
-function edCsClear(e) {
-  e.stopPropagation()
-  _edSelClient = null; _edCsOpen = false; _edCsSearch = ''; _edCsFocused = -1
-  _edRenderCs()
-}
-window.edCsClear = edCsClear
-
-function edCsSearch(v) { _edCsSearch = v; _edCsFocused = -1; _edRenderCs() }
-window.edCsSearch = edCsSearch
-
-function edCsSelect(id) {
-  _edSelClient = _clients.find(c => c.id === id) || null
-  _edCsOpen = false; _edCsSearch = ''; _edCsFocused = -1
-  _edRenderCs()
-}
-window.edCsSelect = edCsSelect
-
-function _edCsClose() { _edCsOpen = false; _edCsFocused = -1; _edRenderCs() }
-
-function edCsKeydown(e) {
-  const filtered = _edCsSearch
-    ? _clients.filter(c => c.full_name.toLowerCase().includes(_edCsSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(_edCsSearch.toLowerCase()))
-    : _clients
-  if (e.key === 'ArrowDown') { e.preventDefault(); _edCsFocused = Math.min(_edCsFocused + 1, filtered.length - 1); _edRenderCs() }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); _edCsFocused = Math.max(_edCsFocused - 1, -1); _edRenderCs() }
-  else if (e.key === 'Enter') { e.preventDefault(); if (_edCsFocused >= 0 && filtered[_edCsFocused]) edCsSelect(filtered[_edCsFocused].id) }
-  else if (e.key === 'Escape') _edCsClose()
-}
-window.edCsKeydown = edCsKeydown
-
-// ─── edit modal VAT + product autofill ───────────────────────
-
-function onEdProductChange(id) {
-  const p = _products.find(x => x.id === id)
-  if (p) {
-    if (p.base_price) document.getElementById('ed-price').value = p.base_price
-    if (p.currency)   document.getElementById('ed-currency').value = p.currency
-    calcEdVat()
-  }
-}
-window.onEdProductChange = onEdProductChange
-
-function calcEdVat() {
-  const price = parseFloat(document.getElementById('ed-price')?.value) || 0
-  const vat   = parseFloat(document.getElementById('ed-vat')?.value) || 0
-  const cur   = document.getElementById('ed-currency')?.value || 'EUR'
-  const mode  = document.getElementById('ed-vatmode')?.value || 'excl'
-  const prev  = document.getElementById('ed-vat-preview')
-  if (!prev) return
-  if (price > 0 && vat > 0) {
-    const final  = mode === 'excl' ? price * (1 + vat / 100) : price
-    const base   = mode === 'incl' ? price / (1 + vat / 100) : price
-    const vatAmt = mode === 'excl' ? price * vat / 100 : price - base
-    prev.style.display = 'block'
-    prev.textContent = mode === 'excl'
-      ? `Base: ${fmt(price, cur)} + VAT (${vat}%): ${fmt(vatAmt, cur)} = Final: ${fmt(final, cur)}`
-      : `Final: ${fmt(price, cur)} (incl. VAT ${vat}% = ${fmt(vatAmt, cur)})`
-  } else {
-    prev.style.display = 'none'
-  }
-}
-window.calcEdVat = calcEdVat
-
-// ─── save deal ────────────────────────────────────────────────
-
-async function saveEditDeal() {
-  if (!_editDealId) return
-  const clientId  = _edSelClient?.id || null
-  const vendorId  = document.getElementById('ed-vendor').value || null
-  const productId = document.getElementById('ed-product').value || null
-  const price     = parseFloat(document.getElementById('ed-price').value) || null
-  const currency  = document.getElementById('ed-currency').value
-  const vatPct    = parseFloat(document.getElementById('ed-vat').value) || 0
-  const vatMode   = document.getElementById('ed-vatmode').value
-  const sales     = document.getElementById('ed-sales').value
-  const billing   = document.getElementById('ed-billing').value
-  const processor = document.getElementById('ed-processor').value.trim() || null
-  const notes     = _quillValue(_edNotesQuill)
-
-  if (!clientId) { showToast('Select a client', 'warn'); return }
-
-  const fields = {
-    client_id:         clientId,
-    primary_vendor_id: vendorId,
-    product_id:        productId,
-    price,
-    currency,
-    vat_pct:           vatPct,
-    vat_mode:          vatMode,
-    sales_status:      sales,
-    billing_status:    billing,
-    payment_processor: processor,
-    notes,
-  }
-
-  try {
-    await updateDeal(_editDealId, fields)
-
-    // Update local state
-    const i = _deals.findIndex(d => d.id === _editDealId)
-    if (i !== -1) {
-      const client  = _clients.find(c => c.id === clientId)
-      const vendor  = _vendors.find(v => v.id === vendorId)
-      const product = _products.find(p => p.id === productId)
-      _deals[i] = { ..._deals[i], ...fields, clients: client || null, vendors: vendor || null, products: product || null }
-    }
-
-    // Auto-create package if product.type === 'package'
-    const product = _products.find(p => p.id === productId)
-    if (product?.type === 'package' && vendorId && clientId) {
-      await _autoCreatePackage(_editDealId, clientId, vendorId, product)
-    }
-
-    // Auto-assign vendor to client
-    if (vendorId && clientId) {
-      await _autoAssignVendorClient(vendorId, clientId)
-    }
-
-    closeEditDeal()
-    renderDeals()
-    showToast('Deal saved')
-  } catch(e) {
-    console.error('[HSos] saveEditDeal error:', e)
-    showToast('Save failed — check console', 'warn')
-  }
-}
-window.saveEditDeal = saveEditDeal
-
-// ─── deal reminders ───────────────────────────────────────────
-
-function _renderEdReminders(reminders) {
-  const list = document.getElementById('ed-reminders-list')
-  if (!list) return
-  if (!reminders.length) {
-    list.innerHTML = `<div style="font-size:12px;color:var(--mu2);padding:4px 0">No reminders yet</div>`
-    return
-  }
-  // Sort: undone first, then by due_date ascending (nulls last)
-  const sorted = [...reminders].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1
-    const ad = a.due_date || '9999'
-    const bd = b.due_date || '9999'
-    return ad.localeCompare(bd)
-  })
-  list.innerHTML = sorted.map(r => {
-    const overdue = !r.done && r.due_date && r.due_date < new Date().toISOString().slice(0, 10)
-    const dueLbl = r.due_date
-      ? `<span style="font-size:10px;font-family:var(--font-mono);color:${overdue ? 'var(--red-text)' : 'var(--mu2)'}">${overdue ? '⚠️ ' : ''}Due: ${r.due_date}</span>`
-      : ''
-    return `
-      <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2)">
-        <input type="checkbox" ${r.done ? 'checked' : ''}
-          style="margin-top:2px;flex-shrink:0;cursor:pointer"
-          onchange="toggleEdReminder('${r.id}', this.checked)">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;${r.done ? 'text-decoration:line-through;color:var(--mu2)' : 'color:var(--ink)'}">${escHtml(r.text)}</div>
-          ${dueLbl}
-        </div>
-      </div>
-    `
-  }).join('')
-}
-
-async function addEdReminder() {
-  if (!_editDealId) return
-  const textEl = document.getElementById('ed-reminder-text')
-  const dateEl = document.getElementById('ed-reminder-date')
-  const text   = textEl?.value.trim()
-  if (!text) { textEl?.focus(); return }
-  const due_date = dateEl?.value || null
-  try {
-    const reminder = await addDealReminder(_editDealId, text, due_date)
-    // Push into local deal state
-    const deal = _deals.find(d => d.id === _editDealId)
-    if (deal) {
-      if (!deal.deal_reminders) deal.deal_reminders = []
-      deal.deal_reminders.push(reminder)
-      _renderEdReminders(deal.deal_reminders)
-    }
-    textEl.value = ''
-    if (dateEl) dateEl.value = ''
-  } catch(e) {
-    console.error('[HSos] addEdReminder error:', e)
-    showToast('Could not add reminder', 'warn')
-  }
-}
-window.addEdReminder = addEdReminder
-
-async function toggleEdReminder(id, done) {
-  try {
-    await toggleDealReminder(id, done)
-    const deal = _deals.find(d => d.id === _editDealId)
-    if (deal?.deal_reminders) {
-      const r = deal.deal_reminders.find(x => x.id === id)
-      if (r) r.done = done
-      _renderEdReminders(deal.deal_reminders)
-    }
-  } catch(e) {
-    console.error('[HSos] toggleEdReminder error:', e)
-    showToast('Could not update reminder', 'warn')
-  }
-}
-window.toggleEdReminder = toggleEdReminder
 
 async function _autoCreatePackage(dealId, clientId, vendorId, product) {
   // Check if package already exists for this deal
@@ -1020,24 +915,6 @@ async function _autoAssignVendorClient(vendorId, clientId) {
   }
 }
 
-// ─── delete deal ──────────────────────────────────────────────
-
-async function deleteEditDeal() {
-  if (!_editDealId) return
-  const deal = _deals.find(d => d.id === _editDealId)
-  if (!confirm(`Delete deal for "${deal?.clients?.full_name || 'this client'}"? This cannot be undone.`)) return
-  try {
-    await deleteDeal(_editDealId)
-    _deals = _deals.filter(d => d.id !== _editDealId)
-    closeEditDeal()
-    renderDeals()
-    showToast('Deal deleted')
-  } catch(e) {
-    console.error('[HSos] deleteEditDeal error:', e)
-    showToast('Delete failed — check console', 'warn')
-  }
-}
-window.deleteEditDeal = deleteEditDeal
 
 // ─── new deal modal ───────────────────────────────────────────
 
@@ -1045,6 +922,9 @@ let _ndSelClient     = null
 let _ndCsOpen        = false
 let _ndCsSearch      = ''
 let _ndCsFocused     = -1
+let _ndQcOpen        = false
+let _ndQcName        = ''
+let _ndQcEmail       = ''
 let _ndSelectedPlan  = null  // selected product_plan record
 let _ndCurrentStep   = 1
 
@@ -1319,7 +1199,25 @@ function _ndBuildCsDropdown() {
               ${c.email ? `<div style="font-size:11px;color:var(--mu2)">${c.email}</div>` : ''}
             </div>
           </div>
-        `).join('') : `<div style="padding:12px;text-align:center;font-size:12px;color:var(--mu2)">No clients found</div>`}
+        `).join('') : `
+          <div style="padding:10px 12px">
+            <div style="font-size:12px;color:var(--mu2);margin-bottom:8px">No clients found${_ndCsSearch ? ' for "' + escHtml(_ndCsSearch) + '"' : ''}</div>
+            ${_ndQcOpen ? `
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <input class="fi" id="nd-qc-name" type="text" placeholder="Full name *" style="height:30px;font-size:12px"
+                  value="${escHtml(_ndQcName)}" oninput="_ndQcName=this.value">
+                <input class="fi" id="nd-qc-email" type="email" placeholder="Email (optional)" style="height:30px;font-size:12px"
+                  value="${escHtml(_ndQcEmail)}" oninput="_ndQcEmail=this.value">
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-primary btn-sm" onclick="ndQcSubmit(event)" style="flex:1">Create & select</button>
+                  <button class="btn btn-sm" onclick="ndQcCancel(event)">Cancel</button>
+                </div>
+              </div>
+            ` : `
+              <button class="btn btn-sm" onclick="ndQcOpen(event)" style="width:100%;font-size:12px">+ Create new client</button>
+            `}
+          </div>
+        `}
       </div>
     </div>
   `
@@ -1338,7 +1236,7 @@ window.ndCsToggle = ndCsToggle
 function ndCsClear(e) { e.stopPropagation(); _ndSelClient = null; _ndCsOpen = false; _ndCsSearch = ''; _renderNdCs() }
 window.ndCsClear = ndCsClear
 
-function ndCsSearch(v) { _ndCsSearch = v; _ndCsFocused = -1; _renderNdCs() }
+function ndCsSearch(v) { _ndCsSearch = v; _ndCsFocused = -1; _ndQcOpen = false; _ndQcName = v; _ndQcEmail = ''; _renderNdCs() }
 window.ndCsSearch = ndCsSearch
 
 function ndCsSelect(id) { _ndSelClient = _clients.find(c => c.id === id) || null; _ndCsOpen = false; _ndCsSearch = ''; _renderNdCs() }
@@ -1354,6 +1252,39 @@ function ndCsKeydown(e) {
   else if (e.key === 'Escape') { _ndCsOpen = false; _renderNdCs() }
 }
 window.ndCsKeydown = ndCsKeydown
+
+function ndQcOpen(e) {
+  e?.stopPropagation()
+  _ndQcOpen = true
+  _renderNdCs()
+  setTimeout(() => document.getElementById('nd-qc-name')?.focus(), 40)
+}
+window.ndQcOpen = ndQcOpen
+
+function ndQcCancel(e) {
+  e?.stopPropagation()
+  _ndQcOpen = false; _ndQcName = ''; _ndQcEmail = ''
+  _renderNdCs()
+}
+window.ndQcCancel = ndQcCancel
+
+async function ndQcSubmit(e) {
+  e?.stopPropagation()
+  const name  = (document.getElementById('nd-qc-name')?.value  || _ndQcName).trim()
+  const email = (document.getElementById('nd-qc-email')?.value || _ndQcEmail).trim()
+  if (!name) { showToast('Name is required', 'warn'); return }
+  try {
+    const newClient = await createClient({ full_name: name, email: email || null, source: 'manual', active: true })
+    _clients.push(newClient)
+    _clients.sort((a, b) => a.full_name.localeCompare(b.full_name))
+    _ndQcOpen = false; _ndQcName = ''; _ndQcEmail = ''
+    ndCsSelect(newClient.id)
+    showToast(`${newClient.full_name} created`, 'success')
+  } catch (err) {
+    showToast('Failed to create: ' + err.message, 'warn')
+  }
+}
+window.ndQcSubmit = ndQcSubmit
 
 function onNdProductChange(id) {
   const p = _products.find(x => x.id === id)
@@ -1452,35 +1383,323 @@ function renderClients() {
   list.innerHTML = clients.map(c => {
     const deals = _deals.filter(d => d.client_id === c.id)
     return `
-      <div class="client-list-item${_selClientId === c.id ? ' sel' : ''}" onclick="showClientDetail('${c.id}',event)">
+      <div class="client-list-item${_selClientId === c.id ? ' sel' : ''}" onclick="showClientDetail('${c.id}',event)" style="position:relative">
         <div class="av av-sm" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)}">${initials(c.full_name)}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.full_name}</div>
+          <div style="font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c.full_name)}</div>
           <div style="font-size:11px;color:var(--mu2)">${deals.length} deal${deals.length !== 1 ? 's' : ''}</div>
         </div>
+        <button class="client-del-btn" onclick="deleteClientFromList('${c.id}',event)" title="Delete client"
+          style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:2px 4px;line-height:1">&#x2715;</button>
       </div>
     `
   }).join('') || `<div style="padding:24px;text-align:center;color:var(--mu2)">No clients found</div>`
+
+  // Show/hide delete button on hover
+  list.querySelectorAll('.client-list-item').forEach(row => {
+    const btn = row.querySelector('.client-del-btn')
+    row.addEventListener('mouseenter', () => { if (btn) btn.style.display = '' })
+    row.addEventListener('mouseleave', () => { if (btn) btn.style.display = 'none' })
+  })
 }
 
 function showClientDetail(clientId, e, from = 'list') {
   e?.stopPropagation()
   const source = from || 'list'
-  if (window.Router) {
-    const url = Router.urlFor({
-      path: 'client-profile.html',
+  if (window.Router && !_routerDispatching) {
+    Router.open({
       entity: 'client',
       id: clientId,
-      view: 'page',
+      view: 'panel',
       from: source,
     })
-    window.location.href = url
     return
   }
-  window.location.href = `client-profile.html?entity=client&id=${encodeURIComponent(clientId)}&view=page&from=${encodeURIComponent(source)}`
+  window.PanelManager?.open('client', clientId)
 }
 
 window.showClientDetail = showClientDetail
+
+// ─── add client panel ─────────────────────────────────────────
+
+function openAddClientPanel() {
+  // Reset form
+  document.getElementById('ac-name').value    = ''
+  document.getElementById('ac-email').value   = ''
+  document.getElementById('ac-phone').value   = ''
+  document.getElementById('ac-notes').value   = ''
+  document.getElementById('ac-source').value  = 'manual'
+  document.getElementById('ac-company').value = ''
+  document.querySelector('input[name="ac-kind"][value="private"]').checked = true
+  document.getElementById('ac-company-row').style.display = 'none'
+
+  document.getElementById('add-client-overlay').style.display = 'block'
+  document.getElementById('add-client-panel').style.display   = 'flex'
+  setTimeout(() => document.getElementById('ac-name').focus(), 50)
+}
+window.openAddClientPanel = openAddClientPanel
+
+function closeAddClientPanel() {
+  document.getElementById('add-client-overlay').style.display = 'none'
+  document.getElementById('add-client-panel').style.display   = 'none'
+}
+window.closeAddClientPanel = closeAddClientPanel
+
+function acToggleCompany(val) {
+  document.getElementById('ac-company-row').style.display = val === 'corporate' ? 'block' : 'none'
+}
+window.acToggleCompany = acToggleCompany
+
+async function submitAddClient() {
+  const name = document.getElementById('ac-name').value.trim()
+  if (!name) { showToast('Full name is required', 'warn'); return }
+
+  const kind = document.querySelector('input[name="ac-kind"]:checked')?.value || 'private'
+  const fields = {
+    full_name:   name,
+    email:       document.getElementById('ac-email').value.trim()   || null,
+    phone:       document.getElementById('ac-phone').value.trim()   || null,
+    client_kind: kind,
+    company:     kind === 'corporate' ? (document.getElementById('ac-company').value.trim() || null) : null,
+    source:      document.getElementById('ac-source').value,
+    notes:       document.getElementById('ac-notes').value.trim()   || null,
+    active:      true,
+  }
+
+  try {
+    const newClient = await createClient(fields)
+    _clients.push(newClient)
+    _clients.sort((a, b) => a.full_name.localeCompare(b.full_name))
+    closeAddClientPanel()
+    renderClients()
+    showToast(`${newClient.full_name} added`, 'success')
+    // Auto-navigate to the new client's profile
+    showClientDetail(newClient.id, null, 'list')
+  } catch (err) {
+    showToast('Failed to create client: ' + err.message, 'warn')
+  }
+}
+window.submitAddClient = submitAddClient
+
+async function deleteClientFromList(clientId, e) {
+  e?.stopPropagation()
+  const client = _clients.find(c => c.id === clientId)
+  if (!client) return
+  const activeDeals = _deals.filter(d => d.client_id === clientId)
+  const dealWarning = activeDeals.length
+    ? ` This client has ${activeDeals.length} deal${activeDeals.length !== 1 ? 's' : ''} that will also be deleted.`
+    : ''
+  showConfirm(
+    `Delete "${client.full_name}"? This cannot be undone.${dealWarning}`,
+    async () => {
+      try {
+        await deleteClient(clientId)
+        _clients = _clients.filter(c => c.id !== clientId)
+        _deals   = _deals.filter(d => d.client_id !== clientId)
+        if (_selClientId === clientId) _selClientId = null
+        renderClients()
+        renderDeals()
+        showToast(`${client.full_name} deleted`)
+      } catch(err) {
+        console.error('[HSos] deleteClientFromList error:', err)
+        showToast('Delete failed — check console', 'warn')
+      }
+    }
+  )
+}
+window.deleteClientFromList = deleteClientFromList
+
+// ─── AC import panel ──────────────────────────────────────────
+
+let _acParsed = [] // [{first_name, last_name, email, phone, tags[], _status, _existing}]
+
+function openAcImportPanel() {
+  document.getElementById('ac-paste-input').value = ''
+  document.getElementById('ac-parse-error').style.display = 'none'
+  _showAcStep(1)
+  document.getElementById('ac-import-overlay').style.display = 'block'
+  document.getElementById('ac-import-panel').style.display   = 'flex'
+}
+window.openAcImportPanel = openAcImportPanel
+
+function closeAcImportPanel() {
+  document.getElementById('ac-import-overlay').style.display = 'none'
+  document.getElementById('ac-import-panel').style.display   = 'none'
+  _acParsed = []
+}
+window.closeAcImportPanel = closeAcImportPanel
+
+function _showAcStep(n) {
+  document.getElementById('ac-step-1').style.display = n === 1 ? 'flex' : 'none'
+  document.getElementById('ac-step-2').style.display = n === 2 ? 'flex' : 'none'
+  document.getElementById('ac-import-title').textContent = n === 1 ? 'Import from ActiveCampaign' : 'Review & Import'
+  document.getElementById('ac-import-sub').textContent   = n === 1 ? 'Paste contact data to import' : 'Review parsed contacts before importing'
+}
+
+function _acParseJSON(raw) {
+  const arr = JSON.parse(raw)
+  if (!Array.isArray(arr)) throw new Error('Expected a JSON array')
+  return arr.map(r => ({
+    first_name: (r.first_name || r.firstName || r['First Name'] || '').trim(),
+    last_name:  (r.last_name  || r.lastName  || r['Last Name']  || '').trim(),
+    email:      (r.email      || r['Email']   || '').trim().toLowerCase(),
+    phone:      (r.phone      || r['Phone']   || '').trim(),
+    tags:       Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(',').map(t => t.trim()) : []),
+    external_id:(r.id || r.contact_id || '').toString().trim() || null,
+  }))
+}
+
+function _acParseCSV(raw) {
+  const lines = raw.split(/\r?\n/).filter(l => l.trim())
+  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row')
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'))
+  return lines.slice(1).map(line => {
+    const vals = line.split(',')
+    const row  = {}
+    headers.forEach((h, i) => { row[h] = (vals[i] || '').trim() })
+    const tagsRaw = row.tags || ''
+    return {
+      first_name:  row.first_name  || '',
+      last_name:   row.last_name   || '',
+      email:       (row.email      || '').toLowerCase(),
+      phone:       row.phone       || '',
+      tags:        tagsRaw ? tagsRaw.split(';').map(t => t.trim()).filter(Boolean) : [],
+      external_id: row.id || row.contact_id || null,
+    }
+  })
+}
+
+function acParseAndReview() {
+  const raw = document.getElementById('ac-paste-input').value.trim()
+  const errEl = document.getElementById('ac-parse-error')
+  errEl.style.display = 'none'
+
+  if (!raw) { errEl.textContent = 'Paste some data first'; errEl.style.display = 'block'; return }
+
+  let rows = []
+  try {
+    rows = raw.startsWith('[') || raw.startsWith('{') ? _acParseJSON(raw) : _acParseCSV(raw)
+  } catch (err) {
+    errEl.textContent = 'Parse error: ' + err.message
+    errEl.style.display = 'block'
+    return
+  }
+
+  if (!rows.length) { errEl.textContent = 'No contacts found in pasted data'; errEl.style.display = 'block'; return }
+
+  // Dedup against existing clients by email
+  const existingByEmail = {}
+  _clients.forEach(c => { if (c.email) existingByEmail[c.email.toLowerCase()] = c })
+
+  _acParsed = rows.map(r => {
+    const full = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || 'Unknown'
+    const existing = r.email ? existingByEmail[r.email.toLowerCase()] : null
+    return { ...r, _fullName: full, _existing: existing || null, _merge: !!existing, _selected: true }
+  })
+
+  _renderAcReviewTable()
+  _showAcStep(2)
+}
+window.acParseAndReview = acParseAndReview
+
+function _renderAcReviewTable() {
+  const tbody = document.getElementById('ac-review-tbody')
+  const countEl = document.getElementById('ac-review-count')
+  const selected = _acParsed.filter(r => r._selected).length
+  countEl.textContent = `${selected} / ${_acParsed.length} selected`
+
+  tbody.innerHTML = _acParsed.map((r, i) => {
+    const isDup = !!r._existing
+    const statusHtml = isDup
+      ? `<div style="font-size:11px;color:var(--amber-text)">Duplicate</div>
+         <label style="font-size:10px;display:flex;align-items:center;gap:4px;margin-top:2px;cursor:pointer">
+           <input type="checkbox" ${r._merge ? 'checked' : ''} onchange="acToggleMerge(${i},this.checked)"> merge
+         </label>`
+      : `<span style="font-size:11px;color:var(--green-text)">New</span>`
+
+    return `<tr style="opacity:${r._selected ? '1' : '0.4'}">
+      <td><input type="checkbox" ${r._selected ? 'checked' : ''} onchange="acToggleRow(${i},this.checked)"></td>
+      <td style="font-weight:500;font-size:13px">${escHtml(r._fullName)}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--mu)">${escHtml(r.email || '—')}</td>
+      <td style="font-size:12px">${escHtml(r.phone || '—')}</td>
+      <td style="font-size:11px;color:var(--mu2)">${(r.tags || []).map(t => `<span class="pill" style="background:var(--bg)">${escHtml(t)}</span>`).join(' ')}</td>
+      <td>${statusHtml}</td>
+    </tr>`
+  }).join('')
+}
+
+function acToggleRow(i, checked) {
+  _acParsed[i]._selected = checked
+  _renderAcReviewTable()
+  // Sync select-all checkbox
+  const allSelected = _acParsed.every(r => r._selected)
+  document.getElementById('ac-select-all').checked = allSelected
+}
+window.acToggleRow = acToggleRow
+
+function acToggleMerge(i, checked) {
+  _acParsed[i]._merge = checked
+}
+window.acToggleMerge = acToggleMerge
+
+function acToggleSelectAll(checked) {
+  _acParsed.forEach(r => { r._selected = checked })
+  _renderAcReviewTable()
+}
+window.acToggleSelectAll = acToggleSelectAll
+
+function acBackToStep1() { _showAcStep(1) }
+window.acBackToStep1 = acBackToStep1
+
+async function acImportSelected() {
+  const toProcess = _acParsed.filter(r => r._selected)
+  if (!toProcess.length) { showToast('Select at least one contact', 'warn'); return }
+
+  let imported = 0, merged = 0, skipped = 0, errors = 0
+
+  for (const r of toProcess) {
+    try {
+      if (r._existing && r._merge) {
+        // Merge: only fill empty fields
+        const updates = {}
+        const ex = r._existing
+        if (!ex.phone && r.phone)      updates.phone      = r.phone
+        if (!ex.client_kind)           updates.client_kind = 'private'
+        if (!ex.external_id && r.external_id) updates.external_id = r.external_id
+        if (Object.keys(updates).length) await updateClient(ex.id, updates)
+        merged++
+      } else if (!r._existing) {
+        // New client
+        const created = await createClient({
+          full_name:   r._fullName,
+          email:       r.email  || null,
+          phone:       r.phone  || null,
+          source:      'activecampaign',
+          external_id: r.external_id || null,
+          active:      true,
+        })
+        _clients.push(created)
+        imported++
+      } else {
+        skipped++
+      }
+    } catch (_) {
+      errors++
+    }
+  }
+
+  _clients.sort((a, b) => a.full_name.localeCompare(b.full_name))
+  closeAcImportPanel()
+  renderClients()
+
+  const parts = []
+  if (imported) parts.push(`${imported} imported`)
+  if (merged)   parts.push(`${merged} merged`)
+  if (skipped)  parts.push(`${skipped} skipped`)
+  if (errors)   parts.push(`${errors} errors`)
+  showToast(parts.join(', '), errors ? 'warn' : 'success')
+}
+window.acImportSelected = acImportSelected
 
 // ─── vendors page ─────────────────────────────────────────────
 
@@ -1517,7 +1736,7 @@ function filteredVendors() {
     v = v.filter(x => x.full_name.toLowerCase().includes(q) || (x.email || '').toLowerCase().includes(q))
   }
   if (_fVendorType)     v = v.filter(x => x.vendor_type === _fVendorType)
-  if (_fVendorCurrency) v = v.filter(x => (x.preferred_currency || 'EUR') === _fVendorCurrency)
+  if (_fVendorCurrency) v = v.filter(x => (x.preferred_currency || x.payout_currency || 'EUR') === _fVendorCurrency)
   if (_fVendorManager)  v = v.filter(x => x.manager_id === _fVendorManager)
   return v
 }
@@ -1565,7 +1784,7 @@ function _vendorRow(v) {
   const isSel = _selVendorId === v.id
   const isSaas = SAAS_TYPES.has(v.vendor_type)
   const clientCount = (v.clients || []).length
-  const curr = v.preferred_currency || v.currency || 'EUR'
+  const curr = v.preferred_currency || v.payout_currency || v.currency || 'EUR'
   const typePill = TYPE_LABELS[v.vendor_type]
     ? `<span class="pill" style="${TYPE_PILL_COLOR[v.vendor_type] || ''};font-size:10px">${TYPE_LABELS[v.vendor_type]}</span>`
     : '<span style="color:var(--mu2)">—</span>'
@@ -1658,8 +1877,13 @@ function _syncVendorManagerFilter() {
 }
 
 async function openVendorDetail(id) {
+  if (!id) return
   if (window.Router && !_routerDispatching) {
     Router.open({ entity: 'vendor', id, view: 'panel', from: 'list' })
+    return
+  }
+  if (window.PanelManager?.open) {
+    window.PanelManager.open('vendor', id)
     return
   }
 
@@ -1667,11 +1891,20 @@ async function openVendorDetail(id) {
   _vendorTab = 'profile'
   _vendorEditMode = false
   _vendorEditSnapshot = null
-  // Switch to correct tab if vendor is in archived pool
-  if (_vendors.find(x => x.id === id)) _vendorListTab = 'active'
-  else if (_vendorsInactive.find(x => x.id === id)) _vendorListTab = 'archived'
+
+  const detail = document.getElementById('vendor-detail')
+  if (detail) {
+    detail.innerHTML = `<div style="padding:18px;color:var(--mu2);font-size:12px">Loading vendor…</div>`
+  }
+
+  try {
+    _vendorPaychecks = await getPaychecks({ vendor_id: id })
+  } catch (err) {
+    console.warn('[VendorDetail] paychecks load failed:', err?.message || err)
+    _vendorPaychecks = []
+  }
+
   renderVendors()
-  _vendorPaychecks = await getPaychecks({ vendor_id: id }).catch(() => [])
   renderVendorDetail()
 }
 window.openVendorDetail = openVendorDetail
@@ -1758,7 +1991,10 @@ function renderVendorDetail() {
         ${_vendorTab === 'profile' ? (
           _vendorEditMode
             ? `<button class="btn btn-sm" onclick="cancelVendorEdit()">Cancel</button>`
-            : `<button class="btn btn-sm" onclick="enterVendorEditMode()">Edit</button>`
+            : `<div style="display:flex;gap:4px">
+                <button class="btn btn-sm" onclick="enterVendorEditMode()">Edit</button>
+                <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="deleteCurrentVendor()">Delete</button>
+               </div>`
         ) : ''}
       </div>
       <div style="display:flex;gap:4px">
@@ -1803,7 +2039,7 @@ function _renderVendorProfileTab(v, body, isSaas) {
 
   if (!em) {
     // ── View mode ──
-    const curr = v.preferred_currency || v.currency || 'EUR'
+    const curr = v.preferred_currency || v.payout_currency || v.currency || 'EUR'
     const rate = (v.rates || []).length
       ? (() => { const r = v.rates[0]; return `${SYM[r.currency]||''}${parseFloat(r.rate).toLocaleString('en')} ${r.currency}` })()
       : null
@@ -1867,7 +2103,7 @@ function _renderVendorProfileTab(v, body, isSaas) {
     <div class="form-row" style="margin-bottom:10px">
       <div class="fg">
         <label class="fl">Currency</label>
-        <input class="fi" id="ve-currency" value="${escHtml(v.preferred_currency || v.currency || '')}">
+        <input class="fi" id="ve-currency" value="${escHtml(v.preferred_currency || v.payout_currency || v.currency || '')}">
       </div>
       ${!isSaas ? `
       <div class="fg">
@@ -1977,7 +2213,7 @@ async function _renderVendorPaymentsTab(v, body) {
         <div class="stat-label">Total hours</div>
       </div>
     </div>
-    <div class="block">
+    <div class="block" style="overflow-y:auto;max-height:320px">
       <table class="tbl">
         <thead><tr><th>Month</th><th>Hours</th><th>Amount</th><th>Payout</th><th>Actual paid</th><th>Payment date</th><th>Status</th></tr></thead>
         <tbody>
@@ -2003,7 +2239,7 @@ async function _renderVendorPaymentsTab(v, body) {
               : '—'
 
             return `
-            <tr>
+            <tr style="cursor:pointer" onclick="openPaycheckDetail(${JSON.stringify(p).replace(/"/g,'&quot;')})">
               <td style="font-size:12px">${formatMonth(p.month)}</td>
               <td class="mono">${(p.total_hours ?? p.hours) ?? '—'}</td>
               <td class="mono">${amt != null ? (SYM[p.currency || 'EUR'] || '') + amt.toLocaleString('en', { minimumFractionDigits: 2 }) + ' <span style="font-size:10px;color:var(--mu2)">' + (p.currency || 'EUR') + '</span>' : '—'}</td>
@@ -2019,6 +2255,46 @@ async function _renderVendorPaymentsTab(v, body) {
   `
 }
 
+function openPaycheckDetail(p) {
+  const amt       = p.amount        != null ? parseFloat(p.amount)        : null
+  const payout    = p.payout_amount != null ? parseFloat(p.payout_amount) : null
+  const actual    = p.actual_amount_paid != null ? parseFloat(p.actual_amount_paid) : null
+  const sym       = c => SYM[c] || ''
+  const fmtAmt    = (v, c) => v != null ? `${sym(c)}${v.toLocaleString('en', { minimumFractionDigits: 2 })} ${c}` : '—'
+
+  const rows = [
+    ['Month',        formatMonth(p.month)],
+    ['Hours',        (p.total_hours ?? p.hours) ?? '—'],
+    ['Amount',       fmtAmt(amt, p.currency || 'EUR')],
+    ['Payout',       fmtAmt(payout, p.payout_currency || p.currency || 'EUR')],
+    ['Actual paid',  fmtAmt(actual, p.payout_currency || p.currency || 'EUR')],
+    ['Payment date', p.payment_date ? formatDate(p.payment_date) : '—'],
+    ['Status',       `<span class="pill ${p.status}">${p.status}</span>`],
+    ...(p.notes ? [['Notes', escHtml(p.notes)]] : []),
+  ]
+
+  const overlay = document.createElement('div')
+  overlay.className = 'overlay open'
+  overlay.style.cssText = 'z-index:300'
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border-radius:var(--r-lg);width:420px;padding:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:17px;font-weight:600">Paycheck — ${formatMonth(p.month)}</div>
+        <button class="btn btn-sm" onclick="this.closest('.overlay').remove()">✕</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        ${rows.map(([label, val]) => `
+          <tr>
+            <td style="font-size:11px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--mu2);padding:7px 0;width:40%;border-bottom:1px solid var(--border2)">${label}</td>
+            <td style="font-size:13px;color:var(--ink);padding:7px 0;border-bottom:1px solid var(--border2)">${val}</td>
+          </tr>`).join('')}
+      </table>
+    </div>`
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  document.body.appendChild(overlay)
+}
+window.openPaycheckDetail = openPaycheckDetail
+
 function _renderVendorClientsTab(v, body) {
   const assigned    = v.clients || []
   const assignedIds = new Set(assigned.map(c => c.id))
@@ -2031,8 +2307,10 @@ function _renderVendorClientsTab(v, body) {
     <div id="vc-assigned-list">
       ${assigned.length ? assigned.map(c => `
         <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2)">
-          <div class="av av-sm" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)}">${initials(c.full_name)}</div>
-          <div style="font-size:13px;flex:1">${escHtml(c.full_name)}</div>
+          <div class="av av-sm" style="background:${avatarBg(c.full_name)};color:${avatarFg(c.full_name)};cursor:pointer"
+               onclick="showClientDetail('${c.id}',event,'vendor-clients')">${initials(c.full_name)}</div>
+          <div style="font-size:13px;flex:1;cursor:pointer;color:var(--ink)"
+               onclick="showClientDetail('${c.id}',event,'vendor-clients')">${escHtml(c.full_name)}</div>
           <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg)"
             onclick="unassignClient('${v.id}','${c.id}')">Remove</button>
         </div>
@@ -2150,6 +2428,107 @@ async function saveVendorProfile(id) {
 }
 window.saveVendorProfile = saveVendorProfile
 
+// ─── add vendor panel ─────────────────────────────────────────
+
+function openAddVendorPanel() {
+  document.getElementById('av-name').value             = ''
+  document.getElementById('av-email').value            = ''
+  document.getElementById('av-phone').value            = ''
+  document.getElementById('av-notes').value            = ''
+  document.getElementById('av-type').value             = 'coach'
+  document.getElementById('av-currency').value         = 'EUR'
+  document.getElementById('av-payout-currency').value  = ''
+  document.getElementById('av-status').value           = 'true'
+
+  // Populate paying company dropdown from loaded companies
+  const sel = document.getElementById('av-paying-company')
+  if (sel) {
+    sel.options.length = 0
+    const placeholder = document.createElement('option')
+    placeholder.value = ''
+    placeholder.textContent = '— not assigned —'
+    sel.appendChild(placeholder)
+    ;(_companies || []).forEach(c => {
+      const opt = document.createElement('option')
+      opt.value = c.id
+      opt.textContent = c.name
+      sel.appendChild(opt)
+    })
+  }
+
+  document.getElementById('add-vendor-overlay').style.display = 'block'
+  document.getElementById('add-vendor-panel').style.display   = 'flex'
+  setTimeout(() => document.getElementById('av-name').focus(), 50)
+}
+window.openAddVendorPanel = openAddVendorPanel
+
+function closeAddVendorPanel() {
+  document.getElementById('add-vendor-overlay').style.display = 'none'
+  document.getElementById('add-vendor-panel').style.display   = 'none'
+}
+window.closeAddVendorPanel = closeAddVendorPanel
+
+async function submitAddVendor() {
+  const name = document.getElementById('av-name').value.trim()
+  if (!name) { showToast('Full name is required', 'warn'); return }
+  const payoutCurrency  = document.getElementById('av-payout-currency').value || null
+  const payingCompanyId = document.getElementById('av-paying-company').value  || null
+  const fields = {
+    full_name:          name,
+    vendor_type:        document.getElementById('av-type').value,
+    email:              document.getElementById('av-email').value.trim()   || null,
+    phone:              document.getElementById('av-phone').value.trim()   || null,
+    currency:           document.getElementById('av-currency').value,
+    preferred_currency: document.getElementById('av-currency').value,
+    payout_currency:    payoutCurrency,
+    paying_company_id:  payingCompanyId,
+    notes:              document.getElementById('av-notes').value.trim()   || null,
+    active:             document.getElementById('av-status').value !== 'false',
+  }
+  try {
+    const newVendor = await createVendor(fields)
+    const hydrated  = { ...newVendor, rates: [], clients: [] }
+    _vendors.push(hydrated)
+    _vendors.sort((a, b) => a.full_name.localeCompare(b.full_name))
+    closeAddVendorPanel()
+    renderVendors()
+    showToast(`${newVendor.full_name} added`, 'success')
+    openVendorDetail(newVendor.id)
+  } catch (err) {
+    console.error('[HSos] submitAddVendor error:', err)
+    showToast('Failed to create vendor: ' + err.message, 'warn')
+  }
+}
+window.submitAddVendor = submitAddVendor
+
+// ─── delete vendor ────────────────────────────────────────────
+
+async function deleteCurrentVendor() {
+  const v = _currentVendor()
+  if (!v) return
+  showConfirm(
+    `Delete "${v.full_name}"? This cannot be undone.`,
+    async () => {
+      try {
+        await deleteVendor(v.id)
+        _vendors         = _vendors.filter(x => x.id !== v.id)
+        _vendorsInactive = _vendorsInactive.filter(x => x.id !== v.id)
+        _selVendorId     = null
+        _vendorEditMode  = false
+        _vendorEditSnapshot = null
+        const detail = document.getElementById('vendor-detail')
+        if (detail) detail.innerHTML = `<div class="empty"><div class="empty-icon">◻</div><div>Select a vendor</div></div>`
+        renderVendors()
+        showToast(`${v.full_name} deleted`)
+      } catch(err) {
+        console.error('[HSos] deleteCurrentVendor error:', err)
+        showToast('Delete failed — check console', 'warn')
+      }
+    }
+  )
+}
+window.deleteCurrentVendor = deleteCurrentVendor
+
 // ─── avatar upload ────────────────────────────────────────────
 
 function triggerAvatarUpload(vendorId) {
@@ -2252,54 +2631,521 @@ window.unassignClient = unassignClient
 
 // ─── products page ────────────────────────────────────────────
 
+async function initProductsPage(force = false) {
+  if (_productsPageLoading) return
+  if (_productsPageLoaded && !force) {
+    renderProducts()
+    return
+  }
+
+  const container = document.getElementById('products-container')
+  if (container) {
+    container.innerHTML = `
+      <div class="products-page-head">
+        <h1 class="products-page-title">Products</h1>
+        <button class="btn btn-primary btn-sm" onclick="openProductModal(null)">+ New Product</button>
+      </div>
+      <div class="products-page-loading">Loading products…</div>
+    `
+  }
+
+  _productsPageLoading = true
+  try {
+    _programsWithProducts = await getProductsWithPlans()
+    _productsPageLoaded = true
+    _productInlineEdit = { id: null, draft: null }
+    _planInlineEdit = { productId: null, planId: null, isNew: false, draft: null }
+    renderProducts()
+  } catch (e) {
+    console.error('[HSos] initProductsPage error:', e)
+    showToast(`Failed to load products: ${e.message || e}`, 'warn')
+    if (container) {
+      container.innerHTML = `
+        <div class="products-page-head">
+          <h1 class="products-page-title">Products</h1>
+          <button class="btn btn-primary btn-sm" onclick="openProductModal(null)">+ New Product</button>
+        </div>
+        <div class="products-page-empty">Failed to load products</div>
+      `
+    }
+  } finally {
+    _productsPageLoading = false
+  }
+}
+
+function _formatProductBasePrice(product) {
+  if (product?.base_price == null) return '—'
+  const currency = product.base_currency || product.currency || ''
+  return `${Number(product.base_price).toLocaleString('en', { maximumFractionDigits: 2 })} ${currency}`.trim()
+}
+
+function _getPlanTypeMeta(plan) {
+  const type = plan?.payment_type || ''
+  if (type === 'one-payment') return { label: 'One payment', cls: 'one-time' }
+  if (type === 'installments') {
+    const count = parseInt(plan?.installments_count, 10)
+    return { label: `${Number.isFinite(count) ? count : '—'} payments`, cls: 'installment' }
+  }
+  if (type === 'subscription') return { label: 'Subscription', cls: 'subscription' }
+  return { label: type || '—', cls: 'manual' }
+}
+
+function _truncateUrl(url, max = 30) {
+  if (!url) return '—'
+  return url.length > max ? `${url.slice(0, max)}...` : url
+}
+
+function _findProductInPrograms(productId) {
+  for (const program of (_programsWithProducts || [])) {
+    const product = (program.products || []).find(p => p.id === productId)
+    if (product) return product
+  }
+  return null
+}
+
+function _renderPlanDisplayRow(product, plan) {
+  const meta = _getPlanTypeMeta(plan)
+  const amount = plan?.amount == null
+    ? '—'
+    : Number(plan.amount).toLocaleString('en', { maximumFractionDigits: 2 })
+  const currency = plan?.currency || '—'
+  const url = plan?.payment_link_url || ''
+  const pid = escHtmlAttr(product.id)
+  const planId = escHtmlAttr(plan.id)
+
+  return `
+    <tr>
+      <td>
+        <span class="products-plan-pill ${meta.cls}">${meta.label}</span>
+      </td>
+      <td class="products-plan-amount">${amount}</td>
+      <td>${escHtml(currency)}</td>
+      <td>
+        ${url
+          ? `<a class="products-plan-link" href="${escHtmlAttr(url)}" target="_blank" rel="noopener">${escHtml(_truncateUrl(url))}</a>`
+          : '—'}
+      </td>
+      <td>
+        <button class="products-text-link" onclick="startPlanInlineEdit('${pid}','${planId}')">Edit</button>
+      </td>
+    </tr>
+  `
+}
+
+function _renderPlanEditRow(product, isNew = false) {
+  const draft = _planInlineEdit.draft || {}
+  const pid = escHtmlAttr(product.id)
+  const planId = escHtmlAttr(_planInlineEdit.planId || '')
+  const showInstallments = draft.payment_type === 'installments'
+  const currency = draft.currency || product.base_currency || product.currency || 'USD'
+
+  return `
+    <tr class="products-plan-edit-row">
+      <td>
+        <select class="fi fsel products-inline-select" onchange="setPlanInlineField('payment_type', this.value)">
+          ${['one-payment','installments','subscription'].map(type =>
+            `<option value="${type}"${(draft.payment_type || 'one-payment') === type ? ' selected' : ''}>${type}</option>`
+          ).join('')}
+        </select>
+        ${showInstallments ? `
+          <select class="fi fsel products-inline-select" onchange="setPlanInlineField('installments_count', this.value)">
+            <option value="">— # payments —</option>
+            ${Array.from({length: 36}, (_, i) => i + 1).map(n =>
+              `<option value="${n}"${String(draft.installments_count) === String(n) ? ' selected' : ''}>${n}</option>`
+            ).join('')}
+          </select>` : ''}
+      </td>
+      <td>
+        <input
+          class="fi products-inline-input"
+          type="number"
+          step="0.01"
+          value="${escHtml(draft.amount ?? '')}"
+          oninput="setPlanInlineField('amount', this.value)"
+        >
+      </td>
+      <td>
+        <select class="fi fsel products-inline-select" onchange="setPlanInlineField('currency', this.value)">
+          ${['USD','ILS','EUR','GBP'].map(c =>
+            `<option value="${c}"${currency === c ? ' selected' : ''}>${c}</option>`
+          ).join('')}
+        </select>
+      </td>
+      <td>
+        <input
+          class="fi products-inline-input"
+          type="text"
+          value="${escHtml(draft.payment_link_url || '')}"
+          placeholder="https://..."
+          oninput="setPlanInlineField('payment_link_url', this.value)"
+        >
+      </td>
+      <td class="products-actions-cell">
+        <button class="products-text-link" onclick="savePlanInlineEdit('${pid}','${isNew ? '' : planId}')">Save</button>
+        <button class="products-text-link" onclick="cancelPlanInlineEdit()">Cancel</button>
+      </td>
+    </tr>
+  `
+}
+
+function _renderProductPlanArea(product) {
+  const plans = [...(product.plans || [])]
+  const isEditingInThisProduct = _planInlineEdit.productId === product.id
+  const isAddingInThisProduct = isEditingInThisProduct && _planInlineEdit.isNew
+
+  const rows = plans.map(plan => {
+    const isEditingThisPlan = isEditingInThisProduct && !_planInlineEdit.isNew && _planInlineEdit.planId === plan.id
+    return isEditingThisPlan ? _renderPlanEditRow(product, false) : _renderPlanDisplayRow(product, plan)
+  }).join('')
+
+  const addRow = isAddingInThisProduct ? _renderPlanEditRow(product, true) : ''
+
+  if (!plans.length && !isAddingInThisProduct) {
+    return `
+      <div class="products-plan-empty">
+        No plans — <button class="products-text-link" onclick="startAddPlanInline('${escHtmlAttr(product.id)}')">Add plan</button>
+      </div>
+      <div class="products-card-subfooter">
+        <button class="products-text-link" onclick="startAddPlanInline('${escHtmlAttr(product.id)}')">Add plan</button>
+      </div>
+    `
+  }
+
+  return `
+    <div class="products-plans-table-wrap">
+      <table class="products-plans-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Currency</th>
+            <th>Payment Link</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}${addRow}
+        </tbody>
+      </table>
+    </div>
+    <div class="products-card-subfooter">
+      ${isAddingInThisProduct
+        ? ''
+        : `<button class="products-text-link" onclick="startAddPlanInline('${escHtmlAttr(product.id)}')">Add plan</button>`}
+    </div>
+  `
+}
+
 function renderProducts() {
   const container = document.getElementById('products-container')
   if (!container) return
 
+  const programs = [...(_programsWithProducts || [])]
+    .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
+    .map(program => ({
+      ...program,
+      products: [...(program.products || [])]
+        .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
+    }))
+
+  if (!programs.length) {
+    container.innerHTML = `
+      <div class="products-page-head">
+        <h1 class="products-page-title">Products</h1>
+        <button class="btn btn-primary btn-sm" onclick="openProductModal(null)">+ New Product</button>
+      </div>
+      <div class="products-page-empty">No programs</div>
+    `
+    return
+  }
+
   container.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:var(--font-serif);font-size:22px;font-weight:700">Products</div>
+    <div class="products-page-head">
+      <h1 class="products-page-title">Products</h1>
       <button class="btn btn-primary btn-sm" onclick="openProductModal(null)">+ New Product</button>
     </div>
-    <div class="block">
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Type</th>
-            <th>Category</th>
-            <th>Base Price</th>
-            <th>Sessions</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${_products.length ? _products.map(p => {
-            const price = p.base_price != null ? fmt(p.base_price, p.currency || 'EUR') : '—'
-            return `
-              <tr>
-                <td style="font-weight:500">${p.name}</td>
-                <td><span class="pill ${p.type || ''}" style="font-size:10px">${p.type || '—'}</span></td>
-                <td style="color:var(--mu);font-size:12px">${p.category || '—'}</td>
-                <td class="mono">${price}</td>
-                <td class="mono">${p.type === 'package' ? (p.default_package_sessions || '—') : '—'}</td>
-                <td style="text-align:right;display:flex;gap:6px;justify-content:flex-end">
-                  <button class="btn btn-sm" onclick="openPlansView('${p.id}',event)">Plans</button>
-                  <button class="btn btn-sm" onclick="openProductModal('${p.id}',event)">Edit</button>
-                </td>
-              </tr>
-            `
-          }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--mu2);padding:24px">No products</td></tr>`}
-        </tbody>
-      </table>
+    <div class="products-programs">
+      ${programs.map(program => {
+        const products = program.products || []
+        const count = products.length
+        const isCollapsed = _collapsedPrograms.has(program.id)
+        return `
+          <section class="products-program-section">
+            <div class="products-program-head">
+              <div class="products-program-title-wrap">
+                <h2 class="products-program-title">${escHtml(program.name || 'Untitled program')}</h2>
+                <span class="products-program-count">${count} product${count === 1 ? '' : 's'}</span>
+              </div>
+              <button class="products-program-toggle" onclick="toggleProgramSection('${escHtmlAttr(program.id)}')">
+                ${isCollapsed ? '▸' : '▾'}
+              </button>
+            </div>
+            <div class="products-program-body${isCollapsed ? ' hidden' : ''}">
+              ${count
+                ? `<div class="products-cards-grid">
+                    ${products.map(product => {
+                      const isEditingProduct = _productInlineEdit.id === product.id
+                      const draft = _productInlineEdit.draft || {}
+                      return `
+                        <article class="products-card">
+                          <div class="products-card-head">
+                            <div class="products-card-name">
+                              ${isEditingProduct
+                                ? `<input
+                                    class="fi products-inline-input"
+                                    type="text"
+                                    value="${escHtml(draft.name || '')}"
+                                    oninput="setProductInlineField('name', this.value)"
+                                  >`
+                                : escHtml(product.name || '—')}
+                            </div>
+                            <div class="products-card-price">
+                              ${isEditingProduct
+                                ? `
+                                  <input
+                                    class="fi products-inline-input products-inline-price"
+                                    type="number"
+                                    step="0.01"
+                                    value="${escHtml(draft.base_price ?? '')}"
+                                    oninput="setProductInlineField('base_price', this.value)"
+                                  >
+                                  <select
+                                    class="fi fsel products-inline-select products-inline-currency"
+                                    onchange="setProductInlineField('base_currency', this.value)"
+                                  >
+                                    ${['USD','ILS','EUR','GBP'].map(c =>
+                                      `<option value="${c}"${(draft.base_currency || 'USD') === c ? ' selected' : ''}>${c}</option>`
+                                    ).join('')}
+                                  </select>`
+                                : escHtml(_formatProductBasePrice(product))}
+                            </div>
+                          </div>
+
+                          ${_renderProductPlanArea(product)}
+
+                          <div class="products-card-footer">
+                            ${isEditingProduct
+                              ? `
+                                <button class="products-text-link" onclick="saveProductInlineEdit('${escHtmlAttr(product.id)}')">Save</button>
+                                <button class="products-text-link" onclick="cancelProductInlineEdit()">Cancel</button>
+                              `
+                              : `<button class="products-text-link" onclick="startProductInlineEdit('${escHtmlAttr(product.id)}')">Edit product</button>`}
+                          </div>
+                        </article>
+                      `
+                    }).join('')}
+                  </div>`
+                : `<div class="products-program-empty">No products yet</div>`}
+            </div>
+          </section>
+        `
+      }).join('')}
     </div>
   `
 }
+
+function toggleProgramSection(programId) {
+  if (!programId) return
+  if (_collapsedPrograms.has(programId)) _collapsedPrograms.delete(programId)
+  else _collapsedPrograms.add(programId)
+  renderProducts()
+}
+window.toggleProgramSection = toggleProgramSection
+
+function startProductInlineEdit(productId) {
+  const product = _findProductInPrograms(productId)
+  if (!product) return
+  _productInlineEdit = {
+    id: productId,
+    draft: {
+      name: product.name || '',
+      base_price: product.base_price ?? '',
+      base_currency: product.base_currency || product.currency || 'USD',
+    },
+  }
+  renderProducts()
+}
+window.startProductInlineEdit = startProductInlineEdit
+
+function setProductInlineField(field, value) {
+  if (!_productInlineEdit.id) return
+  _productInlineEdit = {
+    ..._productInlineEdit,
+    draft: {
+      ...(_productInlineEdit.draft || {}),
+      [field]: value,
+    }
+  }
+}
+window.setProductInlineField = setProductInlineField
+
+function cancelProductInlineEdit() {
+  _productInlineEdit = { id: null, draft: null }
+  renderProducts()
+}
+window.cancelProductInlineEdit = cancelProductInlineEdit
+
+async function saveProductInlineEdit(productId) {
+  const product = _findProductInPrograms(productId)
+  if (!product) return
+
+  const draft = _productInlineEdit.draft || {}
+  const name = String(draft.name || '').trim()
+  const basePriceRaw = String(draft.base_price ?? '').trim()
+  const basePrice = basePriceRaw === '' ? null : Number(basePriceRaw)
+  const baseCurrency = String(draft.base_currency || '').trim() || 'USD'
+
+  if (!name) {
+    showToast('Product name is required', 'warn')
+    return
+  }
+  if (basePriceRaw !== '' && !Number.isFinite(basePrice)) {
+    showToast('Base price must be a number', 'warn')
+    return
+  }
+
+  const currencyField = Object.prototype.hasOwnProperty.call(product, 'base_currency') ? 'base_currency' : 'currency'
+  const fields = { name, base_price: basePrice, [currencyField]: baseCurrency }
+
+  try {
+    const updated = await updateProduct(productId, fields)
+    const i = _products.findIndex(p => p.id === productId)
+    if (i !== -1) _products[i] = { ..._products[i], ...updated }
+    showToast('Product updated')
+    await initProductsPage(true)
+  } catch (e) {
+    console.error('[HSos] saveProductInlineEdit error:', e)
+    showToast(`Failed to update product: ${e.message || e}`, 'warn')
+  }
+}
+window.saveProductInlineEdit = saveProductInlineEdit
+
+function startPlanInlineEdit(productId, planId) {
+  const product = _findProductInPrograms(productId)
+  const plan = (product?.plans || []).find(p => p.id === planId)
+  if (!product || !plan) return
+
+  _planInlineEdit = {
+    productId,
+    planId,
+    isNew: false,
+    draft: {
+      payment_type: plan.payment_type || 'one-payment',
+      amount: plan.amount ?? '',
+      currency: plan.currency || product.base_currency || product.currency || 'USD',
+      payment_link_url: plan.payment_link_url || '',
+      installments_count: plan.installments_count ?? '',
+    },
+  }
+  renderProducts()
+}
+window.startPlanInlineEdit = startPlanInlineEdit
+
+function startAddPlanInline(productId) {
+  const product = _findProductInPrograms(productId)
+  if (!product) return
+  _planInlineEdit = {
+    productId,
+    planId: null,
+    isNew: true,
+    draft: {
+      payment_type: 'one-payment',
+      amount: '',
+      currency: product.base_currency || product.currency || 'USD',
+      payment_link_url: '',
+      installments_count: '',
+    },
+  }
+  renderProducts()
+}
+window.startAddPlanInline = startAddPlanInline
+
+function setPlanInlineField(field, value) {
+  if (!_planInlineEdit.productId) return
+  const nextDraft = {
+    ...(_planInlineEdit.draft || {}),
+    [field]: value,
+  }
+  if (field === 'payment_type' && value !== 'installments') {
+    nextDraft.installments_count = ''
+  }
+  _planInlineEdit = { ..._planInlineEdit, draft: nextDraft }
+  if (field === 'payment_type') renderProducts()
+}
+window.setPlanInlineField = setPlanInlineField
+
+function cancelPlanInlineEdit() {
+  _planInlineEdit = { productId: null, planId: null, isNew: false, draft: null }
+  renderProducts()
+}
+window.cancelPlanInlineEdit = cancelPlanInlineEdit
+
+function _defaultPlanName(type, installmentsCount) {
+  if (type === 'one_time') return 'One payment'
+  if (type === 'installment') return `${installmentsCount || '—'} payments`
+  if (type === 'subscription') return 'Subscription'
+  return 'Manual'
+}
+
+async function savePlanInlineEdit(productId) {
+  if (_planInlineEdit.productId !== productId) return
+  const draft = _planInlineEdit.draft || {}
+
+  const paymentType = String(draft.payment_type || 'one_time')
+  const amountRaw = String(draft.amount ?? '').trim()
+  const amount = amountRaw === '' ? null : Number(amountRaw)
+  const currency = String(draft.currency || 'USD').trim() || 'USD'
+  const paymentLink = String(draft.payment_link_url || '').trim() || null
+  const installmentsRaw = String(draft.installments_count ?? '').trim()
+  const installmentsCount = paymentType === 'installments'
+    ? (installmentsRaw === '' ? null : parseInt(installmentsRaw, 10))
+    : null
+
+  if (amountRaw !== '' && !Number.isFinite(amount)) {
+    showToast('Amount must be a number', 'warn')
+    return
+  }
+  if (paymentType === 'installment' && (!Number.isFinite(installmentsCount) || installmentsCount < 2)) {
+    showToast('Installments count must be 2 or more', 'warn')
+    return
+  }
+
+  const fields = {
+    payment_type: paymentType,
+    amount,
+    currency,
+    payment_link_url: paymentLink,
+    installments_count: installmentsCount,
+  }
+
+  try {
+    if (_planInlineEdit.isNew) {
+      await insertPlan({
+        ...fields,
+        product_id: productId,
+        name: _defaultPlanName(paymentType, installmentsCount),
+      })
+      showToast('Plan added')
+    } else {
+      await updatePlan(_planInlineEdit.planId, fields)
+      showToast('Plan updated')
+    }
+    await initProductsPage(true)
+  } catch (e) {
+    console.error('[HSos] savePlanInlineEdit error:', e)
+    showToast(`Failed to save plan: ${e.message || e}`, 'warn')
+  }
+}
+window.savePlanInlineEdit = savePlanInlineEdit
 
 // ─── product modal ────────────────────────────────────────────
 
 function openProductModal(id, e) {
   e?.stopPropagation()
+  if (id && window.PanelManager?.open) {
+    window.PanelManager.open('product', id)
+    return
+  }
   _editProductId = id
   const p = id ? _products.find(x => x.id === id) : null
 
@@ -2412,7 +3258,7 @@ async function saveProductModal() {
       showToast('Product created')
     }
     closeProductModal()
-    renderProducts()
+    if (_page === 'products') await initProductsPage(true)
   } catch(e) {
     console.error('[HSos] saveProductModal error:', e)
     showToast('Save failed — check console', 'warn')
@@ -2423,17 +3269,18 @@ window.saveProductModal = saveProductModal
 async function deleteProductModal() {
   if (!_editProductId) return
   const p = _products.find(x => x.id === _editProductId)
-  if (!confirm(`Delete product "${p?.name}"? This cannot be undone.`)) return
-  try {
-    await deleteProduct(_editProductId)
-    _products = _products.filter(x => x.id !== _editProductId)
-    closeProductModal()
-    renderProducts()
-    showToast('Product deleted')
-  } catch(e) {
-    console.error('[HSos] deleteProductModal error:', e)
-    showToast('Delete failed — check console', 'warn')
-  }
+  showConfirm(`Delete product "${p?.name}"? This cannot be undone.`, async () => {
+    try {
+      await deleteProduct(_editProductId)
+      _products = _products.filter(x => x.id !== _editProductId)
+      closeProductModal()
+      if (_page === 'products') await initProductsPage(true)
+      showToast('Product deleted')
+    } catch(e) {
+      console.error('[HSos] deleteProductModal error:', e)
+      showToast('Delete failed — check console', 'warn')
+    }
+  })
 }
 window.deleteProductModal = deleteProductModal
 
@@ -2441,7 +3288,6 @@ window.deleteProductModal = deleteProductModal
 
 let _plansProductId  = null
 let _plans           = []
-let _editPlanId      = null
 
 const GATEWAY_META = {
   green_invoice: 'Green Invoice',
@@ -2514,7 +3360,15 @@ function renderPlans() {
         <tbody>
           ${_plans.map(plan => `
             <tr style="${!plan.active ? 'opacity:0.45' : ''}">
-              <td style="font-weight:500">${plan.plan_name}${!plan.active ? ' <span style="font-size:10px;color:var(--mu2)">(inactive)</span>' : ''}</td>
+              <td style="font-weight:500">
+                ${plan.plan_name}${!plan.active ? ' <span style="font-size:10px;color:var(--mu2)">(inactive)</span>' : ''}
+                ${plan.collection_gateway_link ? `
+                  <a href="${escHtmlAttr(plan.collection_gateway_link)}" target="_blank" rel="noopener"
+                     style="margin-left:6px;color:var(--blue-text);font-size:11px;text-decoration:none" title="${escHtmlAttr(plan.collection_gateway_link)}">🔗</a>
+                  <button class="btn btn-sm" style="margin-left:2px;padding:1px 5px;font-size:10px"
+                    onclick="event.stopPropagation();navigator.clipboard.writeText('${escHtmlAttr(plan.collection_gateway_link)}').then(()=>showToast('Link copied'))">⎘</button>
+                ` : ''}
+              </td>
               <td style="font-size:12px;color:var(--mu)">${GATEWAY_META[plan.collection_gateway] || plan.collection_gateway}</td>
               <td class="mono">${fmt(plan.price, plan.currency)}</td>
               <td class="mono">${plan.installments > 1 ? plan.installments + 'x' : '1x'}</td>
@@ -2532,168 +3386,6 @@ function renderPlans() {
 
 function openPlanModal(id, e) {
   e?.stopPropagation()
-  _editPlanId = id
-  const plan = id ? _plans.find(p => p.id === id) : null
-
-  document.getElementById('plan-modal-title').textContent = id ? 'Edit Plan' : 'New Plan'
-  document.getElementById('plan-delete-btn').style.display = id ? 'block' : 'none'
-
-  document.getElementById('plan-modal-body').innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="fg" style="grid-column:1/-1">
-          <label class="fl">Plan name</label>
-          <input class="fi" id="plm-name" value="${plan?.plan_name || ''}" placeholder="e.g. IL Standard, US Monthly">
-        </div>
-        <div class="fg">
-          <label class="fl">Gateway</label>
-          <select class="fi fsel" id="plm-gateway">
-            ${['green_invoice','thrivecart','wise','stripe'].map(g =>
-              `<option value="${g}"${plan?.collection_gateway === g ? ' selected' : ''}>${GATEWAY_META[g]}</option>`
-            ).join('')}
-          </select>
-        </div>
-        <div class="fg">
-          <label class="fl">Gateway product ID</label>
-          <input class="fi" id="plm-gateway-pid" value="${plan?.collection_gateway_product_id || ''}" placeholder="optional">
-        </div>
-        <div class="fg" style="grid-column:1/-1">
-          <label class="fl">Payment link</label>
-          <input class="fi" id="plm-gateway-link" value="${plan?.collection_gateway_link || ''}" placeholder="https://…">
-        </div>
-        <div class="fg">
-          <label class="fl">Price</label>
-          <input class="fi" type="number" id="plm-price" value="${plan?.price != null ? plan.price : ''}" placeholder="0">
-        </div>
-        <div class="fg">
-          <label class="fl">Currency</label>
-          <select class="fi fsel" id="plm-currency">
-            ${['EUR','USD','ILS','GBP'].map(c =>
-              `<option value="${c}"${(plan?.currency || 'EUR') === c ? ' selected' : ''}>${c}</option>`
-            ).join('')}
-          </select>
-        </div>
-        <div class="fg">
-          <label class="fl">Installments</label>
-          <input class="fi" type="number" id="plm-installments" min="1" value="${plan?.installments ?? 1}" placeholder="1">
-        </div>
-        <div class="fg">
-          <label class="fl">Target country</label>
-          <input class="fi" id="plm-country" value="${plan?.target_customer_country || ''}" placeholder="IL / US / EU / leave blank">
-        </div>
-        <div class="fg">
-          <label class="fl">Target currency (display)</label>
-          <input class="fi" id="plm-target-currency" value="${plan?.target_currency || ''}" placeholder="ILS / USD / …">
-        </div>
-        <div class="fg">
-          <label class="fl">Vendor payout currency</label>
-          <select class="fi fsel" id="plm-vendor-payout">
-            <option value="">— none —</option>
-            ${['ILS','USD','EUR'].map(c =>
-              `<option value="${c}"${plan?.vendor_payout_currency === c ? ' selected' : ''}>${c}</option>`
-            ).join('')}
-          </select>
-        </div>
-        <div class="fg">
-          <label class="fl">Vendor</label>
-          <select class="fi fsel" id="plm-vendor">
-            <option value="">— none —</option>
-            ${_vendors.map(v =>
-              `<option value="${v.id}"${plan?.vendor_id === v.id ? ' selected' : ''}>${v.full_name}</option>`
-            ).join('')}
-          </select>
-        </div>
-        <div class="fg">
-          <label class="fl">Priority</label>
-          <input class="fi" type="number" id="plm-priority" value="${plan?.priority ?? 0}" placeholder="0 = highest">
-        </div>
-        <div class="fg" style="grid-column:1/-1;display:flex;align-items:center;gap:8px;padding-top:4px">
-          <input type="checkbox" id="plm-default" ${plan?.is_default ? 'checked' : ''}>
-          <label for="plm-default" class="fl" style="margin:0;cursor:pointer">Default plan for this product</label>
-        </div>
-        <div class="fg" style="grid-column:1/-1;display:flex;align-items:center;gap:8px">
-          <input type="checkbox" id="plm-active" ${(plan?.active ?? true) ? 'checked' : ''}>
-          <label for="plm-active" class="fl" style="margin:0;cursor:pointer">Active</label>
-        </div>
-      </div>
-    </div>`
-
-  document.getElementById('modal-plan').classList.add('open')
+  window.PanelManager?.open('plan', id)
 }
 window.openPlanModal = openPlanModal
-
-function closePlanModal() {
-  document.getElementById('modal-plan').classList.remove('open')
-  _editPlanId = null
-}
-window.closePlanModal = closePlanModal
-
-async function savePlanModal() {
-  const name        = document.getElementById('plm-name').value.trim()
-  const gateway     = document.getElementById('plm-gateway').value
-  const gatewayPid  = document.getElementById('plm-gateway-pid').value.trim() || null
-  const gatewayLink = document.getElementById('plm-gateway-link').value.trim() || null
-  const price       = parseFloat(document.getElementById('plm-price').value) || 0
-  const currency    = document.getElementById('plm-currency').value
-  const installments = parseInt(document.getElementById('plm-installments').value) || 1
-  const country     = document.getElementById('plm-country').value.trim() || null
-  const targetCur   = document.getElementById('plm-target-currency').value.trim() || null
-  const vendorPayout = document.getElementById('plm-vendor-payout').value || null
-  const vendorId    = document.getElementById('plm-vendor').value || null
-  const priority    = parseInt(document.getElementById('plm-priority').value) || 0
-  const isDefault   = document.getElementById('plm-default').checked
-  const active      = document.getElementById('plm-active').checked
-
-  if (!name) { showToast('Plan name required', 'warn'); return }
-  if (!price) { showToast('Price required', 'warn'); return }
-
-  const fields = {
-    plan_name:                    name,
-    collection_gateway:           gateway,
-    collection_gateway_product_id: gatewayPid,
-    collection_gateway_link:      gatewayLink,
-    price,
-    currency,
-    installments,
-    target_customer_country:      country,
-    target_currency:              targetCur,
-    vendor_payout_currency:       vendorPayout,
-    vendor_id:                    vendorId,
-    priority,
-    is_default:                   isDefault,
-    active,
-    product_id:                   _plansProductId,
-  }
-
-  try {
-    if (_editPlanId) {
-      await updateProductPlan(_editPlanId, fields)
-      showToast('Plan saved')
-    } else {
-      await createProductPlan(fields)
-      showToast('Plan created')
-    }
-    closePlanModal()
-    await reloadPlans()
-  } catch (err) {
-    console.error('[HSos] savePlanModal error:', err)
-    showToast('Save failed — check console', 'warn')
-  }
-}
-window.savePlanModal = savePlanModal
-
-async function deletePlanModal() {
-  if (!_editPlanId) return
-  const plan = _plans.find(p => p.id === _editPlanId)
-  if (!confirm(`Delete plan "${plan?.plan_name}"?`)) return
-  try {
-    await deleteProductPlan(_editPlanId)
-    closePlanModal()
-    await reloadPlans()
-    showToast('Plan deleted')
-  } catch (err) {
-    console.error('[HSos] deletePlanModal error:', err)
-    showToast('Delete failed — check console', 'warn')
-  }
-}
-window.deletePlanModal = deletePlanModal
