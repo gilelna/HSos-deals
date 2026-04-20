@@ -138,7 +138,13 @@
       }
       closePanel()
     })
-    panel.querySelector('#panel-manager-close').addEventListener('click', () => closePanel())
+    panel.querySelector('#panel-manager-close').addEventListener('click', () => {
+      if (Object.keys(state.edits).length) {
+        showDirtyBar(() => { resetEditState(); closePanel() })
+        return
+      }
+      closePanel()
+    })
 
     panel.addEventListener('click', e => {
       const crumbBtn = e.target.closest('[data-pm-crumb-index]')
