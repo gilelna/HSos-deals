@@ -45,6 +45,7 @@
 
   async function commitEdits(entry) {
     if (!els.saveBtn) return
+    closeFkPicker()
     els.saveBtn.disabled = true
     els.saveBtn.textContent = 'Saving\u2026'
     removeSaveError()
@@ -119,12 +120,10 @@
     let input
     if (inputType === 'textarea') {
       input = document.createElement('textarea')
-      input.setAttribute('data-field', fieldKey)
       input.value = currentVal || ''
     } else if (inputType === 'select' && options) {
       const opts = JSON.parse(options)
       input = document.createElement('select')
-      input.setAttribute('data-field', fieldKey)
       opts.forEach(o => {
         const val = typeof o === 'string' ? o : o.value
         const label = typeof o === 'string' ? o : (o.label || o.value)
@@ -137,12 +136,10 @@
     } else if (inputType === 'number') {
       input = document.createElement('input')
       input.type = 'number'
-      input.setAttribute('data-field', fieldKey)
       input.value = currentVal !== null && currentVal !== undefined ? currentVal : ''
     } else {
       input = document.createElement('input')
       input.type = 'text'
-      input.setAttribute('data-field', fieldKey)
       input.value = currentVal !== null && currentVal !== undefined ? currentVal : ''
     }
 
@@ -406,6 +403,7 @@
             valueEl.appendChild(span)
           }
           valueEl.classList.remove('editing')
+          valueEl.classList.remove('editable')
         })
         return
       }
