@@ -101,6 +101,122 @@
     if (el) el.remove()
   }
 
+  function activateFieldEdit(fieldEl, fieldKey) {
+    if (fieldEl.querySelector('.ep-field-value.editing')) return
+    const valueEl = fieldEl.querySelector('.ep-field-value')
+    if (!valueEl) return
+
+    const currentVal = state.edits[fieldKey] !== undefined
+      ? state.edits[fieldKey]
+      : (fieldEl.getAttribute('data-current') !== null ? fieldEl.getAttribute('data-current') : valueEl.textContent.trim())
+
+    const inputType = fieldEl.getAttribute('data-input-type') || 'text'
+    const options = fieldEl.getAttribute('data-options')
+
+    valueEl.classList.remove('editable')
+    valueEl.classList.add('editing')
+
+    let input
+    if (inputType === 'textarea') {
+      input = document.createElement('textarea')
+      input.setAttribute('data-field', fieldKey)
+      input.value = currentVal || ''
+    } else if (inputType === 'select' && options) {
+      const opts = JSON.parse(options)
+      input = document.createElement('select')
+      input.setAttribute('data-field', fieldKey)
+      opts.forEach(o => {
+        const val = typeof o === 'string' ? o : o.value
+        const label = typeof o === 'string' ? o : (o.label || o.value)
+        const opt = document.createElement('option')
+        opt.value = val
+        opt.textContent = label
+        if (val === String(currentVal || '')) opt.selected = true
+        input.appendChild(opt)
+      })
+    } else if (inputType === 'number') {
+      input = document.createElement('input')
+      input.type = 'number'
+      input.setAttribute('data-field', fieldKey)
+      input.value = currentVal !== null && currentVal !== undefined ? currentVal : ''
+    } else {
+      input = document.createElement('input')
+      input.type = 'text'
+      input.setAttribute('data-field', fieldKey)
+      input.value = currentVal !== null && currentVal !== undefined ? currentVal : ''
+    }
+
+    valueEl.textContent = ''
+    valueEl.appendChild(input)
+    input.focus()
+    if (input.select) input.select()
+
+    const onChange = () => {
+      state.edits[fieldKey] = input.value
+      state.editing = true
+      updateSaveBtn()
+    }
+    input.addEventListener('input', onChange)
+    input.addEventListener('change', onChange)
+  }
+
+  function openFkPicker(anchorEl, fieldKey, items, currentId, onSelect) {
+    closeFkPicker()
+    const picker = document.createElement('div')
+    picker.className = 'pm-fk-picker'
+    picker.id = 'pm-fk-picker'
+
+    const searchInput = document.createElement('input')
+    searchInput.placeholder = 'Search\u2026'
+    searchInput.autocomplete = 'off'
+
+    const list = document.createElement('div')
+    list.className = 'pm-fk-picker-list'
+
+    const renderList = filter => {
+      const lower = (filter || '').toLowerCase()
+      const filtered = lower ? items.filter(it => (it.label || '').toLowerCase().includes(lower)) : items
+      list.textContent = ''
+      if (!filtered.length) {
+        const empty = document.createElement('div')
+        empty.className = 'pm-fk-picker-item'
+        empty.style.color = 'var(--mu)'
+        empty.textContent = 'No results'
+        list.appendChild(empty)
+        return
+      }
+      filtered.forEach(it => {
+        const item = document.createElement('div')
+        item.className = 'pm-fk-picker-item' + (it.id === currentId ? ' selected' : '')
+        item.setAttribute('data-fk-id', it.id)
+        item.setAttribute('data-fk-label', it.label)
+        item.textContent = it.label
+        list.appendChild(item)
+      })
+    }
+
+    searchInput.addEventListener('input', () => renderList(searchInput.value))
+    list.addEventListener('click', e => {
+      const item = e.target.closest('.pm-fk-picker-item[data-fk-id]')
+      if (!item) return
+      onSelect(item.getAttribute('data-fk-id'), item.getAttribute('data-fk-label'))
+      closeFkPicker()
+    })
+
+    picker.appendChild(searchInput)
+    picker.appendChild(list)
+    renderList('')
+
+    anchorEl.style.position = 'relative'
+    anchorEl.appendChild(picker)
+    searchInput.focus()
+  }
+
+  function closeFkPicker() {
+    const el = document.getElementById('pm-fk-picker')
+    if (el) el.remove()
+  }
+
   const TAX_TREATMENTS = [
     'non_deductible',
     'mixed_review',
@@ -254,6 +370,52 @@
       const type = btn.getAttribute('data-panel-type')
       const id = btn.getAttribute('data-panel-id')
       open(type, id)
+    })
+
+    panel.addEventListener('click', e => {
+      const valueEl = e.target.closest('.ep-field-value.editable')
+      if (!valueEl) return
+      const fieldEl = valueEl.closest('[data-field]')
+      if (!fieldEl) return
+      const fieldKey = fieldEl.getAttribute('data-field')
+      if (!fieldKey) return
+      const inputType = fieldEl.getAttribute('data-input-type') || 'text'
+      if (inputType === 'fk') {
+        const currentId = state.edits[fieldKey] !== undefined
+          ? state.edits[fieldKey]
+          : (fieldEl.getAttribute('data-current') || '')
+        let items = []
+        try { items = JSON.parse(fieldEl.getAttribute('data-fk-items') || '[]') } catch(_) {}
+        const fkType = fieldEl.getAttribute('data-fk-type') || ''
+        openFkPicker(valueEl, fieldKey, items, currentId, (fkId, fkLabel) => {
+          state.edits[fieldKey] = fkId
+          state.editing = true
+          updateSaveBtn()
+          valueEl.textContent = ''
+          if (fkId && fkLabel) {
+            const fkBtn = document.createElement('button')
+            fkBtn.className = 'ep-link'
+            fkBtn.setAttribute('data-panel-type', fkType)
+            fkBtn.setAttribute('data-panel-id', fkId)
+            fkBtn.textContent = fkLabel
+            valueEl.appendChild(fkBtn)
+          } else {
+            const span = document.createElement('span')
+            span.className = 'ep-muted'
+            span.textContent = '\u2014'
+            valueEl.appendChild(span)
+          }
+          valueEl.classList.remove('editing')
+        })
+        return
+      }
+      activateFieldEdit(fieldEl, fieldKey)
+    })
+
+    document.addEventListener('mousedown', e => {
+      const picker = document.getElementById('pm-fk-picker')
+      if (!picker) return
+      if (!picker.contains(e.target)) closeFkPicker()
     })
 
     document.addEventListener('click', e => {
