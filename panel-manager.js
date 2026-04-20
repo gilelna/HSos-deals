@@ -847,6 +847,7 @@
   }
 
   function renderClientBody(model) {
+    const client = model?.client || {}
     const deals = model?.deals || []
     const vendors = model?.vendors || []
     const activeDeal = pickActiveDeal(deals)
@@ -863,7 +864,39 @@
       ? (activePackage.plan_name || `${activePackage.total_sessions || 0}-session package`)
       : '—'
 
+    const coreKv = [
+      editableField('Name', 'full_name', client.full_name, 'text'),
+      editableField('Email', 'email', client.email, 'text'),
+      editableField('Phone', 'phone', client.phone, 'text'),
+      editableField('Kind', 'client_kind', client.client_kind, 'select', [
+        { value: 'private', label: 'Private' },
+        { value: 'corporate', label: 'Corporate' },
+      ]),
+      editableField('Company', 'company', client.company, 'text'),
+      editableField('Source', 'source', client.source, 'select', [
+        { value: 'activecampaign', label: 'ActiveCampaign' },
+        { value: 'referral', label: 'Referral' },
+        { value: 'website', label: 'Website' },
+        { value: 'other', label: 'Other' },
+      ]),
+      editableField('Active', 'active', (client.active !== false) ? 'true' : 'false', 'select', [
+        { value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' },
+      ]),
+    ].join('')
+
     return `
+      <div class="ep-card">
+        <div class="ep-section-title">Core</div>
+        <div class="ep-kv">${coreKv}</div>
+      </div>
+
+      <div class="ep-card">
+        <div class="ep-section-title">Notes</div>
+        <div class="ep-field" data-field="notes" data-input-type="textarea" data-current="${esc(client.notes || '')}">
+          <span class="ep-field-value editable">${client.notes ? esc(client.notes) : '<span class="ep-muted">No notes</span>'}</span>
+        </div>
+      </div>
+
       <div class="ep-card">
         <div class="ep-section-title">Assigned Vendor</div>
         <div class="ep-v">${assignedVendor ? entityLink('vendor', assignedVendor.id, assignedVendor.full_name || assignedVendor.name || '—') : '<span class="ep-muted">Not assigned</span>'}</div>
