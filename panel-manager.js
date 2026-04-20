@@ -368,6 +368,13 @@
       e.preventDefault()
       const type = btn.getAttribute('data-panel-type')
       const id = btn.getAttribute('data-panel-id')
+      if (Object.keys(state.edits).length) {
+        const current = currentEntry()
+        if (!current || current.type !== normalizeType(type) || current.id !== String(id || '')) {
+          showDirtyBar(() => { resetEditState(); updateSaveBtn(); open(type, id) })
+          return
+        }
+      }
       open(type, id)
     })
 
@@ -405,8 +412,8 @@
             valueEl.appendChild(span)
           }
           valueEl.classList.remove('editing')
-          valueEl.classList.remove('editable')
         })
+        e.stopPropagation()
         return
       }
       activateFieldEdit(fieldEl, fieldKey)
