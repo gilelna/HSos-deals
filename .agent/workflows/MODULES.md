@@ -27,24 +27,27 @@ deals (with client, vendor, product, manager joins), clients, vendors, products,
 
 ---
 
-## 2. Workload (`workload.html`) ✅ Built
+## 2. Operations (`workload.html`) ✅ Live
 
 ### Purpose
-Admin view of teacher workload and student packages.
+Vendor-facing view. Each vendor logs their own sessions and manages their billing.
 
-### Views
-- **Students tab** — grid or table of students with credit bars and status badges
-- **Work Log tab** — monthly hours log with summary stats
-- **Right panel** — student card with tabs: Overview / Lessons / Payments / Rates
+### Tabs
+- **Log session** — client picker (optional — "No client" for internal tasks), date/time/duration/task type, rate auto-filled, subtotal preview, active package tracker
+- **My work** — monthly task breakdown, unpaid sessions checklist (select → create draft bill), draft bill card, rejected bill card, payment history
+- **My clients** — client list with package progress; click → client detail with sessions table
+- **Profile** — rate sheet + personal info (loaded from live vendor record)
 
 ### Key interactions
-- Select student → card loads in right panel
-- Mark lesson done → updates lesson status, deducts from package
-- Log hour → inline form adds to vendor_hours
-- Open client profile → slide-in panel (same as Deals)
+- Client is optional — internal tasks (General, Team Meeting, Office Hour, etc.) don't require one
+- Selecting an internal task type auto-clears the client selection
+- Sessions in approved/paid bills are locked — edit button hidden
+- Edit (✎) button on each unpaid session → Edit Session modal (date, duration, task type, notes, delete)
+- Draft bill card: View details / Edit (shows overlay) / Withdraw
+- Rejected bill card: shows finance notes, "Create new draft" button
 
 ### Data loaded
-deals (filtered by vendor_id for teacher view), clients, lessons, vendor_hours, rates
+sessions, unpaid sessions, draft bill, rejected bill, paid bills, vendor clients + packages, task types
 
 ---
 

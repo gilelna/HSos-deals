@@ -120,7 +120,7 @@ async function setDealStatus(id, status) {
 
 ---
 
-## supabase-client.js
+## db.js
 
 All DB operations go here. Never call `sb.from()` directly in HTML files.
 Each function returns the data array (not the Supabase response object).
@@ -151,10 +151,11 @@ Use Supabase joins (`select('*, client:clients(*)')`) to avoid N+1 queries.
 
 ```
 deals.html          — not Deals.html or deals-module.html
-workload.html       — not workload-teacher.html
-supabase-client.js  — not db.js or api.js
-schema.sql          — not database.sql
-CLAUDE.md           — uppercase, in /docs folder
+workload.html       — active workload file
+payments.html       — active payments file
+db.js               — Supabase query layer (not supabase-client.js — archived)
+hsos-schema.sql     — DB schema
+CLAUDE.md           — uppercase, in .agent/workflows/
 ```
 
 ---
@@ -177,6 +178,6 @@ CLAUDE.md           — uppercase, in /docs folder
 1. Copy the topbar + module switcher from `deals.html`
 2. Add the new module to the switcher dropdown in ALL existing HTML files
 3. Use the same CSS variables and class patterns
-4. Add all DB operations to `supabase-client.js` — not inline
+4. Add all DB operations to `db.js` — not inline
 5. Update CLAUDE.md (modules table) and ROADMAP.md
 6. Update the module switcher in every existing HTML file

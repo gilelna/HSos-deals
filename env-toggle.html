@@ -7,7 +7,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
-  background: var(--sf2);
+  background: #ffffff;
   border: 1px solid var(--b);
   border-radius: 6px;
   font-size: 11px;
@@ -167,80 +167,4 @@
   </div>
 </div>
 
-<script>
-// Initialize environment toggle
-function initEnvToggle() {
-  if (!window.getEnvConfig) {
-    console.error('[HSos] env-config.js not loaded')
-    return
-  }
-
-  updateEnvToggle()
-
-  // Close dropdown on outside click
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.env-toggle') && !e.target.closest('.env-dropdown')) {
-      document.getElementById('env-dropdown').classList.remove('open')
-    }
-  })
-}
-
-function updateEnvToggle() {
-  const config = window.getEnvConfig()
-  const currentEnv = window.getCurrentEnv()
-
-  // Update toggle display
-  const indicator = document.getElementById('env-indicator')
-  const label = document.getElementById('env-label')
-
-  if (indicator) indicator.style.background = config.color
-  if (label) label.textContent = config.label
-
-  // Update dropdown options
-  document.querySelectorAll('.env-option').forEach(opt => {
-    const env = opt.id.replace('env-opt-', '')
-    const check = opt.querySelector('.env-option-check')
-
-    if (env === currentEnv) {
-      opt.classList.add('active')
-      if (check) check.textContent = '✓'
-    } else {
-      opt.classList.remove('active')
-      if (check) check.textContent = ''
-    }
-  })
-}
-
-function toggleEnvDropdown() {
-  document.getElementById('env-dropdown').classList.toggle('open')
-}
-
-function selectEnvironment(env) {
-  const currentEnv = window.getCurrentEnv()
-
-  if (env === currentEnv) {
-    // Already on this environment, just close dropdown
-    document.getElementById('env-dropdown').classList.remove('open')
-    return
-  }
-
-  // Confirm switch if going to production (write-safe guard)
-  if (env === 'production') {
-    const confirmed = confirm('Switch to Production database?\n\nYou will be connected to live business data. Writes will affect real records. The page will reload.')
-    if (!confirmed) {
-      document.getElementById('env-dropdown').classList.remove('open')
-      return
-    }
-  }
-
-  // Switch environment (will reload page)
-  window.switchEnvironment(env)
-}
-
-// Initialize on DOM load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initEnvToggle)
-} else {
-  initEnvToggle()
-}
-</script>
+<!-- JS for this component lives in env-config.js (scripts in innerHTML don't execute) -->

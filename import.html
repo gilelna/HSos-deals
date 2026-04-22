@@ -4,10 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — CSV Canvas</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
   <link rel="stylesheet" href="import.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="env-keys.js"></script>
+  <script src="env-config.js"></script>
   <script src="db.js"></script>
   <script src="app.js"></script>
   <script src="adapters/supabase-adapter.js"></script>
@@ -19,12 +23,8 @@
 <body>
 <div class="app">
 
-  <!-- ── Topbar ────────────────────────────────────────────────────── -->
-  <div class="topbar">
-    <span class="tb-logo">HSos</span>
-    <div class="role-selector" id="role-selector"></div>
-    <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
-  </div>
+  <!-- Layout containers — filled by layout.js -->
+  <div id="layout-topbar"></div>
 
   <!-- ── Page body ─────────────────────────────────────────────────── -->
   <div class="imp-page">
@@ -231,6 +231,12 @@
 
 </div><!-- /app -->
 
+<script src="components/layout.js"></script>
 <script src="import.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    LAYOUT.init('CSV Canvas')
+  })
+</script>
 </body>
 </html>

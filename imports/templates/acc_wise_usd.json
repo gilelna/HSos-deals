@@ -1,0 +1,50 @@
+{
+  "account_id": "acc_wise_usd",
+  "source_label": "Wise USD",
+  "file_type": "csv",
+  "sheet": null,
+  "encoding": "utf-8",
+  "skip_until_header": false,
+  "header_detection": null,
+  "skip_rows_from_top": 0,
+  "decimal_separator": "dot",
+  "date_format": "YYYY-MM-DD HH:mm:ss",
+  "direction_logic": "column:Direction",
+  "direction_column": "Direction",
+  "multi_section": false,
+  "section_key_column": null,
+  "row_filter": {
+    "column": "Source currency",
+    "value": "USD"
+  },
+  "columns": {
+    "date": "Created on",
+    "settled_date": "Finished on",
+    "amount": "Source amount (after fees)",
+    "currency": "Source currency",
+    "vendor": "Target name",
+    "description": "Reference",
+    "amount_original": "Target amount (after fees)",
+    "currency_original": "Target currency",
+    "exchange_rate": "Exchange rate",
+    "entity_hint": null,
+    "category_hint": "Category"
+  },
+  "filters": {
+    "require_column": "Source amount (after fees)",
+    "exclude_if_contains": null,
+    "status_column": "Status",
+    "valid_status_values": ["COMPLETED"]
+  },
+  "internal_transfer_rule": {
+    "condition": "Source name == Target name OR (Source name contains 'Hadar Shemesh' AND Target name contains 'Hadar Shemesh')",
+    "event_type": "transfer_internal",
+    "include_in_pl": false
+  },
+  "direction_map": {
+    "IN": "in",
+    "OUT": "out",
+    "NEUTRAL": "internal"
+  },
+  "notes": "Filter to rows where Source currency = USD only (EUR rows go to acc_wise_eur). NEUTRAL rows are internal USD→EUR conversions — mark as transfer_internal. When Source name and Target name are both Hadar Shemesh variants, mark as internal transfer. Use ID column as external_id. Source fee amount stored in raw_data."
+}

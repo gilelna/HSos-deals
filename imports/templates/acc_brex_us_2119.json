@@ -1,0 +1,50 @@
+{
+  "account_id": "acc_brex_us_2119",
+  "source_label": "Brex Card 2119 — General",
+  "file_type": "csv",
+  "sheet": null,
+  "encoding": "utf-8",
+  "skip_until_header": false,
+  "header_detection": null,
+  "skip_rows_from_top": 0,
+  "decimal_separator": "dot",
+  "date_format": "MM/DD/YYYY",
+  "direction_logic": "negative=in,positive=out",
+  "direction_column": null,
+  "multi_section": false,
+  "section_key_column": null,
+  "row_filter": {
+    "column": "Card last 4",
+    "value": "2119"
+  },
+  "columns": {
+    "date": "Transaction date",
+    "settled_date": null,
+    "amount": "Amount",
+    "currency": "Currency",
+    "vendor": "Merchant",
+    "description": "Merchant category",
+    "amount_original": "Original amount",
+    "currency_original": "Original currency",
+    "exchange_rate": null,
+    "entity_hint": "Spending entity",
+    "category_hint": "Merchant category"
+  },
+  "filters": {
+    "require_column": "Amount",
+    "exclude_if_contains": null,
+    "status_column": "Payment status",
+    "valid_status_values": ["Completed", "Refunded"]
+  },
+  "refund_rule": {
+    "condition": "Payment status == Refunded",
+    "direction_override": "in",
+    "event_type": "refund"
+  },
+  "internal_transfer_rule": {
+    "condition": null,
+    "event_type": null,
+    "include_in_pl": true
+  },
+  "notes": "General business expenses card. Same CSV as 6004 and 1706, filtered by Card last 4 = 2119. Policy=General means business spend. Amount column is always positive USD; negative values indicate refunds."
+}

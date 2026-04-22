@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Recurring Services</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .rec-filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 0; margin-bottom: 12px;
+    }
+    .rec-filter-bar select, .rec-filter-bar input {
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: var(--surface); color: var(--ink); cursor: pointer; outline: none;
+    }
+    .rec-filter-bar input { cursor: text; width: 200px; }
+    .rec-filter-bar select:focus, .rec-filter-bar input:focus { border-color: var(--ink); }
+    .rec-group-row td {
+      background: var(--bg) !important;
+      padding: 5px 10px; font-size: 10px; font-family: var(--font-mono);
+      text-transform: uppercase; letter-spacing: .1em; color: var(--mu);
+      border-bottom: 1px solid var(--border);
+    }
+    .rec-group-row:hover td { background: var(--bg) !important; }
+    .rec-amount { font-family: var(--font-mono); font-weight: 600; }
+    .rec-empty  { padding: 40px; text-align: center; color: var(--mu2); font-size: 13px; }
+    .tx-toolbar-btn {
+      height: 28px; padding: 0 10px; border-radius: 6px; font-size: 11px;
+      font-family: var(--font-sans); cursor: pointer; white-space: nowrap;
+      border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .tx-toolbar-btn:hover { background: var(--bg); border-color: var(--ink); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div id="layout-topbar"></div>
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+    <div class="app-content">
+
+      <div class="space-cover payments">
+        <div class="space-cover__bg"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow">Payments · Finance</div>
+        <div class="space-cover-title">Recurring Services</div>
+        <div class="cover-widgets">
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-txcount">—</div>
+            <div class="alert-card-label">Recurring charges</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-vendors">—</div>
+            <div class="alert-card-label">Distinct vendors</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-unmatched">—</div>
+            <div class="alert-card-label">No vendor matched</div>
+          </a>
+        </div>
+      </div>
+      <div class="alert-bar"></div>
+
+      <div class="main">
+      <div class="scroll" style="padding:20px">
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Total out (recurring)</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700" id="metric-total">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">This month</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700" id="metric-month">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Transactions</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700" id="metric-count">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Distinct vendors</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700" id="metric-vendors">—</div>
+          </div>
+        </div>
+
+        <div class="rec-filter-bar">
+          <input type="text" id="rec-search" placeholder="Search counterparty or vendor…" oninput="applyAndRender()">
+          <select id="rec-entity" onchange="applyAndRender()">
+            <option value="">All entities</option>
+          </select>
+          <select id="rec-account" onchange="applyAndRender()">
+            <option value="">All accounts</option>
+          </select>
+          <select id="rec-month" onchange="applyAndRender()">
+            <option value="">All time</option>
+          </select>
+          <select id="rec-vtype" onchange="applyAndRender()">
+            <option value="">All vendor types</option>
+            <option value="merchant">Merchant</option>
+            <option value="contractor">Contractor</option>
+            <option value="coach">Coach</option>
+            <option value="team_member">Team member</option>
+          </select>
+          <input type="number" id="rec-amt-min" placeholder="Min amount" style="width:100px" oninput="applyAndRender()">
+          <input type="number" id="rec-amt-max" placeholder="Max amount" style="width:100px" oninput="applyAndRender()">
+          <button class="tx-toolbar-btn" style="margin-left:auto" onclick="recExportCSV()">⬇ Export CSV</button>
+        </div>
+
+        <div class="block" style="overflow-x:auto">
+          <table class="tbl" id="rec-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Counterparty</th>
+                <th>Vendor</th>
+                <th>Type</th>
+                <th>Account</th>
+                <th>Category</th>
+                <th>Entity</th>
+                <th style="text-align:right">Amount</th>
+                <th>Cur</th>
+              </tr>
+            </thead>
+            <tbody id="rec-tbody">
+              <tr><td colspan="9" class="rec-empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="rec-pagination" style="display:flex;align-items:center;gap:6px;padding:12px 0;font-size:12px;color:var(--mu)"></div>
+
+      </div><!-- /.scroll -->
+      </div><!-- /.main -->
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="components/layout.js"></script>
+<script src="components/table-framework.js"></script>
+<script src="components/badges.js"></script>
+<script src="panel-manager.js"></script>
+<script>
+let _vendorMap = {}
+let _catMap    = {}
+
+const _tbl = TableFramework.create({
+  namespace:    'rec',
+  tableId:      'rec-tbody',
+  paginationId: 'rec-pagination',
+  pageSize:     50,
+  filename:     'recurring-services',
+  columns: [
+    { label: 'Date',         getValue: r => r.transaction_date || '' },
+    { label: 'Counterparty', getValue: r => r.counterparty_name || '' },
+    { label: 'Vendor',       getValue: r => { const v = r.vendor_id ? _vendorMap[r.vendor_id] : null; return v ? (v.full_name||v.name||'') : '' } },
+    { label: 'Vendor Type',  getValue: r => { const v = r.vendor_id ? _vendorMap[r.vendor_id] : null; return v?.vendor_type || '' } },
+    { label: 'Account',      getValue: r => r.account?.name || '' },
+    { label: 'Category',     getValue: r => r.category_id ? (_catMap[r.category_id] || r.category_id) : '' },
+    { label: 'Entity',       getValue: r => r.entity || '' },
+    { label: 'Amount',       getValue: r => r.amount != null ? Math.abs(r.amount).toFixed(2) : '' },
+    { label: 'Currency',     getValue: r => r.currency || '' },
+  ],
+})
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function fmtDate(s) {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' })
+}
+function fmtAmt(n) {
+  if (n == null) return '—'
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
+function thisMonth() {
+  const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`
+}
+
+// ── populate filters ──────────────────────────────────────────────────────────
+function populateFilters(txs) {
+  const entitySel  = document.getElementById('rec-entity')
+  const accountSel = document.getElementById('rec-account')
+  const monthSel   = document.getElementById('rec-month')
+
+  const entities = [...new Set(txs.map(r => r.entity).filter(Boolean))].sort()
+  const accounts = [...new Set(txs.map(r => r.account?.name).filter(Boolean))].sort()
+  const months   = [...new Set(txs.map(r => (r.transaction_date||'').slice(0,7)).filter(Boolean))].sort().reverse()
+
+  entities.forEach(e => { const o = document.createElement('option'); o.value = o.textContent = e; entitySel.appendChild(o) })
+  accounts.forEach(a => { const o = document.createElement('option'); o.value = o.textContent = a; accountSel.appendChild(o) })
+  months.forEach(m => {
+    const o = document.createElement('option'); o.value = m
+    const [y, mo] = m.split('-')
+    o.textContent = new Date(+y, +mo-1).toLocaleDateString('en-US', { month:'long', year:'numeric' })
+    monthSel.appendChild(o)
+  })
+
+  // Restore URL state
+  _tbl.restoreUrl(['entity','account','month','vtype','amtMin','amtMax'])
+  const qs = new URLSearchParams(window.location.search)
+  if (qs.get('rec_q'))       document.getElementById('rec-search').value  = qs.get('rec_q')
+  if (qs.get('rec_entity'))  document.getElementById('rec-entity').value  = qs.get('rec_entity')
+  if (qs.get('rec_account')) document.getElementById('rec-account').value = qs.get('rec_account')
+  if (qs.get('rec_month'))   document.getElementById('rec-month').value   = qs.get('rec_month')
+  if (qs.get('rec_vtype'))   document.getElementById('rec-vtype').value   = qs.get('rec_vtype')
+  if (qs.get('rec_amtMin'))  document.getElementById('rec-amt-min').value = qs.get('rec_amtMin')
+  if (qs.get('rec_amtMax'))  document.getElementById('rec-amt-max').value = qs.get('rec_amtMax')
+}
+
+// ── metrics ────────────────────────────────────────────────────────────────
+function updateMetrics(rows) {
+  const usd = rows.filter(r => r.currency === 'USD')
+  const tm = thisMonth()
+  const totalUsd  = usd.reduce((s,r) => s + (+r.amount||0), 0)
+  const monthUsd  = usd.filter(r => r.transaction_date?.startsWith(tm)).reduce((s,r) => s + (+r.amount||0), 0)
+  const vendors   = [...new Set(rows.map(r => r.vendor_id).filter(Boolean))].length
+  const unmatched = rows.filter(r => !r.vendor_id).length
+
+  document.getElementById('metric-total').textContent   = totalUsd  ? '$' + fmtAmt(totalUsd) : '—'
+  document.getElementById('metric-month').textContent   = monthUsd  ? '$' + fmtAmt(monthUsd) : '—'
+  document.getElementById('metric-count').textContent   = rows.length
+  document.getElementById('metric-vendors').textContent = vendors
+
+  document.getElementById('alert-txcount').textContent   = _tbl.state.allRows.length
+  document.getElementById('alert-vendors').textContent   = [...new Set(_tbl.state.allRows.map(r=>r.vendor_id).filter(Boolean))].length
+  document.getElementById('alert-unmatched').textContent = _tbl.state.allRows.filter(r=>!r.vendor_id).length
+}
+
+// ── filter + render ───────────────────────────────────────────────────────────
+function applyAndRender() {
+  const q       = document.getElementById('rec-search').value.trim().toLowerCase()
+  const entity  = document.getElementById('rec-entity').value
+  const account = document.getElementById('rec-account').value
+  const month   = document.getElementById('rec-month').value
+  const vtype   = document.getElementById('rec-vtype').value
+  const amtMin  = document.getElementById('rec-amt-min').value
+  const amtMax  = document.getElementById('rec-amt-max').value
+
+  _tbl.state.search  = q
+  _tbl.state.filters = { entity, account, month, vtype, amtMin, amtMax }
+
+  _tbl.applyFilters((r, { search, filters }) => {
+    const vendor = r.vendor_id ? _vendorMap[r.vendor_id] : null
+    if (search) {
+      const cp = (r.counterparty_name||'').toLowerCase()
+      const vn = vendor ? (vendor.full_name||vendor.name||'').toLowerCase() : ''
+      if (!cp.includes(search) && !vn.includes(search)) return false
+    }
+    if (filters.entity  && r.entity !== filters.entity) return false
+    if (filters.account && r.account?.name !== filters.account) return false
+    if (filters.month   && !(r.transaction_date||'').startsWith(filters.month)) return false
+    if (filters.vtype) {
+      if (!vendor || vendor.vendor_type !== filters.vtype) return false
+    }
+    if (!_tbl.amountInRange(r.amount, filters)) return false
+    return true
+  })
+
+  renderPage()
+  _tbl.pushUrl()
+}
+window.applyAndRender = applyAndRender
+
+function renderPage() {
+  const tbody = document.getElementById('rec-tbody')
+  const slice = _tbl.getPage()
+
+  updateMetrics(_tbl.state.filtered)
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="rec-empty">No recurring transactions match your filters.</td></tr>'
+    _tbl.renderPaginationSimple('recGoPage')
+    return
+  }
+
+  // Group by vendor name (or '__unmatched')
+  const groups = {}
+  slice.forEach(r => {
+    const vendor = r.vendor_id ? _vendorMap[r.vendor_id] : null
+    const key = vendor ? (vendor.full_name || vendor.name || r.vendor_id) : '__unmatched'
+    if (!groups[key]) groups[key] = []
+    groups[key].push(r)
+  })
+
+  let html = ''
+  Object.entries(groups).forEach(([group, rows]) => {
+    const isUnmatched = group === '__unmatched'
+    html += `<tr class="rec-group-row"><td colspan="9">${isUnmatched ? 'No vendor matched' : group}</td></tr>`
+    rows.forEach(r => {
+      const vendor  = r.vendor_id ? _vendorMap[r.vendor_id] : null
+      const vName   = vendor ? (vendor.full_name || vendor.name || '') : ''
+      const vBadge  = vendor ? Badges.vendorType(vendor.vendor_type) : ''
+      const catName = r.category_id ? (_catMap[r.category_id] || r.category_id) : ''
+      const cadBadge = Badges.cadence(r.payment_cadence || 'recurring')
+
+      html += `<tr style="cursor:pointer" onclick="openTxDetail('${r.id}')">
+        <td style="font-family:var(--font-mono);font-size:11px;white-space:nowrap">${fmtDate(r.transaction_date)}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.counterparty_name||'—'}</td>
+        <td style="white-space:nowrap">${vName ? `<span style="font-size:12px">${vName}</span>${vBadge}` : '<span style="color:var(--mu2);font-size:11px;font-style:italic">unmatched</span>'}</td>
+        <td>${cadBadge}</td>
+        <td style="font-size:11px;color:var(--mu)">${r.account?.name||'—'}</td>
+        <td style="font-size:11px;color:var(--mu)">${catName||'—'}</td>
+        <td style="font-size:11px;color:var(--mu)">${r.entity||'—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono);font-weight:600">${fmtAmt(r.amount)}</td>
+        <td style="font-size:10px;font-family:var(--font-mono);color:var(--mu)">${r.currency||'—'}</td>
+      </tr>`
+    })
+  })
+
+  tbody.innerHTML = html
+  _tbl.renderPaginationSimple('recGoPage')
+}
+
+function recGoPage(p) {
+  _tbl.goPage(p)
+  renderPage()
+  _tbl.pushUrl()
+}
+window.recGoPage = recGoPage
+
+function recExportCSV() {
+  _tbl.exportCSV()
+}
+window.recExportCSV = recExportCSV
+
+async function renderTxDrawer(txId) {
+  const content = document.getElementById('tx-drawer-content')
+  if (!content) return
+  const db = window._sb
+  if (!db) {
+    const msg = document.createTextNode('DB not ready')
+    content.replaceChildren(msg)
+    return
+  }
+  try {
+    const { data: tx, error } = await db.from('transactions').select(`
+      id, transaction_date, amount, currency, direction, status,
+      counterparty_name, event_type, category_id, tax_treatment, entity, tags,
+      account:accounts(name, provider)
+    `).eq('id', txId).maybeSingle()
+    if (error || !tx) throw error || new Error('Transaction not found')
+
+    const isIn    = tx.direction === 'in'
+    const amtNum  = Math.abs(tx.amount || 0).toFixed(2)
+    const amtStr  = (tx.currency !== 'USD' ? tx.currency + ' ' : '$') + amtNum
+    const dotClr  = tx.status === 'reconciled' ? 'var(--green)' : tx.status === 'matched' ? 'var(--blue)' : 'var(--amber)'
+    const catLabel = tx.category_id ? (_catMap[tx.category_id] || tx.category_id) : '—'
+    const tags    = Array.isArray(tx.tags) ? tx.tags : (tx.tags ? [tx.tags] : [])
+
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'padding:20px'
+
+    const title = document.createElement('div')
+    title.style.cssText = 'font-size:15px;font-weight:600;margin-bottom:4px'
+    title.textContent = tx.counterparty_name || tx.event_type || '—'
+    wrap.appendChild(title)
+
+    const amt = document.createElement('div')
+    amt.style.cssText = `font-size:22px;font-family:var(--font-mono);font-weight:700;color:${isIn ? 'var(--green-text)' : 'var(--ink)'};margin-bottom:8px`
+    amt.textContent = (isIn ? '+' : '−') + amtStr
+    wrap.appendChild(amt)
+
+    const meta = document.createElement('div')
+    meta.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mu);margin-bottom:16px'
+    const dot = document.createElement('span')
+    dot.style.cssText = `display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotClr}`
+    meta.appendChild(dot)
+    meta.appendChild(document.createTextNode(` ${tx.status || '—'} · ${tx.transaction_date || '—'} · ${tx.account?.name || '—'}`))
+    wrap.appendChild(meta)
+
+    const grid = document.createElement('div')
+    grid.style.cssText = 'display:grid;gap:10px'
+    ;[
+      ['Category',      catLabel],
+      ['Entity',        tx.entity || '—'],
+      ['Tax treatment', tx.tax_treatment || '—'],
+    ].forEach(([label, value]) => {
+      const row = document.createElement('div')
+      const lbl = document.createElement('div')
+      lbl.style.cssText = 'font-size:10px;font-family:var(--font-mono);text-transform:uppercase;color:var(--mu2);margin-bottom:3px'
+      lbl.textContent = label
+      const val = document.createElement('div')
+      val.style.cssText = 'font-size:13px'
+      val.textContent = value
+      row.appendChild(lbl)
+      row.appendChild(val)
+      grid.appendChild(row)
+    })
+    if (tags.length) {
+      const tagsRow = document.createElement('div')
+      const tagsLbl = document.createElement('div')
+      tagsLbl.style.cssText = 'font-size:10px;font-family:var(--font-mono);text-transform:uppercase;color:var(--mu2);margin-bottom:3px'
+      tagsLbl.textContent = 'Tags'
+      const tagsWrap = document.createElement('div')
+      tagsWrap.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap'
+      tags.forEach(t => {
+        const pill = document.createElement('span')
+        pill.style.cssText = 'font-size:11px;padding:1px 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border)'
+        pill.textContent = t
+        tagsWrap.appendChild(pill)
+      })
+      tagsRow.appendChild(tagsLbl)
+      tagsRow.appendChild(tagsWrap)
+      grid.appendChild(tagsRow)
+    }
+    wrap.appendChild(grid)
+
+    const link = document.createElement('a')
+    link.href = `payments.html?tab=transactions&entity=transaction&id=${encodeURIComponent(txId)}&view=panel`
+    link.className = 'btn btn-sm'
+    link.style.marginTop = '20px'
+    link.textContent = 'Open in Payments →'
+    wrap.appendChild(link)
+
+    content.replaceChildren(wrap)
+  } catch (err) {
+    const errMsg = document.createTextNode('Failed to load: ' + (err.message || err))
+    content.replaceChildren(errMsg)
+  }
+}
+window.renderTxDrawer = renderTxDrawer
+
+function openTxDetail(txId) {
+  if (!txId) return
+  window.PanelManager?.open('transaction', txId)
+}
+window.openTxDetail = openTxDetail
+
+// ── init ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await LAYOUT.init('Recurring Services', 'payments')
+
+  try {
+    const [txs, vendors, cats] = await Promise.all([
+      getTransactions(),
+      getVendors(),
+      getTransactionCategories(),
+    ])
+
+    vendors.forEach(v => { _vendorMap[v.id] = v })
+    cats.forEach(c => { _catMap[c.id] = c.name })
+
+    _tbl.state.allRows = txs.filter(r => {
+      if (r.direction !== 'out') return false
+      if (r.payment_cadence === 'recurring') return true
+      const vendor = r.vendor_id ? _vendorMap[r.vendor_id] : null
+      if (vendor?.payment_cadence === 'recurring') return true
+      return false
+    })
+
+    populateFilters(_tbl.state.allRows)
+    applyAndRender()
+  } catch (e) {
+    console.error(e)
+    document.getElementById('rec-tbody').innerHTML =
+      '<tr><td colspan="9" class="rec-empty" style="color:var(--red-text)">Failed to load — check console.</td></tr>'
+  }
+})
+</script>
+</body>
+</html>

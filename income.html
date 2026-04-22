@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Income</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .inc-amount { font-family: var(--font-mono); font-weight: 700; color: var(--green-text); }
+    .inc-filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 0; margin-bottom: 12px;
+    }
+    .inc-filter-bar select, .inc-filter-bar input {
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: var(--surface); color: var(--ink); cursor: pointer; outline: none;
+    }
+    .inc-filter-bar input { cursor: text; width: 200px; }
+    .inc-filter-bar select:focus, .inc-filter-bar input:focus { border-color: var(--ink); }
+    .inc-empty { padding: 40px; text-align: center; color: var(--mu2); font-size: 13px; }
+    .inc-loading { padding: 40px; text-align: center; color: var(--mu2); font-size: 13px; }
+    .tx-toolbar-btn {
+      height: 28px; padding: 0 10px; border-radius: 6px; font-size: 11px;
+      font-family: var(--font-sans); cursor: pointer; white-space: nowrap;
+      border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .tx-toolbar-btn:hover { background: var(--bg); border-color: var(--ink); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div id="layout-topbar"></div>
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+    <div class="app-content">
+
+      <div class="space-cover payments">
+        <div class="space-cover__bg"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow">Payments · Finance</div>
+        <div class="space-cover-title">Income</div>
+        <div class="cover-widgets">
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-total">—</div>
+            <div class="alert-card-label">In this month</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-count">—</div>
+            <div class="alert-card-label">Transactions</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-sources">—</div>
+            <div class="alert-card-label">Sources</div>
+          </a>
+        </div>
+      </div>
+      <div class="alert-bar"></div>
+
+      <div class="main">
+      <div class="scroll" style="padding:20px">
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">This month</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--green-text)" id="metric-month">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Last month</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--ink)" id="metric-last">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Year to date</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--ink)" id="metric-ytd">—</div>
+          </div>
+        </div>
+
+        <div class="inc-filter-bar">
+          <input type="text" id="inc-search" placeholder="Search counterparty…" oninput="applyAndRender()">
+          <select id="inc-account" onchange="applyAndRender()">
+            <option value="">All accounts</option>
+          </select>
+          <select id="inc-month" onchange="applyAndRender()">
+            <option value="">All time</option>
+          </select>
+          <select id="inc-source" onchange="applyAndRender()">
+            <option value="">All sources</option>
+          </select>
+          <select id="inc-status" onchange="applyAndRender()">
+            <option value="">All statuses</option>
+            <option value="matched">Matched</option>
+            <option value="unmatched">Unmatched</option>
+            <option value="reconciled">Reconciled</option>
+          </select>
+          <input type="number" id="inc-amt-min" placeholder="Min amount" style="width:100px" oninput="applyAndRender()">
+          <input type="number" id="inc-amt-max" placeholder="Max amount" style="width:100px" oninput="applyAndRender()">
+          <button class="tx-toolbar-btn" style="margin-left:auto" onclick="incExportCSV()">⬇ Export CSV</button>
+        </div>
+
+        <div class="block" style="overflow-x:auto">
+          <table class="tbl" id="inc-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>From</th>
+                <th>Vendor</th>
+                <th>Account</th>
+                <th>Source</th>
+                <th>Category</th>
+                <th style="text-align:right">Amount</th>
+                <th>Cur</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="inc-tbody">
+              <tr><td colspan="9" class="inc-loading">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="inc-pagination" style="display:flex;align-items:center;gap:6px;padding:12px 0;font-size:12px;color:var(--mu)"></div>
+
+      </div><!-- /.scroll -->
+      </div><!-- /.main -->
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="components/layout.js"></script>
+<script src="components/table-framework.js"></script>
+<script src="components/badges.js"></script>
+<script src="panel-manager.js"></script>
+<script>
+let _vendorMap = {}
+let _catMap    = {}
+
+const _tbl = TableFramework.create({
+  namespace:    'inc',
+  tableId:      'inc-tbody',
+  paginationId: 'inc-pagination',
+  pageSize:     50,
+  filename:     'income',
+  columns: [
+    { label: 'Date',         getValue: r => r.transaction_date || '' },
+    { label: 'From',         getValue: r => r.counterparty_name || '' },
+    { label: 'Vendor',       getValue: r => { const v = r.vendor_id ? _vendorMap[r.vendor_id] : null; return v ? (v.full_name||v.name||'') : '' } },
+    { label: 'Account',      getValue: r => r.account?.name || '' },
+    { label: 'Source',       getValue: r => r.source || '' },
+    { label: 'Category',     getValue: r => r.category_id ? (_catMap[r.category_id] || r.category_id) : '' },
+    { label: 'Amount',       getValue: r => r.amount != null ? Math.abs(r.amount).toFixed(2) : '' },
+    { label: 'Currency',     getValue: r => r.currency || '' },
+    { label: 'Status',       getValue: r => r.status || '' },
+  ],
+})
+
+// ── helpers ─────────────────────────────────────────────────────────────────
+function fmtDate(s) {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' })
+}
+function fmtAmt(n) {
+  if (n == null) return '—'
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
+function fmtAmtShort(n) {
+  if (!n) return '—'
+  return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+}
+function thisMonth() {
+  const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`
+}
+function lastMonth() {
+  const n = new Date(new Date().getFullYear(), new Date().getMonth()-1, 1)
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`
+}
+function thisYear() { return String(new Date().getFullYear()) }
+
+// ── populate filters ─────────────────────────────────────────────────────────
+function populateFilters(txs) {
+  const accountSel = document.getElementById('inc-account')
+  const monthSel   = document.getElementById('inc-month')
+  const sourceSel  = document.getElementById('inc-source')
+
+  const accounts = [...new Set(txs.map(r => r.account?.name).filter(Boolean))].sort()
+  const months   = [...new Set(txs.map(r => (r.transaction_date||'').slice(0,7)).filter(Boolean))].sort().reverse()
+  const sources  = [...new Set(txs.map(r => r.source).filter(Boolean))].sort()
+
+  accounts.forEach(a => { const o = document.createElement('option'); o.value = o.textContent = a; accountSel.appendChild(o) })
+  months.forEach(m => {
+    const o = document.createElement('option'); o.value = m
+    const [y, mo] = m.split('-')
+    o.textContent = new Date(+y, +mo-1).toLocaleDateString('en-US', { month:'long', year:'numeric' })
+    monthSel.appendChild(o)
+  })
+  sources.forEach(s => { const o = document.createElement('option'); o.value = o.textContent = s; sourceSel.appendChild(o) })
+
+  // Restore URL state into selects
+  _tbl.restoreUrl(['account','month','source','status','amtMin','amtMax'])
+  const qs = new URLSearchParams(window.location.search)
+  if (qs.get('inc_q'))       document.getElementById('inc-search').value  = qs.get('inc_q')
+  if (qs.get('inc_account')) document.getElementById('inc-account').value = qs.get('inc_account')
+  if (qs.get('inc_month'))   document.getElementById('inc-month').value   = qs.get('inc_month')
+  if (qs.get('inc_source'))  document.getElementById('inc-source').value  = qs.get('inc_source')
+  if (qs.get('inc_status'))  document.getElementById('inc-status').value  = qs.get('inc_status')
+  if (qs.get('inc_amtMin'))  document.getElementById('inc-amt-min').value = qs.get('inc_amtMin')
+  if (qs.get('inc_amtMax'))  document.getElementById('inc-amt-max').value = qs.get('inc_amtMax')
+}
+
+// ── metrics ───────────────────────────────────────────────────────────────────
+function updateMetrics(rows) {
+  const usd = rows.filter(r => r.currency === 'USD')
+  const tm = thisMonth(), lm = lastMonth(), ty = thisYear()
+
+  const sumThis = usd.filter(r => r.transaction_date?.startsWith(tm)).reduce((s,r) => s + (+r.amount||0), 0)
+  const sumLast = usd.filter(r => r.transaction_date?.startsWith(lm)).reduce((s,r) => s + (+r.amount||0), 0)
+  const sumYtd  = usd.filter(r => r.transaction_date?.startsWith(ty)).reduce((s,r) => s + (+r.amount||0), 0)
+
+  document.getElementById('metric-month').textContent = sumThis ? '$' + fmtAmt(sumThis) : '—'
+  document.getElementById('metric-last').textContent  = sumLast ? '$' + fmtAmt(sumLast)  : '—'
+  document.getElementById('metric-ytd').textContent   = sumYtd  ? '$' + fmtAmt(sumYtd)   : '—'
+
+  const allThisMonth = _tbl.state.allRows.filter(r => r.transaction_date?.startsWith(tm) && r.currency === 'USD')
+  document.getElementById('alert-total').textContent   = allThisMonth.length ? '$' + fmtAmt(allThisMonth.reduce((s,r)=>s+(+r.amount||0),0)) : '—'
+  document.getElementById('alert-count').textContent   = _tbl.state.allRows.length
+  document.getElementById('alert-sources').textContent = [...new Set(_tbl.state.allRows.map(r=>r.source).filter(Boolean))].length
+}
+
+// ── filter + render ─────────────────────────────────────────────────────────
+function applyAndRender() {
+  const q       = document.getElementById('inc-search').value.trim().toLowerCase()
+  const account = document.getElementById('inc-account').value
+  const month   = document.getElementById('inc-month').value
+  const source  = document.getElementById('inc-source').value
+  const status  = document.getElementById('inc-status').value
+  const amtMin  = document.getElementById('inc-amt-min').value
+  const amtMax  = document.getElementById('inc-amt-max').value
+
+  _tbl.state.search = q
+  _tbl.state.filters = { account, month, source, status, amtMin, amtMax }
+
+  _tbl.applyFilters((r, { search, filters }) => {
+    if (search && !(r.counterparty_name||'').toLowerCase().includes(search)) return false
+    if (filters.account && r.account?.name !== filters.account) return false
+    if (filters.month   && !(r.transaction_date||'').startsWith(filters.month)) return false
+    if (filters.source  && r.source !== filters.source) return false
+    if (filters.status  && r.status !== filters.status) return false
+    if (!_tbl.amountInRange(r.amount, filters)) return false
+    return true
+  })
+
+  renderPage()
+  _tbl.pushUrl()
+}
+window.applyAndRender = applyAndRender
+
+function renderPage() {
+  const tbody = document.getElementById('inc-tbody')
+  const slice = _tbl.getPage()
+
+  updateMetrics(_tbl.state.filtered)
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="inc-empty">No income transactions match your filters.</td></tr>'
+    _tbl.renderPaginationSimple('incGoPage')
+    return
+  }
+
+  tbody.innerHTML = slice.map(r => {
+    const vendor  = r.vendor_id ? _vendorMap[r.vendor_id] : null
+    const vName   = vendor ? (vendor.full_name || vendor.name || '') : ''
+    const vBadge  = vendor ? Badges.vendorType(vendor.vendor_type) : ''
+    const catName = r.category_id ? (_catMap[r.category_id] || r.category_id) : ''
+    const statusBadge = Badges.incomeStatus(r.status)
+
+    return `<tr style="cursor:pointer" onclick="openTxDetail('${r.id}')">
+      <td style="font-family:var(--font-mono);font-size:11px;white-space:nowrap">${fmtDate(r.transaction_date)}</td>
+      <td style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.counterparty_name || '—'}</td>
+      <td style="white-space:nowrap">${vName ? `<span style="font-size:12px">${vName}</span>${vBadge}` : '<span style="color:var(--mu2);font-size:11px">—</span>'}</td>
+      <td style="font-size:11px;color:var(--mu)">${r.account?.name || '—'}</td>
+      <td style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;color:var(--mu)">${r.source || '—'}</td>
+      <td style="font-size:11px;color:var(--mu)">${catName || '—'}</td>
+      <td style="text-align:right" class="inc-amount">${fmtAmt(r.amount)}</td>
+      <td style="font-size:10px;font-family:var(--font-mono);color:var(--mu)">${r.currency || '—'}</td>
+      <td>${statusBadge}</td>
+    </tr>`
+  }).join('')
+
+  _tbl.renderPaginationSimple('incGoPage')
+}
+
+function incGoPage(p) {
+  _tbl.goPage(p)
+  renderPage()
+  _tbl.pushUrl()
+}
+window.incGoPage = incGoPage
+
+function incExportCSV() {
+  _tbl.exportCSV()
+}
+window.incExportCSV = incExportCSV
+
+async function renderTxDrawer(txId) {
+  const content = document.getElementById('tx-drawer-content')
+  if (!content) return
+  const db = window._sb
+  if (!db) {
+    const msg = document.createTextNode('DB not ready')
+    content.replaceChildren(msg)
+    return
+  }
+  try {
+    const { data: tx, error } = await db.from('transactions').select(`
+      id, transaction_date, amount, currency, direction, status,
+      counterparty_name, event_type, category_id, tax_treatment, entity, tags,
+      account:accounts(name, provider)
+    `).eq('id', txId).maybeSingle()
+    if (error || !tx) throw error || new Error('Transaction not found')
+
+    const isIn    = tx.direction === 'in'
+    const amtNum  = Math.abs(tx.amount || 0).toFixed(2)
+    const amtStr  = (tx.currency !== 'USD' ? tx.currency + ' ' : '$') + amtNum
+    const dotClr  = tx.status === 'reconciled' ? 'var(--green)' : tx.status === 'matched' ? 'var(--blue)' : 'var(--amber)'
+    const catLabel = tx.category_id ? (_catMap[tx.category_id] || tx.category_id) : '—'
+    const tags    = Array.isArray(tx.tags) ? tx.tags : (tx.tags ? [tx.tags] : [])
+
+    // Build DOM safely
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'padding:20px'
+
+    const title = document.createElement('div')
+    title.style.cssText = 'font-size:15px;font-weight:600;margin-bottom:4px'
+    title.textContent = tx.counterparty_name || tx.event_type || '—'
+    wrap.appendChild(title)
+
+    const amt = document.createElement('div')
+    amt.style.cssText = `font-size:22px;font-family:var(--font-mono);font-weight:700;color:${isIn ? 'var(--green-text)' : 'var(--ink)'};margin-bottom:8px`
+    amt.textContent = (isIn ? '+' : '−') + amtStr
+    wrap.appendChild(amt)
+
+    const meta = document.createElement('div')
+    meta.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mu);margin-bottom:16px'
+    const dot = document.createElement('span')
+    dot.style.cssText = `display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotClr}`
+    meta.appendChild(dot)
+    meta.appendChild(document.createTextNode(` ${tx.status || '—'} · ${tx.transaction_date || '—'} · ${tx.account?.name || '—'}`))
+    wrap.appendChild(meta)
+
+    const grid = document.createElement('div')
+    grid.style.cssText = 'display:grid;gap:10px'
+    ;[
+      ['Category',      catLabel],
+      ['Entity',        tx.entity || '—'],
+      ['Tax treatment', tx.tax_treatment || '—'],
+    ].forEach(([label, value]) => {
+      const row = document.createElement('div')
+      const lbl = document.createElement('div')
+      lbl.style.cssText = 'font-size:10px;font-family:var(--font-mono);text-transform:uppercase;color:var(--mu2);margin-bottom:3px'
+      lbl.textContent = label
+      const val = document.createElement('div')
+      val.style.cssText = 'font-size:13px'
+      val.textContent = value
+      row.appendChild(lbl)
+      row.appendChild(val)
+      grid.appendChild(row)
+    })
+    if (tags.length) {
+      const tagsRow = document.createElement('div')
+      const tagsLbl = document.createElement('div')
+      tagsLbl.style.cssText = 'font-size:10px;font-family:var(--font-mono);text-transform:uppercase;color:var(--mu2);margin-bottom:3px'
+      tagsLbl.textContent = 'Tags'
+      const tagsWrap = document.createElement('div')
+      tagsWrap.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap'
+      tags.forEach(t => {
+        const pill = document.createElement('span')
+        pill.style.cssText = 'font-size:11px;padding:1px 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border)'
+        pill.textContent = t
+        tagsWrap.appendChild(pill)
+      })
+      tagsRow.appendChild(tagsLbl)
+      tagsRow.appendChild(tagsWrap)
+      grid.appendChild(tagsRow)
+    }
+    wrap.appendChild(grid)
+
+    const link = document.createElement('a')
+    link.href = `payments.html?tab=transactions&entity=transaction&id=${encodeURIComponent(txId)}&view=panel`
+    link.className = 'btn btn-sm'
+    link.style.marginTop = '20px'
+    link.textContent = 'Open in Payments →'
+    wrap.appendChild(link)
+
+    content.replaceChildren(wrap)
+  } catch (err) {
+    const errMsg = document.createTextNode('Failed to load: ' + (err.message || err))
+    content.replaceChildren(errMsg)
+  }
+}
+window.renderTxDrawer = renderTxDrawer
+
+function openTxDetail(txId) {
+  if (!txId) return
+  window.PanelManager?.open('transaction', txId)
+}
+window.openTxDetail = openTxDetail
+
+// ── init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await LAYOUT.init('Income', 'payments')
+
+  try {
+    const [txs, vendors, cats] = await Promise.all([
+      getTransactions(),
+      getVendors(),
+      getTransactionCategories(),
+    ])
+
+    vendors.forEach(v => { _vendorMap[v.id] = v })
+    cats.forEach(c => { _catMap[c.id] = c.name })
+
+    _tbl.state.allRows = txs.filter(r => r.direction === 'in')
+
+    populateFilters(_tbl.state.allRows)
+    applyAndRender()
+  } catch (e) {
+    console.error(e)
+    document.getElementById('inc-tbody').innerHTML =
+      '<tr><td colspan="9" class="inc-empty" style="color:var(--red-text)">Failed to load — check console.</td></tr>'
+  }
+})
+</script>
+</body>
+</html>

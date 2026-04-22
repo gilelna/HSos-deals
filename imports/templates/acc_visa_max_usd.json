@@ -1,0 +1,42 @@
+{
+  "account_id": "acc_visa_max_usd",
+  "source_label": "Visa Max (USD)",
+  "file_type": "xlsx",
+  "sheet": "חיובים בדולרים",
+  "encoding": "utf-8",
+  "skip_until_header": true,
+  "header_detection": "תאריך חיוב",
+  "skip_rows_from_top": null,
+  "decimal_separator": "dot",
+  "date_format": "DD/MM/YYYY",
+  "direction_logic": "negative=in,positive=out",
+  "direction_column": null,
+  "multi_section": true,
+  "section_key_column": "card_type_detected",
+  "section_filter": "ויזה מקס",
+  "columns": {
+    "date": "תאריך העסקה",
+    "settled_date": "תאריך חיוב",
+    "amount": "סכום החיוב",
+    "currency": "fixed:USD",
+    "vendor": "בית העסק",
+    "description": "בית העסק",
+    "amount_original": "סכום העסקה",
+    "currency_original": null,
+    "exchange_rate": null,
+    "entity_hint": null,
+    "category_hint": null
+  },
+  "filters": {
+    "require_column": "סכום החיוב",
+    "exclude_if_contains": null,
+    "status_column": null,
+    "valid_status_values": null
+  },
+  "internal_transfer_rule": {
+    "condition": null,
+    "event_type": "expense_vendor",
+    "include_in_pl": true
+  },
+  "notes": "USD sheet of the same Excel file. Same structure as ILS sheet but currency is fixed:USD. Only process Visa MAX sections — skip Mastercard sections. Negative amounts = refunds/credits (direction=in). Same multi-section detection as ILS sheet."
+}

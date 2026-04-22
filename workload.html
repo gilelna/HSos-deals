@@ -3,82 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HSos — Operations V2</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <title>HSos — Workload</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
 </head>
 <body>
 <div class="app">
 
-  <!-- Topbar -->
-  <div class="topbar">
-    <span class="tb-logo">HSos</span>
-    <div class="role-selector" id="role-selector"></div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="tb-user-name" id="topbar-name">Ariella Bloom</span>
-      <div class="tb-mode">DEMO</div>
-      <div class="tb-av" id="topbar-av">AB</div>
-    </div>
-  </div>
+  <!-- Layout containers — filled by layout.js -->
+  <div id="layout-topbar"></div>
 
   <!-- App body -->
   <div class="app-body" id="app-body">
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sb-space-selector">
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('sales')">
-          <span class="sb-space-dot sales"></span> Sales
-        </button>
-        <button class="sb-space-btn cur">
-          <span class="sb-space-dot operations"></span> Operations
-        </button>
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('payments')">
-          <span class="sb-space-dot payments"></span> Payments
-        </button>
-        <button class="sb-space-btn" disabled style="opacity:.4;cursor:default">
-          <span class="sb-space-dot clients"></span> Clients Portal
-        </button>
-      </div>
-      <div class="sb-nav">
-        <div class="sb-section-label">Operations</div>
-        <button class="sb-link cur" id="nav-log"     onclick="switchTab('log')">Log session</button>
-        <button class="sb-link"    id="nav-work"     onclick="switchTab('work')">My work</button>
-        <button class="sb-link"    id="nav-clients"  onclick="switchTab('clients')">My clients</button>
-        <button class="sb-link"    id="nav-profile"  onclick="switchTab('profile')">Profile</button>
-        <div class="sb-section-label" style="margin-top:8px">Tools</div>
-        <a class="sb-link" href="import.html">Import</a>
-      </div>
-    </div>
+    <!-- Layout containers — filled by layout.js -->
+    <div id="layout-sidebar"></div>
 
     <!-- Content area -->
     <div class="app-content">
 
       <!-- Space cover -->
-      <div class="space-cover operations">
-        <div class="space-cover-eyebrow" id="cover-eyebrow">Operations · Vendor</div>
+      <div class="space-cover workload">
+        <div class="space-cover__bg" style="background-image:url('files/workload.png')"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow" id="cover-eyebrow">Workload · Vendor</div>
         <div class="space-cover-title"   id="cover-title">Workload</div>
+        <div class="cover-widgets">
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="wl-cover-sessions-month">—</div>
+            <div class="alert-card-label">Sessions this month</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="wl-cover-pending-approval">—</div>
+            <div class="alert-card-label">Pending approval</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="wl-cover-active-packages">—</div>
+            <div class="alert-card-label">Active packages</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="wl-cover-reassignments">—</div>
+            <div class="alert-card-label">Vendor reassignments</div>
+          </a>
+        </div>
       </div>
 
-      <!-- Alert bar -->
-      <div class="alert-bar">
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Sessions this month</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Pending approval</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Active packages</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Vendor reassignments</div>
-        </a>
-      </div>
+      <!-- Alert bar (kept for JS compatibility, hidden via CSS) -->
+      <div class="alert-bar"></div>
 
     <!-- ═══════════════════════════════════════════════════════════
          TAB 1: LOG SESSION
@@ -87,6 +60,11 @@
       
       <!-- Left: Client picker + Form -->
       <div style="width:340px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+
+        <div id="wl-admin-vendor-wrap" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border2);background:var(--bg)">
+          <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:6px">Log as vendor</div>
+          <select id="wl-admin-vendor-select" class="fi fsel" style="height:30px;font-size:12px;width:100%" onchange="onAdminVendorChange(this.value)"></select>
+        </div>
         
         <!-- Client picker -->
         <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border2);flex-shrink:0">
@@ -111,7 +89,7 @@
           <form id="session-form">
             <div class="fg" style="margin-bottom:12px">
               <label class="fl">Date</label>
-              <input type="date" id="f-date" class="fi" required>
+              <input type="date" id="f-date" class="fi">
             </div>
             <div class="form-row" style="margin-bottom:12px">
               <div class="fg" style="flex:1">
@@ -133,7 +111,7 @@
             <div class="fg" style="margin-bottom:12px">
               <label class="fl">Task type</label>
               <select id="f-task-type" class="fi fsel" onchange="onTaskTypeChange()">
-                <option value="">— Select task type —</option>
+                <option value="">— No task type —</option>
               </select>
             </div>
             <div class="fg" style="margin-bottom:12px">
@@ -153,26 +131,8 @@
         </div>
       </div>
 
-      <!-- Right: Stats + Recent sessions -->
+      <!-- Right: Recent sessions -->
       <div class="main">
-        <!-- Month stats -->
-        <div style="padding:16px 20px;border-bottom:1px solid var(--border2);flex-shrink:0">
-          <div style="font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mu2);margin-bottom:10px" id="month-label">April 2026</div>
-          <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-            <div class="stat-card">
-              <div class="stat-val" id="stat-hours">25</div>
-              <div class="stat-label">Hours logged</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-val" id="stat-sessions">11</div>
-              <div class="stat-label">Sessions</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-val" id="stat-clients">4</div>
-              <div class="stat-label">Clients</div>
-            </div>
-          </div>
-        </div>
 
         <!-- Recent sessions table -->
         <div class="scroll" style="padding:16px 20px">
@@ -199,10 +159,10 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
-         TAB 2: MY WORK
+         TAB 2: SESSIONS
          ═══════════════════════════════════════════════════════════ -->
-    <div id="tab-work" class="main hidden">
-      
+    <div id="tab-work" class="hidden" style="display:flex;flex-direction:column">
+
       <!-- Month summary (sticky) -->
       <div style="padding:20px;border-bottom:1px solid var(--border);flex-shrink:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -241,7 +201,7 @@
       </div>
 
       <!-- Unpaid section -->
-      <div class="scroll" id="work-unpaid" style="padding:20px">
+      <div id="work-unpaid" style="padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div style="font-size:13px;font-weight:600;color:var(--ink)">⚪ Unpaid Sessions</div>
           <div style="font-family:var(--font-mono);font-size:14px;color:var(--mu)" id="unpaid-total"></div>
@@ -280,8 +240,8 @@
           <div style="font-size:11px;color:var(--mu);margin-bottom:10px" id="draft-info"></div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-sm" onclick="viewDraftBill()">View details</button>
-            <button class="btn btn-sm" onclick="editDraftBill()">Edit</button>
             <button class="btn btn-sm btn-ghost" onclick="withdrawDraftBill()">Withdraw</button>
+            <button class="btn btn-sm btn-primary" id="submit-draft-btn" onclick="submitDraftBill()">Submit for review ↗</button>
           </div>
         </div>
 
@@ -301,7 +261,7 @@
       </div>
 
       <!-- History section -->
-      <div class="scroll hidden" id="work-history" style="padding:20px">
+      <div class="hidden" id="work-history" style="padding:20px">
         <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px">✅ Payment History</div>
         <div id="history-bills"></div>
       </div>
@@ -333,47 +293,72 @@
     <!-- ═══════════════════════════════════════════════════════════
          TAB 4: MY PROFILE
          ═══════════════════════════════════════════════════════════ -->
-    <div id="tab-profile" class="main hidden scroll" style="padding:20px;max-width:720px">
-      <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">My Profile</div>
-      
-      <!-- Rate sheet -->
-      <div class="block" style="margin-bottom:20px">
-        <div class="block-head">
-          <div class="block-title">MY RATES</div>
-        </div>
-        <table class="tbl">
-          <thead>
-            <tr>
-              <th>Task type</th>
-              <th style="text-align:right">Rate (USD/hour)</th>
-            </tr>
-          </thead>
-          <tbody id="rate-sheet"></tbody>
-        </table>
-      </div>
-
-      <!-- Personal info -->
-      <div class="block">
-        <div class="block-head">
-          <div class="block-title">PERSONAL INFO</div>
-        </div>
-        <div style="padding:16px" id="profile-info">
-          <div class="sp-row">
-            <div class="sp-row-label">Full name</div>
-            <div class="sp-row-val">—</div>
-          </div>
-        </div>
-      </div>
+    <div id="tab-profile" class="main hidden" style="padding:0;overflow:hidden">
+      <iframe
+        id="workload-profile-frame"
+        title="Vendor Profile"
+        style="width:100%;height:100%;border:0;background:var(--bg)">
+      </iframe>
     </div>
 
     </div><!-- /.app-content -->
   </div><!-- /.app-body -->
 </div><!-- /.app -->
 
+<!-- Edit Session Modal -->
+<div class="overlay" id="edit-session-modal">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:460px;padding:24px">
+    <div style="font-size:17px;font-weight:600;margin-bottom:16px">Edit Session</div>
+    <input type="hidden" id="edit-session-id">
+    <div class="form-row" style="margin-bottom:12px">
+      <div class="fg" style="flex:1">
+        <label class="fl">Date</label>
+        <input type="date" id="edit-date" class="fi">
+      </div>
+      <div class="fg" style="flex:1">
+        <label class="fl">Duration</label>
+        <select id="edit-duration" class="fi fsel">
+          <option value="0.5">30 min</option>
+          <option value="1">1 hour</option>
+          <option value="1.5">1.5 hours</option>
+          <option value="2">2 hours</option>
+          <option value="2.5">2.5 hours</option>
+          <option value="3">3 hours</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Task type</label>
+      <select id="edit-task-type" class="fi fsel" onchange="onEditTaskTypeChange()">
+        <option value="">— No task type —</option>
+      </select>
+    </div>
+    <div class="fg" style="margin-bottom:12px" id="edit-client-wrap">
+      <label class="fl">Client</label>
+      <select id="edit-client" class="fi fsel"></select>
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Notes</label>
+      <textarea id="edit-notes" class="fi" rows="3"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red-text);border-color:var(--red-bg)" onclick="deleteSessionFromModal()">Delete</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditSession()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script src="router.js"></script>
+<script src="components/layout.js"></script>
+<script src="panel-manager.js"></script>
 <script src="workload.js"></script>
 </body>
 </html>

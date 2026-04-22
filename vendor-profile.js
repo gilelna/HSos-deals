@@ -3,15 +3,16 @@
 
 // ─── State ────────────────────────────────────────────────────
 
-let _vendor     = null
-let _vendorId   = null
-let _rates      = []
-let _bills      = []
-let _clients    = []
-let _sessions   = []
-let _docs       = []
-let _ratesOpen  = false
-let _readOnly   = false
+let _vendor      = null
+let _vendorId    = null
+let _rates       = []
+let _bills       = []
+let _clients     = []
+let _sessions    = []
+let _docs        = []
+let _companyName = null
+let _ratesOpen   = false
+let _readOnly    = false
 
 // ─── Init ─────────────────────────────────────────────────────
 
@@ -46,6 +47,15 @@ async function loadAll() {
     _rates   = rates || []
     _bills   = bills || []
     _docs    = docs  || []
+
+    // Fetch paying company name
+    const companyId = vendor?.company_id || vendor?.paying_company_id
+    if (companyId) {
+      const { data: co } = await _sb.from('companies').select('name').eq('id', companyId).maybeSingle()
+      _companyName = co?.name || companyId
+    } else {
+      _companyName = null
+    }
 
     // Fetch clients via vendor_clients join
     const { data: vcRows } = await _sb
@@ -185,7 +195,7 @@ function renderMeta() {
   const v = _vendor
   const el = document.getElementById('prof-meta')
 
-  const company = v.company_id || v.paying_company || '—'
+  const company = _companyName || v.company_id || v.paying_company || '—'
   const currRail = [v.preferred_currency, v.payout_rail].filter(Boolean).join(' via ') || '—'
   const since = v.created_at ? formatDate(v.created_at) : '—'
 
@@ -326,12 +336,11 @@ function renderBillsList() {
 
   el.innerHTML = _bills.map(b => {
     const month = b.created_at ? new Date(b.created_at).toLocaleDateString('en', { month: 'short', year: 'numeric' }) : '—'
-    const sessCount = '' // not fetched here for perf
     const curr = _vendor?.preferred_currency || _vendor?.payout_currency || ''
     const amt = b.total_amount ? `${curr} ${Number(b.total_amount).toLocaleString()}` : '—'
     const date = formatDate(b.paid_at || b.approved_at || b.submitted_at || b.created_at)
     return `
-      <div class="prof-list-row">
+      <div class="prof-list-row" style="cursor:pointer" onclick="openBillDetailModal('${b.id}')">
         <div class="prof-list-main">
           <div class="prof-list-name">${escHtml(b.id?.slice(0,8) || '—')} · ${month}</div>
           <div class="prof-list-sub">${date}</div>
@@ -339,12 +348,190 @@ function renderBillsList() {
         <div class="prof-list-right">
           <span class="prof-list-amt">${escHtml(amt)}</span>
           <span class="pill ${b.status}">${b.status}</span>
+          <span style="color:var(--mu2);font-size:13px">›</span>
         </div>
       </div>
     `
   }).join('')
 }
 
+async function openBillDetailModal(billId) {
+  if (!billId) return
+  const role = (window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase()
+  const isAdmin = role === 'admin' || role === 'finance' || role === 'manager'
+
+  let bill
+  try {
+    bill = await getBillWithSessions(billId)
+  } catch (e) {
+    showToast('Failed to load bill detail', 'warn')
+    return
+  }
+
+  const curr = _vendor?.preferred_currency || _vendor?.payout_currency || ''
+  const sessions = bill.sessions || []
+  const fmtAmt = n => curr + ' ' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  const fmtHrs  = h => h === 1 ? '1h' : (h || 0) + 'h'
+
+  const rows = sessions.map(s =>
+    '<tr>' +
+    '<td>' + fmtDate(s.session_date) + '</td>' +
+    '<td>' + escHtml(s.client_name || '—') + '</td>' +
+    '<td style="font-size:11px">' + escHtml(s.task_type_name || '—') + '</td>' +
+    '<td style="font-family:var(--font-mono)">' + fmtHrs(s.hours) + '</td>' +
+    '<td style="text-align:right;font-family:var(--font-mono)">' + fmtAmt((s.hours||0)*(s.rate_usd||0)) + '</td>' +
+    '</tr>'
+  ).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--mu2);padding:16px">No sessions</td></tr>'
+
+  // Build modal using DOM
+  const existing = document.getElementById('bill-detail-overlay')
+  if (existing) existing.remove()
+
+  const overlay = document.createElement('div')
+  overlay.className = 'overlay open'
+  overlay.id = 'bill-detail-overlay'
+
+  const panel = document.createElement('div')
+  panel.style.cssText = 'background:var(--surface);border-radius:var(--r-lg);width:600px;padding:24px;max-height:85vh;display:flex;flex-direction:column'
+
+  // Header
+  const header = document.createElement('div')
+  header.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px'
+  const titleDiv = document.createElement('div')
+  const titleEl = document.createElement('div')
+  titleEl.style.cssText = 'font-size:17px;font-weight:600;margin-bottom:4px'
+  titleEl.textContent = 'Bill Detail'
+  const billIdEl = document.createElement('div')
+  billIdEl.style.cssText = 'font-size:11px;font-family:var(--font-mono);color:var(--mu)'
+  billIdEl.textContent = bill.id
+  titleDiv.appendChild(titleEl)
+  titleDiv.appendChild(billIdEl)
+  const amtDiv = document.createElement('div')
+  amtDiv.style.cssText = 'text-align:right'
+  const amtEl = document.createElement('div')
+  amtEl.style.cssText = 'font-family:var(--font-mono);font-size:22px;font-weight:700'
+  amtEl.textContent = fmtAmt(bill.total_amount)
+  const statusBadge = document.createElement('span')
+  statusBadge.className = 'pill ' + bill.status
+  statusBadge.style.marginTop = '4px'
+  statusBadge.textContent = bill.status
+  amtDiv.appendChild(amtEl)
+  amtDiv.appendChild(statusBadge)
+  header.appendChild(titleDiv)
+  header.appendChild(amtDiv)
+
+  // Body
+  const body = document.createElement('div')
+  body.style.cssText = 'overflow-y:auto;flex:1'
+  const tblWrap = document.createElement('div')
+  tblWrap.className = 'block'
+  tblWrap.innerHTML = '<table class="tbl"><thead><tr><th>Date</th><th>Client</th><th>Task type</th><th>Hours</th><th style="text-align:right">Amount</th></tr></thead><tbody>' + rows + '</tbody></table>'
+  body.appendChild(tblWrap)
+
+  if (bill.finance_notes) {
+    const notesDiv = document.createElement('div')
+    notesDiv.style.cssText = 'margin-top:12px;padding:12px;background:var(--red-bg);border-radius:var(--r)'
+    const notesLabel = document.createElement('div')
+    notesLabel.style.cssText = 'font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--red-text);margin-bottom:4px'
+    notesLabel.textContent = 'Return notes'
+    const notesText = document.createElement('div')
+    notesText.style.cssText = 'font-size:12px;color:var(--ink)'
+    notesText.textContent = bill.finance_notes
+    notesDiv.appendChild(notesLabel)
+    notesDiv.appendChild(notesText)
+    body.appendChild(notesDiv)
+  }
+
+  // Footer
+  const footer = document.createElement('div')
+  footer.style.cssText = 'margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:8px'
+
+  if (isAdmin && !_readOnly) {
+    const actionsDiv = document.createElement('div')
+    actionsDiv.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap'
+    if (bill.status === 'submitted') {
+      const approveBtn = document.createElement('button')
+      approveBtn.className = 'btn btn-primary btn-sm'
+      approveBtn.textContent = 'Approve'
+      approveBtn.onclick = () => _profileBillApprove(bill.id)
+      actionsDiv.appendChild(approveBtn)
+      const returnBtn = document.createElement('button')
+      returnBtn.className = 'btn btn-sm'
+      returnBtn.style.cssText = 'color:var(--red-text);border-color:var(--red-bg)'
+      returnBtn.textContent = 'Return'
+      returnBtn.onclick = () => _profileBillReturn(bill.id)
+      actionsDiv.appendChild(returnBtn)
+    }
+    if (bill.status === 'approved') {
+      const paidBtn = document.createElement('button')
+      paidBtn.className = 'btn btn-primary btn-sm'
+      paidBtn.textContent = 'Mark as Paid'
+      paidBtn.onclick = () => _profileBillMarkPaid(bill.id)
+      actionsDiv.appendChild(paidBtn)
+    }
+    footer.appendChild(actionsDiv)
+  }
+
+  const closeBtn = document.createElement('button')
+  closeBtn.className = 'btn'
+  closeBtn.style.marginLeft = 'auto'
+  closeBtn.textContent = 'Close'
+  closeBtn.onclick = () => overlay.remove()
+  footer.appendChild(closeBtn)
+
+  panel.appendChild(header)
+  panel.appendChild(body)
+  panel.appendChild(footer)
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+}
+window.openBillDetailModal = openBillDetailModal
+
+async function _profileBillApprove(billId) {
+  const bill = await getBillWithSessions(billId)
+  const allIds = (bill.sessions || []).map(s => s.id)
+  showConfirm('Approve this bill?', async () => {
+    try {
+      await approveBillV2(billId, allIds)
+      document.getElementById('bill-detail-overlay')?.remove()
+      showToast('Bill approved')
+      _bills = await getVendorBills(_vendorId)
+      renderBillsList()
+      renderStats()
+    } catch (e) { showToast('Failed: ' + e.message, 'warn') }
+  }, { confirmLabel: 'Approve' })
+}
+window._profileBillApprove = _profileBillApprove
+
+async function _profileBillReturn(billId) {
+  const notes = prompt('Return notes (optional):') || ''
+  showConfirm('Return this bill to the vendor?', async () => {
+    try {
+      await rejectBillV2(billId, notes)
+      document.getElementById('bill-detail-overlay')?.remove()
+      showToast('Bill returned')
+      _bills = await getVendorBills(_vendorId)
+      renderBillsList()
+      renderStats()
+    } catch (e) { showToast('Failed: ' + e.message, 'warn') }
+  }, { confirmLabel: 'Return' })
+}
+window._profileBillReturn = _profileBillReturn
+
+async function _profileBillMarkPaid(billId) {
+  showConfirm('Mark this bill as paid?', async () => {
+    try {
+      await markBillPaidV2(billId)
+      document.getElementById('bill-detail-overlay')?.remove()
+      showToast('Bill marked as paid')
+      _bills = await getVendorBills(_vendorId)
+      renderBillsList()
+      renderStats()
+    } catch (e) { showToast('Failed: ' + e.message, 'warn') }
+  }, { confirmLabel: 'Mark paid' })
+}
+window._profileBillMarkPaid = _profileBillMarkPaid
 // ─── Rates card ───────────────────────────────────────────────
 
 function toggleRatesCard() {

@@ -4,76 +4,555 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — Payments V2</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
+  <style>
+    .tx-chip {
+      font-size: 11px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: 20px;
+      background: var(--surface); color: var(--mu);
+      cursor: pointer; font-family: var(--font-sans);
+    }
+    .tx-chip:hover { color: var(--ink); border-color: var(--ink); }
+    .tx-chip.cur { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+    .tx-row-review td { border-left: 3px solid var(--amber) !important; }
+    .tx-dot {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; margin-right: 5px; vertical-align: middle;
+    }
+    .tx-dot-green  { background: var(--green); }
+    .tx-dot-amber  { background: var(--amber); }
+    .ei-badge {
+      display: inline-block; font-size: 10px; font-family: var(--font-mono);
+      padding: 2px 7px; border-radius: 10px; font-weight: 600;
+    }
+    .ei-badge-pending  { background: var(--amber-bg); color: var(--amber-text); }
+    .ei-badge-link_sent{ background: var(--blue-bg);  color: var(--blue-text);  }
+    .ei-badge-invoiced { background: #ede8f5; color: #5b3fa0; }
+    .ei-badge-paid     { background: var(--green-bg); color: var(--green-text); }
+
+    /* ── Classification table ── */
+    .tbl td.cl-cell { cursor: pointer; padding: 6px 8px; position: relative; }
+    .tbl td.cl-cell:hover { background: var(--bg); }
+    .cl-placeholder { color: var(--mu2); font-size: 11px; font-style: italic; }
+
+    /* Category pill */
+    .cl-cat-pill {
+      display: inline-block; font-size: 11px; padding: 2px 8px;
+      border-radius: 10px; background: var(--bg); color: var(--ink);
+      border: 1px solid var(--border); white-space: nowrap; max-width: 160px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Tax badge */
+    .cl-tax-badge {
+      display: inline-block; font-size: 10px; font-family: var(--font-mono);
+      padding: 1px 6px; border-radius: 8px; background: var(--blue-bg);
+      color: var(--blue-text); white-space: nowrap; max-width: 140px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .cl-tax-badge.non_deductible { background: var(--red-bg); color: var(--red-text); }
+    .cl-tax-badge.mixed_review   { background: var(--amber-bg); color: var(--amber-text); }
+
+    /* B/P toggle */
+    .cl-bp-pill {
+      display: inline-block; font-size: 10px; font-family: var(--font-mono);
+      font-weight: 700; padding: 2px 8px; border-radius: 10px; cursor: pointer;
+      border: none; outline: none;
+    }
+    .cl-bp-pill.business { background: var(--blue-bg); color: var(--blue-text); }
+    .cl-bp-pill.private  { background: var(--amber-bg); color: var(--amber-text); }
+
+    /* Tag chips */
+    .cl-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px;
+      padding: 1px 6px; border-radius: 8px; background: var(--bg);
+      border: 1px solid var(--border); color: var(--mu); margin: 1px; white-space: nowrap; }
+    .cl-tag-x { cursor: pointer; color: var(--mu2); font-size: 10px; line-height: 1; }
+    .cl-tag-x:hover { color: var(--red-text); }
+
+    /* Unsaved dot */
+    .cl-unsaved::after {
+      content: ''; display: inline-block; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--amber); margin-left: 4px; vertical-align: middle;
+    }
+
+    /* Inline dropdown / popover */
+    .cl-dropdown {
+      position: absolute; top: 100%; left: 0; z-index: 200;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      min-width: 200px; max-height: 280px; display: flex; flex-direction: column;
+    }
+    .cl-dropdown input {
+      border: none; border-bottom: 1px solid var(--border); padding: 7px 10px;
+      font-family: var(--font-sans); font-size: 12px; outline: none;
+      border-radius: var(--r) var(--r) 0 0; background: var(--bg);
+    }
+    .cl-dropdown-list { overflow-y: auto; flex: 1; }
+    .cl-dropdown-item {
+      padding: 7px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .cl-dropdown-item:hover, .cl-dropdown-item.hi { background: var(--bg); }
+    .cl-dropdown-item.sel { font-weight: 600; color: var(--ink); }
+
+    /* Tag popover */
+    .cl-tag-popover {
+      position: absolute; top: 100%; left: 0; z-index: 200;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      min-width: 220px; padding: 8px;
+    }
+    .cl-tag-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; min-height: 4px; }
+    .cl-tag-input-wrap { position: relative; }
+    .cl-tag-input { width: 100%; border: 1px solid var(--border); border-radius: 6px;
+      padding: 5px 8px; font-size: 12px; outline: none; font-family: var(--font-sans); }
+    .cl-tag-input:focus { border-color: var(--ink); }
+    .cl-tag-ac { position: absolute; top: 100%; left: 0; right: 0; z-index: 210;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 var(--r) var(--r);
+      max-height: 140px; overflow-y: auto; }
+    .cl-tag-ac-item { padding: 6px 10px; font-size: 12px; cursor: pointer; }
+    .cl-tag-ac-item:hover { background: var(--bg); }
+
+    /* Filter bar */
+    .tx-filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 0; margin-bottom: 12px;
+    }
+    .tx-filter-bar select {
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: var(--surface); color: var(--ink); cursor: pointer; outline: none;
+    }
+    .tx-filter-bar select:focus { border-color: var(--ink); }
+    .tx-search-row { margin-bottom: 10px; }
+    .tx-search-input {
+      width: 240px; max-width: 100%;
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: var(--surface); color: var(--ink); outline: none;
+    }
+    .tx-search-input:focus { border-color: var(--ink); }
+    .tx-needs-review-toggle {
+      display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+      padding: 3px 9px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--mu); cursor: pointer; white-space: nowrap;
+    }
+    .tx-needs-review-toggle.on { background: var(--amber-bg); color: var(--amber-text); border-color: var(--amber); }
+
+    /* Bulk edit bar */
+    .bulk-bar {
+      position: fixed; bottom: -80px; left: var(--sidebar-w); right: 0; z-index: 150;
+      background: var(--ink); color: #fff; height: 56px;
+      display: flex; align-items: center; gap: 10px; padding: 0 20px;
+      transition: bottom .2s ease; box-shadow: 0 -2px 12px rgba(0,0,0,0.2);
+    }
+    .bulk-bar.open { bottom: 0; }
+    .bulk-bar-count { font-size: 12px; font-family: var(--font-mono); white-space: nowrap; margin-right: 4px; }
+    .bulk-bar select {
+      height: 30px; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: rgba(255,255,255,0.1); color: #fff; cursor: pointer; outline: none;
+    }
+    .bulk-bar select option { background: var(--ink); color: #fff; }
+    .bulk-bar-btn {
+      height: 30px; padding: 0 12px; border-radius: 6px; font-size: 12px; font-family: var(--font-sans);
+      cursor: pointer; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1);
+      color: #fff; white-space: nowrap;
+    }
+    .bulk-bar-btn:hover { background: rgba(255,255,255,0.2); }
+    .bulk-bar-apply { background: var(--surface); color: var(--ink); border-color: var(--surface); font-weight: 600; }
+    .bulk-bar-apply:hover { background: var(--bg); color: var(--ink); }
+    .bulk-bar-close { margin-left: auto; background: none; border: none; color: rgba(255,255,255,0.6); font-size: 18px; cursor: pointer; padding: 0 4px; }
+    .bulk-bar-close:hover { color: #fff; }
+    .bulk-bp-toggle {
+      height: 30px; padding: 0 12px; border-radius: 6px; font-size: 12px;
+      cursor: pointer; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.1); color: #fff; white-space: nowrap; font-family: var(--font-sans);
+    }
+    .bulk-bp-toggle.b { background: var(--blue-bg); color: var(--blue-text); border-color: var(--blue); }
+    .bulk-bp-toggle.p { background: var(--amber-bg); color: var(--amber-text); border-color: var(--amber); }
+
+    /* Checkbox col */
+    .tbl td.cb-col, .tbl th.cb-col { width: 32px; padding: 6px 4px 6px 10px; }
+    .tbl td.cb-col input, .tbl th.cb-col input { cursor: pointer; }
+
+    /* Vendor manager tab */
+    .vm-section-title {
+      font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 12px;
+    }
+    .vm-alias-list { padding: 8px 12px; background: var(--bg); border-top: 1px solid var(--border2); }
+    .vm-alias-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .vm-alias-input {
+      flex: 1; height: 26px; border: 1px solid var(--border); border-radius: 4px;
+      padding: 0 7px; font-size: 12px; font-family: var(--font-sans);
+    }
+    .vm-alias-del { background: none; border: none; color: var(--mu2); cursor: pointer; font-size: 14px; }
+    .vm-alias-del:hover { color: var(--red-text); }
+
+    /* ── Compact metric strip ── */
+    .tx-metric-strip {
+      display: flex; align-items: center; gap: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 0; margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .tx-metric-item {
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: 10px 18px; flex: 1; min-width: 0;
+    }
+    .tx-metric-item:hover { background: var(--bg); }
+    .tx-metric-sep { width: 1px; background: var(--border2); align-self: stretch; flex-shrink: 0; }
+    .tx-metric-label {
+      font-size: 10px; color: var(--mu); text-transform: uppercase;
+      letter-spacing: .05em; font-family: var(--font-mono); white-space: nowrap;
+    }
+    .tx-metric-val {
+      font-family: var(--font-mono); font-size: 16px; font-weight: 700;
+      color: var(--ink); margin-top: 2px;
+    }
+    .tx-metric-val.green { color: var(--green-text); }
+    .tx-metric-val.amber { color: var(--amber-text); }
+
+    /* ── Toolbar buttons (CSV export, Columns, Apply Rules) ── */
+    .tx-toolbar-btn {
+      height: 28px; padding: 0 10px; border-radius: 6px; font-size: 11px;
+      font-family: var(--font-sans); cursor: pointer; white-space: nowrap;
+      border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .tx-toolbar-btn:hover { background: var(--bg); border-color: var(--ink); }
+
+    /* ── Column configurator dropdown ── */
+    .col-cfg-wrap { position: relative; display: inline-block; }
+    .col-cfg-panel {
+      display: none; position: absolute; top: 100%; right: 0; z-index: 300;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 8px 0; min-width: 160px; margin-top: 4px;
+    }
+    .col-cfg-panel.open { display: block; }
+    .col-cfg-item {
+      display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+      font-size: 12px; cursor: pointer; user-select: none;
+    }
+    .col-cfg-item:hover { background: var(--bg); }
+    .col-cfg-item input { cursor: pointer; }
+
+    /* ── Column hide rules (nth-child includes cb-col as col 1) ──
+       tx-table col positions: 1=cb, 2=date, 3=desc, 4=account, 5=status, 6=amount, 7=cat, 8=tax, 9=bp, 10=tags */
+    #tx-table.hide-col-date   th:nth-child(2),  #tx-table.hide-col-date   td:nth-child(2)  { display: none; }
+    #tx-table.hide-col-desc   th:nth-child(3),  #tx-table.hide-col-desc   td:nth-child(3)  { display: none; }
+    #tx-table.hide-col-account th:nth-child(4), #tx-table.hide-col-account td:nth-child(4) { display: none; }
+    #tx-table.hide-col-status th:nth-child(5),  #tx-table.hide-col-status td:nth-child(5)  { display: none; }
+    #tx-table.hide-col-amount th:nth-child(6),  #tx-table.hide-col-amount td:nth-child(6)  { display: none; }
+    #tx-table.hide-col-category th:nth-child(7),#tx-table.hide-col-category td:nth-child(7){ display: none; }
+    #tx-table.hide-col-tax    th:nth-child(8),  #tx-table.hide-col-tax    td:nth-child(8)  { display: none; }
+    #tx-table.hide-col-bp     th:nth-child(9),  #tx-table.hide-col-bp     td:nth-child(9)  { display: none; }
+    #tx-table.hide-col-tags   th:nth-child(10), #tx-table.hide-col-tags   td:nth-child(10) { display: none; }
+
+    /* ── Rule save / apply toast banner ── */
+    .rule-banner {
+      position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 200;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.14); padding: 10px 16px;
+      display: flex; align-items: center; gap: 10px; font-size: 12px; max-width: 480px;
+    }
+    .rule-banner-btn {
+      height: 26px; padding: 0 10px; border-radius: 6px; font-size: 11px;
+      cursor: pointer; border: 1px solid var(--border); background: var(--ink); color: #fff;
+      font-family: var(--font-sans); white-space: nowrap;
+    }
+    .rule-banner-dismiss {
+      background: none; border: none; color: var(--mu2); font-size: 16px; cursor: pointer; padding: 0 2px;
+    }
+
+    /* ── Merchant remember banner ── */
+    .merchant-banner {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--amber-bg); border-bottom: 1px solid var(--amber);
+      padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+      font-size: 12px; color: var(--amber-text);
+    }
+    .merchant-banner span { flex: 1; }
+    .merchant-banner-btn {
+      height: 26px; padding: 0 12px; border-radius: 6px; font-size: 11px;
+      cursor: pointer; border: 1px solid var(--amber); background: var(--ink); color: #fff;
+      font-family: var(--font-sans); white-space: nowrap;
+    }
+    .merchant-banner-skip {
+      background: none; border: none; color: var(--amber-text); font-size: 12px;
+      cursor: pointer; padding: 0 4px; font-family: var(--font-sans); white-space: nowrap;
+    }
+    .merchant-banner-skip:hover { text-decoration: underline; }
+
+    /* ── Merchant Rules section ── */
+    #vm-merchants-add-form {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    #vm-merchants-add-form input {
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-size: 12px; font-family: var(--font-sans); outline: none; min-width: 160px;
+    }
+    #vm-merchants-add-form input:focus { border-color: var(--ink); }
+    #vm-merchants-add-form select {
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-size: 12px; font-family: var(--font-sans); outline: none;
+      background: var(--surface); color: var(--ink); cursor: pointer;
+    }
+
+    /* ── Duplicate row highlight ── */
+    .tx-row-dupe td:first-child { border-left: 3px solid var(--amber) !important; }
+    .tx-dupe-icon { font-size: 11px; margin-left: 4px; vertical-align: middle; }
+
+    /* ═══════════════════════════════════════════════════
+       VENDOR QUICK PANEL  (Part 3)
+       ═══════════════════════════════════════════════════ */
+    .vendor-quick-panel {
+      position: fixed; z-index: 310;
+      width: 300px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-lg); box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+      padding: 16px; font-size: 12px;
+    }
+    .vendor-quick-panel .vqp-title {
+      font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 12px;
+    }
+    .vendor-quick-panel .vqp-row {
+      display: flex; justify-content: space-between; margin-bottom: 6px;
+      align-items: center;
+    }
+    .vendor-quick-panel .vqp-label { color: var(--mu); }
+    .vendor-quick-panel .vqp-val   { color: var(--ink); text-align: right; }
+    .vendor-quick-panel .vqp-btns  { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .vendor-quick-panel .vqp-close {
+      position: absolute; top: 10px; right: 10px;
+      background: none; border: none; font-size: 16px; cursor: pointer; color: var(--mu2);
+    }
+    .vqp-merge-item {
+      padding: 8px 12px; cursor: pointer; font-size: 12px;
+      display: flex; align-items: center; gap: 6px;
+      border-bottom: 1px solid var(--border2);
+    }
+    .vqp-merge-item:last-child { border-bottom: none; }
+    .vqp-merge-item:hover { background: var(--bg); }
+    .tx-vendor-known {
+      text-decoration: underline dotted; cursor: pointer; color: var(--ink);
+    }
+    .tx-vendor-known:hover { color: var(--mu); }
+    .tx-vendor-unknown { color: var(--mu); cursor: pointer; }
+    .tx-vendor-unknown:hover { color: var(--ink); }
+
+    /* ═══════════════════════════════════════════════════
+       SOFT DELETE STYLING  (Part 4)
+       ═══════════════════════════════════════════════════ */
+    .tx-row-deleted td { text-decoration: line-through; opacity: 0.5; }
+    .tx-row-deleted td:first-child { text-decoration: none; opacity: 1; }
+  </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- Topbar -->
-  <div class="topbar">
-    <span class="tb-logo">HSos</span>
-    <div class="role-selector" id="role-selector"></div>
-    <div class="tb-av">HS</div>
-  </div>
+  <!-- Layout containers — filled by layout.js -->
+  <div id="layout-topbar"></div>
 
   <!-- App body -->
   <div class="app-body" id="app-body">
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sb-space-selector">
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('sales')">
-          <span class="sb-space-dot sales"></span> Sales
-        </button>
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('operations')">
-          <span class="sb-space-dot operations"></span> Operations
-        </button>
-        <button class="sb-space-btn cur">
-          <span class="sb-space-dot payments"></span> Payments
-        </button>
-        <button class="sb-space-btn" disabled style="opacity:.4;cursor:default">
-          <span class="sb-space-dot clients"></span> Clients Portal
-        </button>
-      </div>
-      <div class="sb-nav">
-        <div class="sb-section-label">Payments</div>
-        <button class="sb-link cur" id="nav-vendor-bills" onclick="switchTab('vendor-bills')">Vendor Bills</button>
-        <button class="sb-link"    id="nav-history"       onclick="switchTab('history')">History</button>
-        <button class="sb-link"    id="nav-registry"      onclick="switchTab('registry')">Registry</button>
-        <div class="sb-section-label" style="margin-top:8px">Tools</div>
-        <a class="sb-link" href="import.html">Import</a>
-      </div>
-    </div>
+    <!-- Layout containers — filled by layout.js -->
+    <div id="layout-sidebar"></div>
 
     <!-- Content area -->
     <div class="app-content">
 
       <!-- Space cover -->
       <div class="space-cover payments">
+        <div class="space-cover__bg" style="background-image:url('files/payments.png')"></div>
+        <div class="space-cover__overlay"></div>
         <div class="space-cover-eyebrow" id="cover-eyebrow">Payments · Finance</div>
         <div class="space-cover-title"   id="cover-title">Vendor Bills</div>
+        <div class="cover-widgets">
+          <a class="alert-card" href="#" onclick="switchTab('transactions');return false">
+            <div class="alert-card-val" id="alert-tx-total">—</div>
+            <div class="alert-card-label">Total transactions</div>
+          </a>
+          <a class="alert-card" href="#" onclick="toggleNeedsReviewFilter();switchTab('transactions');return false">
+            <div class="alert-card-val" id="alert-tx-unclassified">—</div>
+            <div class="alert-card-label">Unclassified</div>
+          </a>
+          <a class="alert-card" href="#" onclick="switchTab('transactions');return false">
+            <div class="alert-card-val" id="alert-tx-out-month">—</div>
+            <div class="alert-card-label">Out this month</div>
+          </a>
+        </div>
       </div>
 
-      <!-- Alert bar -->
-      <div class="alert-bar">
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Bills to pay</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Outstanding payroll</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Awaiting receipt</div>
-        </a>
-        <a class="alert-card" href="#" onclick="return false">
-          <div class="alert-card-val">—</div>
-          <div class="alert-card-label">Monthly inflow</div>
-        </a>
+      <!-- Alert bar (kept for JS compatibility, hidden via CSS) -->
+      <div class="alert-bar"></div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         TRANSACTIONS TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-transactions" class="main hidden">
+      <div class="scroll" style="padding:16px 20px 20px">
+
+      <!-- Compact metric strip -->
+      <div class="tx-metric-strip">
+        <div class="tx-metric-item">
+          <span class="tx-metric-label">Income</span>
+          <span class="tx-metric-val green" id="tx-metric-income">—</span>
+        </div>
+        <div class="tx-metric-sep"></div>
+        <div class="tx-metric-item">
+          <span class="tx-metric-label">Expenses</span>
+          <span class="tx-metric-val" id="tx-metric-expenses">—</span>
+        </div>
+        <div class="tx-metric-sep"></div>
+        <div class="tx-metric-item">
+          <span class="tx-metric-label">Net</span>
+          <span class="tx-metric-val" id="tx-metric-net">—</span>
+        </div>
+        <div class="tx-metric-sep"></div>
+        <div class="tx-metric-item" style="cursor:pointer" onclick="setTxFilter('needs_review')">
+          <span class="tx-metric-label">Needs review</span>
+          <span class="tx-metric-val amber" id="tx-metric-review">—</span>
+        </div>
       </div>
+
+      <!-- Filter chips -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="tx-filter-chips">
+        <button class="tx-chip cur" data-filter="all"          onclick="setTxFilter('all')">All</button>
+        <button class="tx-chip"     data-filter="in"           onclick="setTxFilter('in')">Income</button>
+        <button class="tx-chip"     data-filter="out"          onclick="setTxFilter('out')">Expenses</button>
+        <button class="tx-chip"     data-filter="transfer"     onclick="setTxFilter('transfer')">Transfers</button>
+        <button class="tx-chip"     data-filter="needs_review" onclick="setTxFilter('needs_review')">Needs review</button>
+        <button class="tx-chip"     data-filter="wise"         onclick="setTxFilter('wise')">Wise</button>
+        <button class="tx-chip"     data-filter="brex"         onclick="setTxFilter('brex')">Brex</button>
+        <button class="tx-chip"     data-filter="mizrahi"      onclick="setTxFilter('mizrahi')">Mizrahi</button>
+        <button class="tx-chip"     data-filter="dupes"        onclick="setTxFilter('dupes')">⚠ Dupes</button>
+      </div>
+
+      <!-- Advanced filter bar -->
+      <div class="tx-filter-bar" id="tx-filter-bar">
+        <select id="txf-account" onchange="applyTxFilters()">
+          <option value="">All accounts</option>
+        </select>
+        <select id="txf-month" onchange="applyTxFilters()">
+          <option value="">All months</option>
+        </select>
+        <select id="txf-category" onchange="applyTxFilters()">
+          <option value="">All categories</option>
+        </select>
+        <select id="txf-entity" onchange="applyTxFilters()">
+          <option value="">All entities</option>
+          <option value="business">Business</option>
+          <option value="private">Private</option>
+        </select>
+        <button class="tx-needs-review-toggle" id="txf-review-btn" onclick="toggleNeedsReviewFilter()">⚠ Needs review</button>
+        <button class="tx-needs-review-toggle" id="txf-deleted-btn" onclick="toggleShowDeleted()" style="margin-left:auto">🗑 Show deleted</button>
+      </div>
+      <div class="tx-search-row">
+        <input
+          type="text"
+          id="txf-search"
+          class="tx-search-input"
+          placeholder="Search transactions..."
+          oninput="applyTxFilters()">
+      </div>
+
+      <!-- Toolbar: export + column configurator + apply rules -->
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:8px">
+        <button class="tx-toolbar-btn" onclick="applyClassificationRules()">♻ Apply Rules</button>
+        <button class="tx-toolbar-btn" onclick="exportTxCSV()">⬇ Export CSV</button>
+        <div class="col-cfg-wrap" id="col-cfg-wrap">
+          <button class="tx-toolbar-btn" onclick="toggleColPanel()">Columns ▾</button>
+          <div class="col-cfg-panel" id="col-cfg-panel">
+            <label class="col-cfg-item"><input type="checkbox" data-col="date"     checked onchange="toggleTxCol(this)"> Date</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="desc"     checked onchange="toggleTxCol(this)"> Description</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="account"  checked onchange="toggleTxCol(this)"> Account</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="status"   checked onchange="toggleTxCol(this)"> Status</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="amount"   checked onchange="toggleTxCol(this)"> Amount</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="category" checked onchange="toggleTxCol(this)"> Category</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="tax"      checked onchange="toggleTxCol(this)"> Tax</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="bp"       checked onchange="toggleTxCol(this)"> B/P</label>
+            <label class="col-cfg-item"><input type="checkbox" data-col="tags"     checked onchange="toggleTxCol(this)"> Tags</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="block" id="tx-table-block" style="overflow-x:auto">
+        <table class="tbl" id="tx-table">
+          <thead>
+            <tr>
+              <th class="cb-col"><input type="checkbox" id="tx-select-all" onclick="txSelectAll(this)"></th>
+              <th>Date</th>
+              <th>Vendor / Description</th>
+              <th>Account</th>
+              <th>Status</th>
+              <th style="text-align:right">Amount</th>
+              <th>Category</th>
+              <th>Tax</th>
+              <th>B/P</th>
+              <th>Tags</th>
+            </tr>
+          </thead>
+          <tbody id="tx-tbody">
+            <tr><td colspan="10" style="text-align:center;color:var(--mu2);padding:20px">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div><!-- /.scroll -->
+    </div><!-- /#tab-transactions -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         EXPECTED INCOME TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-expected-income" class="main hidden">
+      <div class="scroll" style="padding:20px">
+      <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">Expected Income</div>
+
+      <!-- Metric cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+        <div class="block" style="padding:14px 16px">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Pending</div>
+          <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--amber-text)" id="ei-metric-pending">—</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px" id="ei-metric-pending-count"></div>
+        </div>
+        <div class="block" style="padding:14px 16px">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Link Sent</div>
+          <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--blue-text)" id="ei-metric-link-sent">—</div>
+        </div>
+        <div class="block" style="padding:14px 16px">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Invoiced</div>
+          <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--ink)" id="ei-metric-invoiced">—</div>
+        </div>
+        <div class="block" style="padding:14px 16px">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Paid this month</div>
+          <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--green-text)" id="ei-metric-paid">—</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="block" style="overflow-x:auto">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Deal / Product</th>
+              <th>Billing type</th>
+              <th>Status</th>
+              <th style="text-align:right">Amount</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="ei-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--mu2);padding:20px">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div><!-- /.scroll -->
+    </div><!-- /#tab-expected-income -->
 
     <!-- ═══════════════════════════════════════════════════════════
          VENDOR BILLS TAB
@@ -185,28 +664,144 @@
     <!-- ═══════════════════════════════════════════════════════════
          HISTORY TAB
          ═══════════════════════════════════════════════════════════ -->
-    <div id="tab-history" class="main hidden scroll" style="padding:20px">
+    <div id="tab-history" class="main hidden">
+      <div class="scroll" style="padding:20px">
       <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">Payment History</div>
       <div id="all-history"></div>
-    </div>
+      </div><!-- /.scroll -->
+    </div><!-- /#tab-history -->
 
     <!-- ═══════════════════════════════════════════════════════════
          REGISTRY TAB
          ═══════════════════════════════════════════════════════════ -->
-    <div id="tab-registry" class="main hidden scroll" style="padding:24px;max-width:900px;margin:0 auto">
+    <div id="tab-registry" class="main hidden">
+      <div class="scroll" style="padding:24px;max-width:900px;margin:0 auto">
       <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:6px">Registry</div>
-      <div style="font-size:12px;color:var(--mu);margin-bottom:24px">Master data — companies, accounts, exchange rates, balances, settings</div>
+      <div style="font-size:12px;color:var(--mu);margin-bottom:24px">Master data — companies, accounts, exchange rates, balances, categories, tags, settings</div>
       <div id="reg-error-banner" class="hidden" style="background:var(--red-bg);color:var(--red-text);border:1px solid var(--red);border-radius:var(--r);padding:10px 14px;margin-bottom:16px;font-size:12px"></div>
       <div id="reg-companies" style="margin-bottom:28px"></div>
       <div id="reg-accounts" style="margin-bottom:28px"></div>
       <div id="reg-exchange-rates" style="margin-bottom:28px"></div>
       <div id="reg-opening-balances" style="margin-bottom:28px"></div>
+      <div id="reg-categories" style="margin-bottom:28px"></div>
+      <div id="reg-tags" style="margin-bottom:28px"></div>
       <div id="reg-settings" style="margin-bottom:28px"></div>
-    </div>
+      </div><!-- /.scroll -->
+    </div><!-- /#tab-registry -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BALANCES TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-balances" class="main hidden" style="overflow-y:auto;padding:20px"></div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VENDORS TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-vendors" class="main hidden">
+      <div class="scroll" style="padding:20px">
+      <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">Vendor Manager</div>
+
+      <!-- Section A: Vendor Defaults -->
+      <div style="margin-bottom:32px">
+        <div class="vm-section-title">Vendor Defaults</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:12px">Set default classification for each vendor. Applied automatically when assigning unmatched transactions.</div>
+        <div class="block" style="overflow-x:auto">
+          <table class="tbl" id="vm-vendors-table">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Tax</th>
+                <th>B/P</th>
+                <th>Tags</th>
+                <th>Cadence</th>
+                <th>Aliases</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="vm-vendors-tbody">
+              <tr><td colspan="9" style="text-align:center;color:var(--mu2);padding:20px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section B: Unmatched Merchants -->
+      <div style="margin-bottom:32px">
+        <div class="vm-section-title">Unmatched Merchants</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:12px">Merchant names from transactions with no vendor match. Assign to a vendor to create an alias and pull their defaults.</div>
+        <div class="block" style="overflow-x:auto">
+          <table class="tbl" id="vm-unmatched-table">
+            <thead>
+              <tr>
+                <th>Merchant</th>
+                <th>Raw Category</th>
+                <th>Txn Count</th>
+                <th>Assign</th>
+              </tr>
+            </thead>
+            <tbody id="vm-unmatched-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--mu2);padding:20px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section C: Merchant Rules -->
+      <div id="vm-merchants-wrap">
+        <div class="vm-section-title">Merchant Rules</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:12px">Lightweight vendors used only for auto-classification. No rates or billing.</div>
+
+        <!-- Add new merchant form -->
+        <div id="vm-merchants-add-form">
+          <input id="new-merchant-name" placeholder="Merchant name…" type="text">
+          <select id="new-merchant-cat">
+            <option value="">Category…</option>
+          </select>
+          <button class="btn btn-sm btn-primary" onclick="addMerchantRule()">+ Add Merchant Rule</button>
+        </div>
+
+        <div class="block" style="overflow-x:auto">
+          <table class="tbl" id="vm-merchants-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Tax</th>
+                <th>B/P</th>
+                <th>Match Patterns</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="vm-merchants-tbody">
+              <tr><td colspan="6" style="text-align:center;color:var(--mu2);padding:20px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div><!-- /.scroll -->
+    </div><!-- /#tab-vendors -->
 
     </div><!-- /.app-content -->
   </div><!-- /.app-body -->
 </div><!-- /.app -->
+
+<!-- Bulk edit bar -->
+<div class="bulk-bar" id="bulk-bar">
+  <span class="bulk-bar-count" id="bulk-bar-count">0 selected</span>
+  <select id="bulk-cat-sel" title="Category">
+    <option value="">Category…</option>
+  </select>
+  <select id="bulk-tax-sel" title="Tax treatment">
+    <option value="">Tax…</option>
+  </select>
+  <button class="bulk-bp-toggle" id="bulk-bp-btn" onclick="cycleBulkBP()">B/P</button>
+  <button class="bulk-bar-btn" onclick="openBulkTagEditor()">Tags +</button>
+  <button class="bulk-bar-btn bulk-bar-apply" onclick="applyBulkEdit()">Apply</button>
+  <button class="bulk-bar-btn" id="bulk-dupe-btn" onclick="bulkMarkDuplicate()" style="display:none">Mark as Duplicate</button>
+  <button class="bulk-bar-close" onclick="clearTxSelection()">✕</button>
+</div>
 
 <!-- Reject Bill Modal -->
 <div class="overlay" id="reject-modal">
@@ -224,11 +819,60 @@
   </div>
 </div>
 
+<!-- Balance Snapshot Modal -->
+<div class="overlay" id="bal-modal">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:480px;padding:24px">
+    <div style="font-size:17px;font-weight:600;margin-bottom:16px" id="bal-modal-title">Add Balance Snapshot</div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Account</label>
+      <select id="bal-modal-account" class="fi"></select>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Month</label>
+      <input type="month" id="bal-modal-month" class="fi">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="fg">
+        <label class="fl">Opening Balance</label>
+        <input type="number" id="bal-modal-opening" class="fi" step="0.01" placeholder="0.00">
+      </div>
+      <div class="fg">
+        <label class="fl">Closing Balance <span style="color:var(--mu2);font-size:10px">(optional)</span></label>
+        <input type="number" id="bal-modal-closing" class="fi" step="0.01" placeholder="—">
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Currency</label>
+      <input type="text" id="bal-modal-currency" class="fi" placeholder="USD" style="max-width:80px">
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Notes</label>
+      <textarea id="bal-modal-notes" class="fi" rows="2" placeholder="Optional notes…"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeBalModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBalSnapshot()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Vendor Quick Panel (appended to body dynamically) -->
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script src="router.js"></script>
+<script src="components/layout.js"></script>
+<script src="components/badges.js"></script>
+<script src="panel-manager.js"></script>
 <script src="payments.js"></script>
 <script src="registry.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    LAYOUT.init('Payments', 'payments')
+  })
+</script>
 </body>
 </html>

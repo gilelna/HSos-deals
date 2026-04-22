@@ -7,9 +7,30 @@
 const sb = window.initSupabaseClient
   ? window.initSupabaseClient()
   : supabase.createClient(
-      'https://wmqmonjnmgtoilxfqqkv.supabase.co',
-      'sb_publishable_ujPTzw0beGD6fJ-V2PfNwg_mHgsoify'
+      HSOS_CONFIG.supabaseUrl,
+      HSOS_CONFIG.supabaseKey
     )
+
+// ─── DATA MODE ───────────────────────────────────────────────────────────────
+// isDummyMode: returns true when HSOS_DATA_MODE is 'dummy' (or config default is 'dummy')
+function isDummyMode() {
+  const stored = localStorage.getItem('HSOS_DATA_MODE')
+  if (stored) return stored === 'dummy'
+  return (window.HSOS_CONFIG?.defaultDataMode || 'supabase') === 'dummy'
+}
+
+// readFromDummy: proxy a call to HSOS_DUMMY if it exists
+async function readFromDummy(fnName, ...args) {
+  if (window.HSOS_DUMMY && typeof window.HSOS_DUMMY[fnName] === 'function') {
+    return window.HSOS_DUMMY[fnName](...args)
+  }
+  return null
+}
+
+// ─── DUMMY PROXY ─────────────────────────────────────────────────────────────
+// Wrap any async function to route through HSOS_DUMMY when in dummy mode.
+// Usage: const getClients = dummyOr('getClients', _getClients)
+// Not used for all functions — only those that need it.
 
 // DEBUG_DB: set window.DEBUG_DB = true in browser console to log all DB operations
 function dbLog(op, payload, result) {
@@ -32,9 +53,34 @@ async function requireAuth() {
 }
 
 async function getCurrentUser() {
-  const { data: { user } } = await sb.auth.getUser()
-  return user || null
+  // AUTH FROZEN: no real user session in bypass mode.
+  // Returns the demo vendor stored in sessionStorage if available.
+  const stored = sessionStorage.getItem('HSOS_DEMO_VENDOR')
+  if (stored) return JSON.parse(stored)
+  return null
 }
+
+function setDemoVendor(vendor) {
+  // Stores the selected demo vendor in sessionStorage.
+  // Called by the vendor picker in workload.js.
+  const profile = {
+    id:        vendor.id,
+    vendor_id: vendor.id,
+    full_name: vendor.full_name,
+    email:     vendor.email || '',
+    system_role: 'vendor',
+    initials:  (vendor.full_name || '')
+                 .split(' ')
+                 .map(w => w[0])
+                 .join('')
+                 .toUpperCase()
+                 .slice(0, 2),
+  }
+  sessionStorage.setItem('HSOS_DEMO_VENDOR', JSON.stringify(profile))
+  window.HSOS_CURRENT_VENDOR = profile
+  return profile
+}
+window.setDemoVendor = setDemoVendor
 
 async function signInWithGoogle() {
   const { data, error } = await sb.auth.signInWithOAuth({
@@ -55,6 +101,7 @@ async function signOut() {
 // Schema: id, customer_id, full_name, email, phone, client_kind, company, source, notes, active
 
 async function getClients() {
+  if (isDummyMode()) return readFromDummy('getClients')
   const { data, error } = await sb
     .from('clients')
     .select('*')
@@ -64,6 +111,7 @@ async function getClients() {
 }
 
 async function getClient(id) {
+  if (isDummyMode()) return readFromDummy('getClient', id)
   const { data, error } = await sb
     .from('clients')
     .select('*, vendor_clients(*)')
@@ -115,6 +163,7 @@ function withClientMeta(client, vendors, deals) {
 }
 
 async function getClientsWithMeta() {
+  if (isDummyMode()) return readFromDummy('getClientsWithMeta')
   const query = await sb
     .from('clients')
     .select(`
@@ -262,6 +311,7 @@ async function updateClient(id, data) {
 //         payment_id, iban, preferred_currency, contract_url, active, notes
 
 async function getVendors() {
+  if (isDummyMode()) return readFromDummy('getVendors')
   const { data, error } = await sb
     .from('vendors')
     .select('*, rates(*), vendor_clients(client_id, clients(*))')
@@ -277,6 +327,7 @@ async function getVendors() {
 }
 
 async function getVendor(id) {
+  if (isDummyMode()) return readFromDummy('getVendor', id)
   const { data, error } = await sb
     .from('vendors')
     .select('*, rates(*), vendor_clients(client_id, clients(*))')
@@ -364,6 +415,7 @@ async function unassignStudentFromVendor(vendorId, clientId) { return unassignCl
 // Schema: id, name, type (enum), base_price, currency, units, notes, active, payment_links
 
 async function getProducts() {
+  if (isDummyMode()) return readFromDummy('getProducts')
   const { data, error } = await sb
     .from('products').select('*').order('name')
   if (error) throw error
@@ -377,6 +429,7 @@ async function getProducts() {
 // NOTE: NO vendor_id, manager_id, fulfillment_stage, vat, or processor columns.
 
 async function getDeals(filters = {}) {
+  if (isDummyMode()) return readFromDummy('getDeals', filters)
   let query = sb
     .from('deals')
     .select(`
@@ -406,6 +459,7 @@ async function getDeals(filters = {}) {
 }
 
 async function getDeal(id) {
+  if (isDummyMode()) return readFromDummy('getDeal', id)
   const { data, error } = await sb
     .from('deals')
     .select(`
@@ -558,6 +612,7 @@ async function toggleDealReminder(id, done) {
 //         duration_min, session_type (enum), status (enum), notes
 
 async function getSessions(filters = {}) {
+  if (isDummyMode()) return readFromDummy('getSessions', filters)
   let query = sb
     .from('sessions')
     .select('*')
@@ -589,6 +644,7 @@ async function updateLesson(id, data)   { return updateSession(id, data) }
 // NOTE: NO client_id, session_date, duration_hours, entity_name columns.
 
 async function getVendorHours(vendorId, month) {
+  if (isDummyMode()) return readFromDummy('getVendorHours', vendorId, month)
   // month is 'YYYY-MM' string; column is 'date' (not 'session_date')
   const { data, error } = await sb
     .from('vendor_hours')
@@ -641,6 +697,7 @@ async function updateVendorHour(id, data) {
 // Schema: id, vendor_id, month, total_hours, amount, currency, status, payment_date, notes
 
 async function getPaychecks(filters = {}) {
+  if (isDummyMode()) return readFromDummy('getPaychecks', filters)
   let query = sb
     .from('paychecks')
     .select('*, vendors(*)')
@@ -656,6 +713,7 @@ async function getPaychecks(filters = {}) {
 }
 
 async function getVendorPaychecks(vendorId) {
+  if (isDummyMode()) return readFromDummy('getVendorPaychecks', vendorId)
   const { data, error } = await sb
     .from('paychecks').select('*').eq('vendor_id', vendorId).order('month', { ascending: false })
   if (error) throw error
@@ -813,12 +871,10 @@ async function advancePaycheckStatus(id) {
 // ─── PROFILES ────────────────────────────────────────────────────────────────
 
 async function getProfile() {
-  const user = await getCurrentUser()
-  if (!user) return null
-  const { data, error } = await sb
-    .from('profiles').select('*').eq('id', user.id).single()
-  if (error) throw error
-  return data
+  // In bypass mode: return whoever is stored as the demo vendor.
+  const stored = sessionStorage.getItem('HSOS_DEMO_VENDOR')
+  if (stored) return JSON.parse(stored)
+  return null
 }
 
 async function getUserRole() {
@@ -849,3 +905,102 @@ function subscribeToPaychecks(callback) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'paychecks' }, callback)
     .subscribe()
 }
+
+// ─── PACKAGES ─────────────────────────────────────────────────────────────────
+// Schema: id, deal_id, client_id, vendor_id, total_sessions, sessions_used,
+//         status, created_at
+// Computed: sessions_remaining (added by mapPackage)
+
+function mapPackage(pkg) {
+  const total = pkg.total_sessions || 0
+  const used  = pkg.sessions_used  || 0
+  return {
+    ...pkg,
+    sessions_remaining: Math.max(0, total - used),
+  }
+}
+
+async function getPackages(filters = {}) {
+  if (isDummyMode()) return readFromDummy('getPackages', filters)
+
+  let query = sb
+    .from('packages')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (filters.vendor_id) query = query.eq('vendor_id', filters.vendor_id)
+  if (filters.client_id) query = query.eq('client_id', filters.client_id)
+  if (filters.deal_id)   query = query.eq('deal_id',   filters.deal_id)
+  if (filters.status)    query = query.eq('status',    filters.status)
+
+  const { data, error } = await query
+  if (error) { dbError('getPackages', error); throw error }
+  return (data || []).map(mapPackage)
+}
+
+async function getPackage(id) {
+  if (isDummyMode()) return readFromDummy('getPackage', id)
+
+  const { data, error } = await sb
+    .from('packages')
+    .select('*, clients(*), vendors(*), sessions(*)')
+    .eq('id', id)
+    .single()
+  if (error) { dbError('getPackage', error); throw error }
+  return mapPackage(data)
+}
+
+async function createPackage(data) {
+  if (isDummyMode()) return readFromDummy('createPackage', data)
+
+  const payload = {
+    deal_id:        data.deal_id        || null,
+    client_id:      data.client_id,
+    vendor_id:      data.vendor_id,
+    total_sessions: data.total_sessions || 0,
+    sessions_used:  data.sessions_used  || 0,
+    status:         data.status         || 'active',
+  }
+  const { data: created, error } = await sb
+    .from('packages').insert(payload).select().single()
+  if (error) { dbError('createPackage', error); throw error }
+  dbLog('createPackage', payload, created)
+  return mapPackage(created)
+}
+
+async function updatePackage(id, data) {
+  if (isDummyMode()) return readFromDummy('updatePackage', id, data)
+
+  const { data: updated, error } = await sb
+    .from('packages').update(data).eq('id', id).select().single()
+  if (error) { dbError('updatePackage', error); throw error }
+  return mapPackage(updated)
+}
+
+async function adjustPackageSessionsUsed(packageId, delta) {
+  if (isDummyMode()) return readFromDummy('adjustPackageSessionsUsed', packageId, delta)
+
+  // Read current, compute new value, update
+  const { data: current, error: fetchErr } = await sb
+    .from('packages').select('sessions_used, total_sessions').eq('id', packageId).single()
+  if (fetchErr) { dbError('adjustPackageSessionsUsed fetch', fetchErr); throw fetchErr }
+
+  const newUsed = Math.max(0, (current.sessions_used || 0) + delta)
+  const updates = { sessions_used: newUsed }
+  if (newUsed >= (current.total_sessions || 0)) updates.status = 'completed'
+
+  const { data: updated, error } = await sb
+    .from('packages').update(updates).eq('id', packageId).select().single()
+  if (error) { dbError('adjustPackageSessionsUsed', error); throw error }
+  dbLog('adjustPackageSessionsUsed', { packageId, delta, newUsed }, updated)
+  return mapPackage(updated)
+}
+
+// ─── GLOBAL ERROR HANDLER ────────────────────────────────────────────────────
+
+window.addEventListener('unhandledrejection', e => {
+  console.error('[HSos] Unhandled promise rejection:', e.reason)
+  if (typeof showToast === 'function') {
+    showToast('Something went wrong — check console', 'warn')
+  }
+})

@@ -1,36 +1,22 @@
-# Lessons OS — Roadmap
+# HSos — Roadmap
 
-## Phase 1 — Core operational system (NOW)
-Goal: replace spreadsheets. Admin can manage deals, lessons, and vendors.
+## Phase 1 — Core operational system ✅ Complete
+Goal: replace spreadsheets. Admin can manage deals, vendors, and billing.
 
-### Week 1 ✅ Done
-- [x] deals.html mockup — Kanban, side panel, VAT, processors, client profile
-- [x] workload.html mockup — student list, lesson history, rates, work log
-- [x] Design system — dark theme, DM Sans/Mono, CSS variables
-- [x] CLAUDE.md, STACK.md, SCHEMA.md, ROADMAP.md
+### ✅ Done
+- [x] deals.html + deals.js — Kanban, side panel, VAT, processors, client profile, product plan routing
+- [x] workload.html + workload.js — session logging, client picker (optional), bills workflow
+- [x] payments.html + payments.js — bill approval, companies, accounts
+- [x] clients-portal.html, client-profile.html + client-profile.js
+- [x] db.js — all Supabase queries
+- [x] app.js, shared.css — shared UI layer
+- [x] hsos-schema.sql — full DB schema
+- [x] migrations/add-product-plans.sql + seed-sample-plans.sql
 
-### Week 2 — Connect to Supabase
-- [ ] schema.sql — run in Supabase SQL Editor
-- [ ] schema-seed.sql — test data
-- [ ] supabase-client.js — all data helpers
-- [ ] deals.html → live data (replace dummy arrays)
-- [ ] workload.html → live data
-- [ ] login.html — Google OAuth
-
-### Week 3 — Invoicing module
-- [ ] invoicing.html mockup
-- [ ] Invoice creation form linked to deal
-- [ ] Invoice number auto-generation
-- [ ] PDF preview in browser (jsPDF)
-- [ ] PDF → Supabase Storage → URL saved to invoices table
-- [ ] Invoice status tracking (draft → sent → paid)
-
-### Week 4 — Reporting module
-- [ ] reporting.html mockup
-- [ ] Monthly P&L: revenue vs payroll
-- [ ] Vendor payroll report — hours × rates
-- [ ] Deal pipeline summary
-- [ ] Export to CSV
+## Phase 2 — Invoicing + Reporting (NEXT)
+- [ ] invoicing.html — create invoices from deals, PDF preview, status tracking
+- [ ] reporting.html — monthly P&L, vendor payroll, deal pipeline, CSV export
+- [ ] login.html — Google OAuth (Supabase Auth)
 
 ---
 

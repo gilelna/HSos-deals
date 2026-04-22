@@ -1,0 +1,57 @@
+{
+  "account_id": "acc_mizrachi_il",
+  "source_label": "Mizrahi Tefahot IL",
+  "file_type": "csv",
+  "sheet": null,
+  "encoding": "utf-8",
+  "skip_until_header": false,
+  "header_detection": null,
+  "skip_rows_from_top": 0,
+  "decimal_separator": "dot",
+  "date_format": "DD/MM/YY",
+  "direction_logic": "negative=out,positive=in",
+  "direction_column": null,
+  "multi_section": false,
+  "section_key_column": null,
+  "columns": {
+    "date": "date",
+    "settled_date": "exec_date",
+    "amount": "amount",
+    "currency": "fixed:ILS",
+    "vendor": "counterparty",
+    "description": "transfer_purpose",
+    "amount_original": null,
+    "currency_original": null,
+    "exchange_rate": null,
+    "entity_hint": "type",
+    "category_hint": "type"
+  },
+  "filters": {
+    "require_column": "amount",
+    "exclude_if_contains": {
+      "transfer_purpose": ["יתרה קודמת", "יתרת פתיחה", "יתרת סגירה"],
+      "counterparty": ["יתרה קודמת"]
+    },
+    "status_column": null,
+    "valid_status_values": null
+  },
+  "internal_transfer_rule": {
+    "condition": "type matches ויזה מקס|מסטרקרד ביזנס",
+    "event_type": "transfer_internal",
+    "include_in_pl": false
+  },
+  "event_type_map": {
+    "העברה באינטרנט": "bank_transfer",
+    "זיכוי": "income",
+    "גרואו פיימנטס": "income",
+    "grow payments": "income",
+    "עמלת מסלול": "fee",
+    "דמי הקצאת אשראי": "fee",
+    "עמלת העברה": "fee",
+    "מס הכנסה": "tax",
+    "רכישת מטח": "fx_conversion",
+    "ויזה מקס": "transfer_internal",
+    "מסטרקרד ביזנס": "transfer_internal"
+  },
+  "notes": "Skip row 2 (empty ILS header row) and row 3 (opening balance narrative). Date format is DD/MM/YY (2-digit year). exec_date is DD/MM/YYYY. Counterparty may be blank for fee/tax rows — fall back to type. Rows with no numeric amount must be skipped (opening balance row has amount embedded in text). Internal transfers to Visa/Mastercard cards should be flagged as transfer_internal."
+}

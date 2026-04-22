@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup — Vendor Detail (Complete)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .new-badge { display: inline-block; font-size: 9px; font-family: var(--font-mono); background: var(--amber-bg); color: var(--amber-text); border: 1px solid var(--amber); padding: 1px 6px; border-radius: 10px; margin-left: 6px; }
+    .section-title { font-size: 10px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .14em; color: var(--mu2); margin: 20px 0 8px; }
+    .section-title:first-child { margin-top: 0; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--border2); border-radius: var(--r); overflow: hidden; }
+    .info-cell { padding: 10px 14px; border-bottom: 1px solid var(--border2); border-right: 1px solid var(--border2); }
+    .info-cell:nth-child(even) { border-right: none; }
+    .info-cell:nth-last-child(-n+2) { border-bottom: none; }
+    .info-cell-label { font-size: 10px; font-family: var(--font-mono); color: var(--mu2); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 3px; }
+    .info-cell-val { font-size: 13px; font-weight: 500; }
+    .info-cell-val.empty { color: var(--mu2); font-weight: 400; }
+    /* Vendor sidebar list */
+    .vendor-list { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); }
+    .vendor-list-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border2); }
+    .vendor-list-item.sel { background: var(--bg); border-left: 3px solid var(--ink); padding-left: 11px; }
+    .tag-chip { display: inline-block; padding: 2px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; color: var(--mu); margin: 2px; }
+    .tag-chip.new { background: var(--blue-bg); border-color: var(--blue); color: var(--blue-text); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber);border-radius:20px;padding:3px 10px;margin-left:12px">
+        MOCKUP — Vendor Detail Complete
+      </div>
+    </div>
+    <div class="tb-right"><div class="tb-av">HS</div></div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- Vendor list sidebar -->
+    <div class="vendor-list">
+      <div style="padding:12px 14px;border-bottom:1px solid var(--border2)">
+        <input type="text" class="fi" style="height:32px" placeholder="Search vendors…">
+      </div>
+      <div class="scroll">
+        <div class="vendor-list-item">
+          <div class="av av-sm" style="background:#5b6ee1;color:#fff">SK</div>
+          <div>
+            <div style="font-size:13px;font-weight:500">Shira Katz</div>
+            <div style="font-size:11px;color:var(--mu2)">coach</div>
+          </div>
+        </div>
+        <div class="vendor-list-item sel">
+          <div class="av av-sm" style="background:#378ADD;color:#fff">NB</div>
+          <div>
+            <div style="font-size:13px;font-weight:500">Noa Ben-David</div>
+            <div style="font-size:11px;color:var(--mu2)">coach</div>
+          </div>
+        </div>
+        <div class="vendor-list-item">
+          <div class="av av-sm" style="background:#1D9E75;color:#fff">YG</div>
+          <div>
+            <div style="font-size:13px;font-weight:500">Yael Gross</div>
+            <div style="font-size:11px;color:var(--mu2)">contractor</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vendor detail -->
+    <div class="scroll" style="flex:1;padding:24px">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+        <div class="av av-xl" style="background:#378ADD;color:#fff">NB</div>
+        <div style="flex:1">
+          <div style="font-family:var(--font-serif);font-size:24px;font-weight:700">Noa Ben-David</div>
+          <div style="font-size:11px;color:var(--mu2);font-family:var(--font-mono);margin-top:4px">coach · active</div>
+        </div>
+        <button class="btn btn-primary btn-sm">Save changes</button>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:4px;margin-bottom:20px">
+        <button class="btn btn-sm btn-primary">Profile</button>
+        <button class="btn btn-sm">Payments</button>
+        <button class="btn btn-sm">Clients</button>
+        <!-- NEW: Rates tab — rates table has 36 rows but no management UI -->
+        <button class="btn btn-sm" style="color:var(--amber-text);border-color:var(--amber)">
+          Rates <span class="new-badge" style="margin-left:4px">NEW</span>
+        </button>
+      </div>
+
+      <!-- Profile tab content -->
+      <div style="max-width:560px">
+
+        <div class="section-title">Contact</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="fg">
+            <label class="fl">Full name</label>
+            <input class="fi" value="Noa Ben-David">
+          </div>
+          <!-- NEW: vendors.nickname — currently ❌ NOT DISPLAYED -->
+          <div class="fg">
+            <label class="fl">
+              Nickname
+              <!-- NEW: vendors.nickname — display name / short name -->
+              <span class="new-badge">NEW</span>
+            </label>
+            <input class="fi" value="Noa" placeholder="Short name or alias">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg">
+              <label class="fl">Email</label>
+              <input class="fi" type="email" value="noa.bendavid@gmail.com">
+            </div>
+            <div class="fg">
+              <label class="fl">Phone</label>
+              <input class="fi" value="+972-54-222-3344">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg">
+              <label class="fl">Vendor type</label>
+              <select class="fi fsel">
+                <option>coach</option>
+                <option>contractor</option>
+                <option>team_member</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">Status</label>
+              <select class="fi fsel">
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- NEW: vendors.service_types — currently ❌ NOT DISPLAYED -->
+        <!--
+          NEW: vendors.service_types is a JSONB array like ["coaching","consulting","editing"].
+          Currently exists in DB but no UI to view or edit.
+        -->
+        <div class="section-title">
+          Service Types
+          <span class="new-badge">NEW</span>
+        </div>
+        <div>
+          <span class="tag-chip new">coaching</span>
+          <span class="tag-chip new">consulting</span>
+          <span class="tag-chip" style="border-style:dashed;cursor:pointer">+ Add type</span>
+        </div>
+
+        <div class="section-title">Payment Details</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg">
+              <label class="fl">Payment method</label>
+              <select class="fi fsel">
+                <option>iban</option>
+                <option>paypal</option>
+                <option>wise</option>
+                <option>other</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">Preferred currency</label>
+              <select class="fi fsel">
+                <option>EUR</option>
+                <option selected>ILS</option>
+                <option>USD</option>
+                <option>GBP</option>
+              </select>
+            </div>
+          </div>
+          <!-- NEW: vendors.payout_currency — currently ❌ NOT DISPLAYED -->
+          <!--
+            NEW: vendors.payout_currency is a separate enum (usd/ils/eur) from preferred_currency.
+            This is the currency vendor gets PAID in — critical for paycheck calculations.
+          -->
+          <div class="fg">
+            <label class="fl">
+              Payout currency
+              <!-- NEW: vendors.payout_currency — what currency vendor actually receives -->
+              <span class="new-badge">NEW</span>
+            </label>
+            <select class="fi fsel">
+              <option>usd</option>
+              <option selected>ils</option>
+              <option>eur</option>
+            </select>
+            <div style="font-size:10px;color:var(--mu2);margin-top:3px">
+              Currency used for actual bank transfers (may differ from base currency)
+            </div>
+          </div>
+          <div class="fg">
+            <label class="fl">IBAN / Payment ID</label>
+            <input class="fi" value="IL00-0000-0000-0000-0000-000" placeholder="IBAN, PayPal email, or Wise ID">
+          </div>
+        </div>
+
+        <!-- NEW: vendors.contract_url — currently ❌ NOT DISPLAYED -->
+        <!--
+          NEW: vendors.contract_url — link to vendor's service agreement / contract doc.
+          Exists in DB but completely invisible in any UI view.
+        -->
+        <div class="section-title">
+          Contract
+          <span class="new-badge">NEW</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <div class="fg" style="flex:1">
+            <label class="fl">Contract URL</label>
+            <input class="fi" value="https://drive.google.com/file/d/1Noa_Contract_2025" placeholder="Google Drive, Notion, or any URL">
+          </div>
+          <a href="https://drive.google.com/file/d/1Noa_Contract_2025" target="_blank" rel="noopener"
+             class="btn btn-sm" style="height:36px;align-self:flex-end;text-decoration:none;display:flex;align-items:center">
+            Open ↗
+          </a>
+        </div>
+
+        <!-- Rates section — NEW TAB content preview -->
+        <!--
+          NEW: This would be a "Rates" tab. Currently 36 rates in DB but NO management UI.
+          Rates are used for paycheck calculations (session_type → hourly rate).
+        -->
+        <div class="section-title">
+          Rates
+          <span class="new-badge">NEW — currently no management UI</span>
+        </div>
+        <div class="block">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Session Type</th>
+                <th>Rate</th>
+                <th>Currency</th>
+                <th>Effective Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>coaching</td>
+                <td class="mono">80.00</td>
+                <td>USD</td>
+                <td style="font-family:var(--font-mono);font-size:11px">2024-01-01</td>
+                <td style="text-align:right"><button class="btn btn-sm">Edit</button></td>
+              </tr>
+              <tr>
+                <td>consulting</td>
+                <td class="mono">100.00</td>
+                <td>USD</td>
+                <td style="font-family:var(--font-mono);font-size:11px">2024-01-01</td>
+                <td style="text-align:right"><button class="btn btn-sm">Edit</button></td>
+              </tr>
+              <tr>
+                <td colspan="5" style="text-align:center">
+                  <button class="btn btn-sm btn-primary" style="margin:4px">+ Add Rate</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-title">Notes</div>
+        <textarea class="fi" rows="3" style="width:100%">Experienced leadership coach. Fluent in Hebrew and English. Prefers morning scheduling.</textarea>
+
+      </div>
+
+      <!-- Payments tab preview -->
+      <!--
+        Enhanced paychecks view showing payout_amount, payout_currency, payment_date, actual_amount_paid.
+        Currently only shows: month, total_hours, amount, status.
+      -->
+      <div style="max-width:560px;margin-top:32px;padding-top:24px;border-top:2px dashed var(--border)">
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--amber-text);margin-bottom:12px">
+          ↓ Enhanced Payments Tab (showing new fields)
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <div class="stat-card" style="flex:1;padding:10px 12px">
+            <div class="stat-val" style="font-size:22px">€ 4,800</div>
+            <div class="stat-label">Total paid</div>
+          </div>
+          <div class="stat-card" style="flex:1;padding:10px 12px">
+            <div class="stat-val" style="font-size:22px">60h</div>
+            <div class="stat-label">Total hours</div>
+          </div>
+          <!-- NEW: actual_amount_paid summary -->
+          <div class="stat-card" style="flex:1;padding:10px 12px;border-color:var(--amber)">
+            <div class="stat-val" style="font-size:22px;color:var(--amber-text)">₪ 18,200</div>
+            <div class="stat-label">
+              Actually transferred
+              <span class="new-badge">NEW</span>
+            </div>
+          </div>
+        </div>
+        <div class="block">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Hours</th>
+                <th>Amount</th>
+                <!-- NEW columns -->
+                <th>
+                  Payout
+                  <span class="new-badge">NEW</span>
+                </th>
+                <th>
+                  Paid Date
+                  <span class="new-badge">NEW</span>
+                </th>
+                <th>
+                  Actual Paid
+                  <span class="new-badge">NEW</span>
+                </th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-size:12px">Mar 2026</td>
+                <td class="mono">20h</td>
+                <td class="mono">€ 1,600</td>
+                <!-- NEW: paychecks.payout_amount + payout_currency -->
+                <td class="mono" style="color:var(--blue-text)">₪ 6,400</td>
+                <!-- NEW: paychecks.payment_date -->
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--green-text)">Apr 3, 2026</td>
+                <!-- NEW: paychecks.actual_amount_paid -->
+                <td class="mono" style="color:var(--green-text)">₪ 6,382</td>
+                <td><span class="pill paid">paid</span></td>
+              </tr>
+              <tr>
+                <td style="font-size:12px">Feb 2026</td>
+                <td class="mono">20h</td>
+                <td class="mono">€ 1,600</td>
+                <td class="mono" style="color:var(--blue-text)">₪ 6,200</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--green-text)">Mar 5, 2026</td>
+                <td class="mono" style="color:var(--green-text)">₪ 6,200</td>
+                <td><span class="pill paid">paid</span></td>
+              </tr>
+              <tr>
+                <td style="font-size:12px">Apr 2026</td>
+                <td class="mono">—</td>
+                <td class="mono">—</td>
+                <td class="mono" style="color:var(--mu2)">—</td>
+                <!-- NEW: null payment_date shows in amber -->
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--mu2)">Pending</td>
+                <td class="mono" style="color:var(--mu2)">—</td>
+                <td><span class="pill draft">draft</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

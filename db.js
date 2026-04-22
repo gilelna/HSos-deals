@@ -510,7 +510,7 @@ async function getVendorClientsWithPackages(vendorId) {
 
   const [pkgRes, sessRes] = await Promise.all([
     _sb.from('packages').select('*').eq('vendor_id', vendorId).eq('status', 'active'),
-    _sb.from('sessions').select('id, client_id').eq('vendor_id', vendorId).not('task_type_id', 'is', null),
+    _sb.from('sessions').select('id, client_id').eq('vendor_id', vendorId).not('client_id', 'is', null),
   ])
   if (pkgRes.error) throw pkgRes.error
 
@@ -570,7 +570,7 @@ async function getPackages(filters = {}) {
   await Promise.all(pairs.map(async pair => {
     const [cid, vid] = pair.split('|')
     const { count } = await _sb.from('sessions').select('id', { count: 'exact', head: true })
-      .eq('client_id', cid).eq('vendor_id', vid).not('task_type_id', 'is', null)
+      .eq('client_id', cid).eq('vendor_id', vid)
     sessionCounts[pair] = count || 0
   }))
 
@@ -590,7 +590,7 @@ async function getPackage(id) {
     data.vendors = vd || null
   }
   const { count } = await _sb.from('sessions').select('id', { count: 'exact', head: true })
-    .eq('client_id', data.client_id).eq('vendor_id', data.vendor_id).not('task_type_id', 'is', null)
+    .eq('client_id', data.client_id).eq('vendor_id', data.vendor_id)
   return _mapPackage(data, count || 0)
 }
 
@@ -651,156 +651,21 @@ async function getVendorBills(vendorId) {
   return data
 }
 
-async function getBill(id) {
+async function getBillWithSessions(billId) {
   const { data, error } = await _sb
     .from('bills')
-    .select('*, vendors(id, full_name, preferred_currency)')
-    .eq('id', id)
+    .select('*, sessions(*, clients(full_name))')
+    .eq('id', billId)
     .single()
   if (error) throw error
-  return data
-}
-
-async function getBillSessions(billId) {
-  const { data, error } = await _sb
-    .from('sessions')
-    .select('*, clients(full_name)')
-    .eq('bill_id', billId)
-    .order('session_date', { ascending: false })
-  if (error) throw error
-  return data.map(s => ({
-    ...s,
-    client_name: s.clients?.full_name || null,
-  }))
-}
-
-async function createBill({ vendorId, sessionIds, totalAmount, currency, vendorNotes }) {
-  // 1. Check for existing draft
-  const { data: existingDraft } = await _sb
-    .from('bills')
-    .select('id')
-    .eq('vendor_id', vendorId)
-    .eq('status', 'draft')
-    .maybeSingle()
-  if (existingDraft) throw new Error('You already have a draft bill. Submit or delete it first.')
-
-  // 2. Create bill
-  const { data: bill, error: e1 } = await _sb
-    .from('bills')
-    .insert({
-      vendor_id:    vendorId,
-      status:       'draft',
-      total_amount: totalAmount,
-      currency:     currency || 'EUR',
-      vendor_notes: vendorNotes || null,
-    })
-    .select().single()
-  if (e1) throw e1
-
-  // 3. Mark sessions as billed
-  const { error: e2 } = await _sb
-    .from('sessions')
-    .update({ billed: true, bill_id: bill.id })
-    .in('id', sessionIds)
-  if (e2) throw e2
-
-  return bill
-}
-
-async function updateBill(id, fields) {
-  const { data, error } = await _sb
-    .from('bills').update(fields).eq('id', id).select().single()
-  if (error) throw error
-  return data
-}
-
-async function submitBill(billId) {
-  const { data, error } = await _sb
-    .from('bills')
-    .update({ status: 'submitted', submitted_at: new Date().toISOString() })
-    .eq('id', billId).select().single()
-  if (error) throw error
-  return data
-}
-
-async function approveBill(billId, financeNotes) {
-  const { data, error } = await _sb
-    .from('bills')
-    .update({
-      status:      'approved',
-      approved_at: new Date().toISOString(),
-      finance_notes: financeNotes || null,
-    })
-    .eq('id', billId).select().single()
-  if (error) throw error
-  return data
-}
-
-async function returnBill(billId, reason) {
-  // 1. Update bill status
-  const { data: bill, error: e1 } = await _sb
-    .from('bills')
-    .update({
-      status:       'returned',
-      returned_at:  new Date().toISOString(),
-      finance_notes: reason || null,
-    })
-    .eq('id', billId).select().single()
-  if (e1) throw e1
-
-  // 2. Unbill all sessions in this bill
-  const { error: e2 } = await _sb
-    .from('sessions')
-    .update({ billed: false, bill_id: null })
-    .eq('bill_id', billId)
-  if (e2) throw e2
-
-  return bill
-}
-
-async function markBillPaid(billId, { paymentMethod, paymentReference, accountId, financeNotes }) {
-  const { data, error } = await _sb
-    .from('bills')
-    .update({
-      status:               'paid',
-      paid_at:              new Date().toISOString(),
-      payment_method:       paymentMethod || null,
-      payment_reference:    paymentReference || null,
-      paid_from_account_id: accountId || null,
-      finance_notes:        financeNotes || null,
-    })
-    .eq('id', billId).select().single()
-  if (error) throw error
-  return data
-}
-
-async function deleteBill(billId) {
-  // 1. Unbill sessions
-  const { error: e1 } = await _sb
-    .from('sessions')
-    .update({ billed: false, bill_id: null })
-    .eq('bill_id', billId)
-  if (e1) throw e1
-
-  // 2. Delete bill
-  const { error: e2 } = await _sb.from('bills').delete().eq('id', billId)
-  if (e2) throw e2
-}
-
-async function getPendingBills() {
-  const { data, error } = await _sb
-    .from('bills')
-    .select('*, vendors(id, full_name, preferred_currency)')
-    .in('status', ['submitted', 'approved'])
-    .order('submitted_at', { ascending: true })
-  if (error) throw error
-  return data
+  const sessions = (data.sessions || []).map(s => ({ ...s, client_name: s.clients?.full_name || null }))
+  return { ...data, sessions }
 }
 
 async function getAllBills(filters = {}) {
   let q = _sb
     .from('bills')
-    .select('*, vendors(id, full_name, preferred_currency)')
+    .select('*')
     .order('created_at', { ascending: false })
   if (filters.status)    q = q.eq('status', filters.status)
   if (filters.vendor_id) q = q.eq('vendor_id', filters.vendor_id)
@@ -840,24 +705,47 @@ async function getVendorRatesAsTaskTypes(vendorId) {
 
 // ─── vendor sessions (v2: task-based) ────────────────────────
 
+const _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function _toUUID(val) {
+  return (val && _UUID_RE.test(String(val))) ? val : null
+}
+
+// sessions.task_type_id is a soft ref to rates.id (FK to task_types was dropped).
+// PostgREST cannot embed rates via join — fetch separately and attach.
+async function _hydrateSessionRates(sessions) {
+  const rows = sessions || []
+  const rateIds = [...new Set(rows.map(s => s.task_type_id).filter(Boolean))]
+  let rateMap = {}
+  if (rateIds.length) {
+    const { data: rates } = await _sb.from('rates').select('id, name, rate').in('id', rateIds)
+    ;(rates || []).forEach(r => { rateMap[r.id] = r })
+  }
+  return rows.map(s => ({
+    ...s,
+    task_type_name: rateMap[s.task_type_id]?.name || null,
+    rate_usd:       s.rate_usd ?? rateMap[s.task_type_id]?.rate ?? 0,
+  }))
+}
+
 async function updateSessionV2(sessionId, { sessionDate, hours, taskTypeId, rateUsd, notes, clientId }) {
   const fields = {
     session_date: sessionDate,
     hours,
     duration_min: Math.round(hours * 60),
-    task_type_id: taskTypeId,
+    task_type_id: _toUUID(taskTypeId),
     rate_usd:     rateUsd,
     notes:        notes || null,
   }
-  if (clientId !== undefined) fields.client_id = clientId || null
+  if (clientId !== undefined) fields.client_id = _toUUID(clientId)
   const { data, error } = await _sb
     .from('sessions')
     .update(fields)
     .eq('id', sessionId)
-    .select('*, clients(full_name), task_types(name, rate_usd)')
+    .select('*, clients(full_name)')
     .single()
   if (error) throw error
-  return data
+  const [hydrated] = await _hydrateSessionRates([{ ...data, client_name: data.clients?.full_name || null }])
+  return hydrated
 }
 
 async function deleteSessionV2(sessionId) {
@@ -906,19 +794,19 @@ async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours,
   }
 
   const fields = {
-    vendor_id:    vendorId,
-    client_id:    clientId,
+    vendor_id:    _toUUID(vendorId),
+    client_id:    _toUUID(clientId),
     session_date: sessionDate,
     start_time:   startTime || null,
     hours,
     duration_min: Math.round(hours * 60),
-    task_type_id: taskTypeId,
+    task_type_id: _toUUID(taskTypeId),
     rate_usd:     rateUsd,
     notes:        notes || null,
     status:       'done',
     billed:       false,
     bill_id:      null,
-    package_id:   pkg?.id || null,
+    package_id:   _toUUID(pkg?.id),
   }
   const { data, error } = await _sb.from('sessions').insert(fields).select().single()
   if (error) throw error
@@ -938,34 +826,38 @@ async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours,
 async function getVendorSessionsV2(vendorId) {
   const { data, error } = await _sb
     .from('sessions')
-    .select('*, clients(full_name), task_types(name, rate_usd), bills(status)')
+    .select('*, clients(full_name)')
     .eq('vendor_id', vendorId)
-    .not('task_type_id', 'is', null)
     .order('session_date', { ascending: false })
   if (error) throw error
-  return data.map(s => ({
+
+  const rows = (data || []).map(s => ({ ...s, client_name: s.clients?.full_name || null }))
+
+  // Fetch bill statuses for sessions that have a bill_id
+  const billIds = [...new Set(rows.map(s => s.bill_id).filter(Boolean))]
+  let billStatusMap = {}
+  if (billIds.length) {
+    const { data: bills } = await _sb.from('bills').select('id, status').in('id', billIds)
+    ;(bills || []).forEach(b => { billStatusMap[b.id] = b.status })
+  }
+
+  const hydrated = await _hydrateSessionRates(rows)
+  return hydrated.map(s => ({
     ...s,
-    client_name:    s.clients?.full_name || null,
-    task_type_name: s.task_types?.name || null,
-    _bill_status:   s.bills?.status || null,
+    _bill_status: s.bill_id ? (billStatusMap[s.bill_id] || null) : null,
   }))
 }
 
 async function getUnpaidSessionsV2(vendorId) {
-  // Sessions with task_type_id set, not yet in any bill
   const { data, error } = await _sb
     .from('sessions')
-    .select('*, clients(full_name), task_types(name, rate_usd)')
+    .select('*, clients(full_name)')
     .eq('vendor_id', vendorId)
     .is('bill_id', null)
-    .not('task_type_id', 'is', null)
     .order('session_date', { ascending: false })
   if (error) throw error
-  return data.map(s => ({
-    ...s,
-    client_name:    s.clients?.full_name || null,
-    task_type_name: s.task_types?.name || null,
-  }))
+  const rows = (data || []).map(s => ({ ...s, client_name: s.clients?.full_name || null }))
+  return _hydrateSessionRates(rows)
 }
 
 // ─── draft bill (v2 flow) ─────────────────────────────────────
@@ -975,7 +867,7 @@ async function getUnpaidSessionsV2(vendorId) {
 async function getDraftBillV2(vendorId) {
   const { data, error } = await _sb
     .from('bills')
-    .select('*, sessions(*, clients(full_name), task_types(name, rate_usd))')
+    .select('*, sessions(*, clients(full_name))')
     .eq('vendor_id', vendorId)
     .in('status', ['draft', 'submitted'])
     .order('created_at', { ascending: false })
@@ -988,7 +880,7 @@ async function getDraftBillV2(vendorId) {
 async function getRejectedBillV2(vendorId) {
   const { data, error } = await _sb
     .from('bills')
-    .select('*, sessions(*, clients(full_name), task_types(name, rate_usd))')
+    .select('*, sessions(*, clients(full_name))')
     .eq('vendor_id', vendorId)
     .eq('status', 'returned')
     .order('returned_at', { ascending: false })
@@ -1001,20 +893,17 @@ async function getRejectedBillV2(vendorId) {
 async function getPaidBillsV2(vendorId) {
   const { data, error } = await _sb
     .from('bills')
-    .select('*, sessions(*, clients(full_name), task_types(name, rate_usd))')
+    .select('*, sessions(*, clients(full_name))')
     .eq('vendor_id', vendorId)
     .eq('status', 'paid')
     .order('paid_at', { ascending: false })
   if (error) throw error
-  return (data || []).map(_mapBillV2)
+  return Promise.all((data || []).map(_mapBillV2))
 }
 
-function _mapBillV2(bill) {
-  const sessions = (bill.sessions || []).map(s => ({
-    ...s,
-    client_name:    s.clients?.full_name || null,
-    task_type_name: s.task_types?.name || null,
-  }))
+async function _mapBillV2(bill) {
+  const raw = (bill.sessions || []).map(s => ({ ...s, client_name: s.clients?.full_name || null }))
+  const sessions = await _hydrateSessionRates(raw)
   return { ...bill, sessions }
 }
 
@@ -1103,7 +992,6 @@ async function getVendorBillsForManager() {
     .from('sessions')
     .select('id, vendor_id, hours, rate_usd')
     .is('bill_id', null)
-    .not('task_type_id', 'is', null)
   if (e3) throw e3
 
   return vendors.map(v => {
@@ -1116,18 +1004,17 @@ async function getVendorBillsForManager() {
 async function getVendorDetailForManager(vendorId) {
   const [draftRes, unbilledRes, historyRes] = await Promise.all([
     _sb.from('bills')
-      .select('*, sessions(*, clients(full_name), task_types(name, rate_usd))')
+      .select('*, sessions(*, clients(full_name))')
       .eq('vendor_id', vendorId)
       .in('status', ['draft', 'submitted'])
       .maybeSingle(),
     _sb.from('sessions')
-      .select('*, clients(full_name), task_types(name, rate_usd)')
+      .select('*, clients(full_name)')
       .eq('vendor_id', vendorId)
       .is('bill_id', null)
-      .not('task_type_id', 'is', null)
       .order('session_date', { ascending: false }),
     _sb.from('bills')
-      .select('*, sessions(*, clients(full_name), task_types(name, rate_usd))')
+      .select('*, sessions(*, clients(full_name))')
       .eq('vendor_id', vendorId)
       .in('status', ['approved', 'paid'])
       .order('created_at', { ascending: false }),
@@ -1136,15 +1023,14 @@ async function getVendorDetailForManager(vendorId) {
   if (unbilledRes.error) throw unbilledRes.error
   if (historyRes.error) throw historyRes.error
 
-  return {
-    draftBill:       draftRes.data ? _mapBillV2(draftRes.data) : null,
-    unbilledSessions: (unbilledRes.data || []).map(s => ({
-      ...s,
-      client_name:    s.clients?.full_name || null,
-      task_type_name: s.task_types?.name || null,
-    })),
-    history: (historyRes.data || []).map(_mapBillV2),
-  }
+  const unbilledRaw = (unbilledRes.data || []).map(s => ({ ...s, client_name: s.clients?.full_name || null }))
+  const [draftBill, unbilledSessions, history] = await Promise.all([
+    draftRes.data ? _mapBillV2(draftRes.data) : Promise.resolve(null),
+    _hydrateSessionRates(unbilledRaw),
+    Promise.all((historyRes.data || []).map(_mapBillV2)),
+  ])
+
+  return { draftBill, unbilledSessions, history }
 }
 
 async function approveBillV2(billId, selectedSessionIds) {
@@ -1165,11 +1051,9 @@ async function approveBillV2(billId, selectedSessionIds) {
     if (e2) throw e2
   }
 
-  // bills_total_amount_check requires total_amount > 0.
-  // Use null when total is 0 (sessions with no rate set) to avoid the constraint.
   const { data, error: e3 } = await _sb
     .from('bills')
-    .update({ status: 'approved', approved_at: new Date().toISOString(), total_amount: total || null })
+    .update({ status: 'approved', approved_at: new Date().toISOString(), total_amount: total })
     .eq('id', billId).select().single()
   if (e3) throw e3
   return data
@@ -1202,12 +1086,11 @@ async function getPaidBillsAllVendors() {
   // bills → vendors has no FK in schema cache; fetch separately
   const { data: bills, error } = await _sb
     .from('bills')
-    .select('*, sessions(*, clients(full_name), task_types(name))')
+    .select('*, sessions(*, clients(full_name))')
     .eq('status', 'paid')
     .order('paid_at', { ascending: false })
   if (error) throw error
 
-  // Fetch vendor names for the unique vendor_ids we have
   const vendorIds = [...new Set((bills || []).map(b => b.vendor_id).filter(Boolean))]
   let vendorMap = {}
   if (vendorIds.length) {
@@ -1215,14 +1098,10 @@ async function getPaidBillsAllVendors() {
     ;(vd || []).forEach(v => { vendorMap[v.id] = v.full_name })
   }
 
-  return (bills || []).map(b => ({
-    ...b,
-    vendor_name: vendorMap[b.vendor_id] || null,
-    sessions: (b.sessions || []).map(s => ({
-      ...s,
-      client_name:    s.clients?.full_name || null,
-      task_type_name: s.task_types?.name || null,
-    })),
+  return Promise.all((bills || []).map(async b => {
+    const raw = (b.sessions || []).map(s => ({ ...s, client_name: s.clients?.full_name || null }))
+    const sessions = await _hydrateSessionRates(raw)
+    return { ...b, vendor_name: vendorMap[b.vendor_id] || null, sessions }
   }))
 }
 
@@ -1430,7 +1309,7 @@ async function updateCustomer(id, fields) {
 async function getProductPlans(productId, customerCountry = null) {
   const { data, error } = await _sb
     .from('product_plans')
-    .select('*, vendors(id, full_name, preferred_currency)')
+    .select('*, vendors(id, full_name, payout_currency)')
     .eq('product_id', productId)
     .eq('active', true)
     .order('priority', { ascending: true })
@@ -1450,7 +1329,7 @@ async function getProductPlans(productId, customerCountry = null) {
 async function getAllProductPlans(productId) {
   const { data, error } = await _sb
     .from('product_plans')
-    .select('*, vendors(id, full_name, preferred_currency)')
+    .select('*, vendors(id, full_name, payout_currency)')
     .eq('product_id', productId)
     .order('priority', { ascending: true })
   if (error) throw error
@@ -1460,7 +1339,7 @@ async function getAllProductPlans(productId) {
 async function getPlanById(planId) {
   const { data, error } = await _sb
     .from('product_plans')
-    .select('*, vendors(id, full_name, preferred_currency), products(id, name, type)')
+    .select('*, vendors(id, full_name, payout_currency), products(id, name, type)')
     .eq('id', planId)
     .single()
   if (error) throw error

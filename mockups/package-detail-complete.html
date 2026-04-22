@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup — Package Detail (Complete)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .new-badge { display: inline-block; font-size: 9px; font-family: var(--font-mono); background: var(--amber-bg); color: var(--amber-text); border: 1px solid var(--amber); padding: 1px 6px; border-radius: 10px; margin-left: 6px; }
+    .section-title { font-size: 10px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .14em; color: var(--mu2); margin: 20px 0 8px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--border2); border-radius: var(--r); overflow: hidden; }
+    .info-cell { padding: 10px 14px; border-bottom: 1px solid var(--border2); border-right: 1px solid var(--border2); }
+    .info-cell:nth-child(even) { border-right: none; }
+    .info-cell:nth-last-child(-n+2) { border-bottom: none; }
+    .info-cell-label { font-size: 10px; font-family: var(--font-mono); color: var(--mu2); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 3px; }
+    .info-cell-val { font-size: 13px; font-weight: 500; }
+    .info-cell-val.empty { color: var(--mu2); font-weight: 400; }
+    .pkg-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; margin-bottom: 16px; }
+    .pkg-nums { display: flex; gap: 24px; margin: 12px 0; }
+    .pkg-n { font-size: 28px; font-weight: 700; font-family: var(--font-mono); }
+    .pkg-n span { font-size: 16px; color: var(--mu2); }
+    .pkg-n-label { font-size: 10px; color: var(--mu2); text-transform: uppercase; letter-spacing: .1em; margin-top: 2px; }
+    .pkg-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+    .pkg-bar-fill { height: 100%; border-radius: 3px; }
+    .session-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border2); }
+    .session-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber);border-radius:20px;padding:3px 10px;margin-left:12px">
+        MOCKUP — Package Detail Complete
+      </div>
+    </div>
+    <div class="tb-right"><div class="tb-av">HS</div></div>
+  </div>
+
+  <div class="app-body">
+    <div class="scroll" style="flex:1;padding:24px;max-width:640px">
+
+      <!-- Page header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+        <div>
+          <div style="font-family:var(--font-serif);font-size:22px;font-weight:700">Package Detail</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:3px">Client: Tamar Cohen · Vendor: Noa Ben-David</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm">Edit</button>
+          <span class="pill active" style="font-size:12px;padding:5px 12px">active</span>
+        </div>
+      </div>
+
+      <!-- Package progress card -->
+      <div class="pkg-card">
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">Leadership Coaching Package</div>
+        <div style="font-size:11px;color:var(--mu2);margin-bottom:12px">via Deal: Leadership Package · €1,800</div>
+
+        <div class="pkg-nums">
+          <div>
+            <div class="pkg-n">7<span>/10</span></div>
+            <div class="pkg-n-label">Sessions Used</div>
+          </div>
+          <div>
+            <div class="pkg-n">3</div>
+            <div class="pkg-n-label">Remaining</div>
+          </div>
+          <div>
+            <div class="pkg-n" style="font-size:20px;color:var(--mu2)">70%</div>
+            <div class="pkg-n-label">Complete</div>
+          </div>
+        </div>
+        <div class="pkg-bar">
+          <div class="pkg-bar-fill" style="width:70%;background:var(--green)"></div>
+        </div>
+
+        <!-- ✅ Currently shown -->
+        <div style="font-size:11px;color:var(--mu2);margin-top:10px">
+          Created: Mar 12, 2026
+        </div>
+        <!-- NEW: packages.updated_at — currently ❌ NOT DISPLAYED -->
+        <!--
+          NEW: packages.updated_at — shows when the package was last modified (e.g. when a session was logged).
+          Low-medium priority — useful to know when last activity occurred.
+        -->
+        <div style="font-size:11px;color:var(--mu2)">
+          Last updated: <span style="color:var(--blue-text)">Apr 8, 2026</span>
+          <span class="new-badge">NEW: packages.updated_at</span>
+        </div>
+      </div>
+
+      <!-- Full package info grid — showing all fields -->
+      <div class="section-title">Package Info</div>
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="info-cell-label">Status</div>
+          <div class="info-cell-val"><span class="pill active">active</span></div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Vendor</div>
+          <div class="info-cell-val">Noa Ben-David</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Client</div>
+          <div class="info-cell-val">Tamar Cohen</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Linked Deal</div>
+          <a href="/sales?entity=deal&id=deal-demo-001&view=drawer&from=profile"
+             class="info-cell-val"
+             style="color:var(--blue-text);text-decoration:none">Leadership Package · €1,800 ↗</a>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Total Sessions</div>
+          <div class="info-cell-val" style="font-family:var(--font-mono)">10</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Sessions Used</div>
+          <div class="info-cell-val" style="font-family:var(--font-mono)">7</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Created</div>
+          <div class="info-cell-val">Mar 12, 2026</div>
+        </div>
+        <!-- NEW: packages.updated_at -->
+        <div class="info-cell">
+          <div class="info-cell-label">
+            Last Updated
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="info-cell-val" style="color:var(--blue-text)">Apr 8, 2026</div>
+        </div>
+      </div>
+
+      <!--
+        NEW SECTION: Expiry / credit tracking fields.
+        These don't exist yet in the DB but are mentioned in the task as desirable.
+        Would require a DB migration to add these columns to packages.
+      -->
+      <div class="section-title">
+        Credit & Expiry
+        <span class="new-badge">NEW — requires DB migration</span>
+      </div>
+      <div class="info-grid">
+        <!--
+          NEW: packages.expiry_date — when unused sessions expire.
+          Mentioned in TASK 2 as a HIGH PRIORITY example field.
+        -->
+        <div class="info-cell">
+          <div class="info-cell-label">
+            Expiry Date
+            <!-- NEW: packages.expiry_date — not yet in DB, requires migration -->
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="info-cell-val" style="color:var(--red-text)">Sep 12, 2026</div>
+        </div>
+        <!--
+          NEW: packages.credit_balance — monetary credit remaining (for partial refunds etc.)
+        -->
+        <div class="info-cell">
+          <div class="info-cell-label">
+            Credit Balance
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="info-cell-val empty">—</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-top:8px">
+        ⚠️ These fields require adding <code>expiry_date</code> and <code>credit_balance</code> columns to the packages table.
+      </div>
+
+      <!-- Sessions logged against this package -->
+      <div class="section-title">Sessions in This Package</div>
+      <div class="block">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">Apr 8, 2026</td>
+              <td style="font-size:12px;color:var(--mu)">coaching</td>
+              <td class="mono">60m</td>
+              <td><span class="pill done">done</span></td>
+              <td style="font-size:12px;color:var(--mu)">Leadership assessment</td>
+            </tr>
+            <tr>
+              <td class="mono">Apr 1, 2026</td>
+              <td style="font-size:12px;color:var(--mu)">coaching</td>
+              <td class="mono">60m</td>
+              <td><span class="pill done">done</span></td>
+              <td style="font-size:12px;color:var(--mu)">Goal setting</td>
+            </tr>
+            <tr>
+              <td class="mono">Mar 25, 2026</td>
+              <td style="font-size:12px;color:var(--mu)">coaching</td>
+              <td class="mono">60m</td>
+              <td><span class="pill done">done</span></td>
+              <td style="font-size:12px;color:var(--mu)">Vision workshop</td>
+            </tr>
+            <tr>
+              <td colspan="5" style="text-align:center;color:var(--mu2);font-size:11px;padding:8px">
+                + 4 more sessions
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Package actions -->
+      <div class="section-title">Actions</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary">Log Session</button>
+        <button class="btn btn-sm">Add Sessions (+)</button>
+        <button class="btn btn-sm" style="color:var(--amber-text);border-color:var(--amber-bg);background:var(--amber-bg)">Pause Package</button>
+        <button class="btn btn-sm" style="color:var(--red-text);border-color:var(--red-bg);background:var(--red-bg)">Cancel Package</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

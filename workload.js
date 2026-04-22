@@ -15,6 +15,8 @@ let allSessions      = []  // all vendor sessions (for stats/recent)
 let unpaidSessions   = []  // sessions with no bill_id
 let draftBill        = null
 let rejectedBill     = null
+let vendorAssignments = []
+let adminVendorOptions = []
 let selectedClientId = null
 let selectedUnpaid   = new Set()
 let _routerDispatching = false
@@ -48,11 +50,8 @@ function sessionAmount(s) {
   return (s.hours || 0) * (s.rate_usd || getTaskTypeRate(s.task_type_id))
 }
 
-// Task types that don't require a client
-const _NO_CLIENT_TASKS = ['Office Hour', 'General', 'Team Meeting', 'Training', 'Offline work', 'VideoAsk Feedback']
-
-function isNoClientTaskType(taskTypeId) {
-  return _NO_CLIENT_TASKS.includes(getTaskTypeName(taskTypeId))
+function dbTaskTypeId(id) {
+  return (!id || id === 'general') ? null : id
 }
 
 // Sessions locked once the bill is approved or paid
@@ -103,7 +102,13 @@ function switchTab(tab, { pushUrl = true } = {}) {
   currentTab = tab
 
   // Update cover
-  const tabTitles = { log: 'Log Session', work: 'My Work', clients: 'My Clients', profile: 'Profile' }
+  const vendorName = currentVendor?.full_name || currentVendor?.name || 'Vendor'
+  const tabTitles = {
+    log: `Log Session — ${vendorName}`,
+    work: 'Sessions',
+    clients: 'My Clients',
+    profile: 'Profile',
+  }
   const titleEl = document.getElementById('cover-title')
   if (titleEl) titleEl.textContent = tabTitles[tab] || tab
   const eyebrowEl = document.getElementById('cover-eyebrow')
@@ -126,6 +131,11 @@ function switchTab(tab, { pushUrl = true } = {}) {
   document.getElementById('tab-work').classList.toggle('hidden', tab !== 'work')
   document.getElementById('tab-clients').classList.toggle('hidden', tab !== 'clients')
   document.getElementById('tab-profile').classList.toggle('hidden', tab !== 'profile')
+
+  // Profile tab: hide workload shell cover/stats so vendor-profile renders alone
+  const isProfile = tab === 'profile'
+  document.querySelector('.space-cover')?.classList.toggle('hidden', isProfile)
+  document.querySelector('.alert-bar')?.classList.toggle('hidden', isProfile)
   if (tab === 'log')     renderLogTab()
   if (tab === 'work')    renderWorkTab()
   if (tab === 'clients') renderClientsTab()
@@ -156,7 +166,6 @@ function registerRouterHandlers() {
 
   Router.register('client', ({ id }) => {
     runWithRouterDispatch(() => {
-      switchTab('clients')
       showClientDetail(id)
     })
   })
@@ -191,6 +200,7 @@ window.switchWorkTab = switchWorkTab
 // ═══════════════════════════════════════════════════════════════
 
 function renderLogTab() {
+  renderAdminVendorPicker()
   renderClientPicker()
   renderTaskTypeDropdown()
   renderMonthStats()
@@ -198,43 +208,137 @@ function renderLogTab() {
   document.getElementById('f-date').valueAsDate = new Date()
 }
 
+async function renderAdminVendorPicker() {
+  const wrap = document.getElementById('wl-admin-vendor-wrap')
+  const sel = document.getElementById('wl-admin-vendor-select')
+  if (!wrap || !sel) return
+
+  const role = (window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase()
+  if (role !== 'admin') {
+    wrap.style.display = 'none'
+    return
+  }
+
+  wrap.style.display = 'block'
+  if (!adminVendorOptions.length) {
+    try {
+      const all = await getVendors()
+      adminVendorOptions = (all || [])
+        .filter(v => ['coach', 'contractor', 'team_member'].includes(v.vendor_type))
+        .sort((a, b) => String(a.full_name || a.name || '').localeCompare(String(b.full_name || b.name || '')))
+    } catch (err) {
+      console.warn('[workload] failed to load admin vendor options:', err?.message || err)
+      adminVendorOptions = []
+    }
+  }
+
+  sel.innerHTML = adminVendorOptions.map(v => {
+    const name = v.full_name || v.name || '—'
+    return `<option value="${v.id}" ${currentVendor?.id === v.id ? 'selected' : ''}>${name}</option>`
+  }).join('') || '<option value="">No vendors</option>'
+}
+
+async function onAdminVendorChange(vendorId) {
+  if (!vendorId || vendorId === currentVendor?.id) return
+  const nextVendor = adminVendorOptions.find(v => v.id === vendorId)
+  if (!nextVendor) return
+  currentVendor = nextVendor
+  updateTopbarUser(nextVendor)
+  selectedClientId = null
+  selectedUnpaid.clear()
+  draftBill = null
+  rejectedBill = null
+  await loadVendorData()
+  switchTab(currentTab)
+}
+window.onAdminVendorChange = onAdminVendorChange
+
 function renderClientPicker() {
   const grid = document.getElementById('client-grid')
   const noneSelected = !selectedClientId
-  let html = `
-    <div class="client-card${noneSelected ? ' sel' : ''}" onclick="selectClient(null)" style="grid-column:1/-1;border-style:dashed">
-      <div class="client-card-name" style="color:var(--mu)">No client</div>
-      <div class="client-card-pkg" style="color:var(--mu2)">Internal / general task</div>
-    </div>`
-  html += allClients.map(c => {
-    const sel = selectedClientId === c.id ? ' sel' : ''
+
+  // "No client" card
+  const noClientCard = document.createElement('div')
+  noClientCard.className = 'client-card' + (noneSelected ? ' sel' : '')
+  noClientCard.style.cssText = 'grid-column:1/-1;border-style:dashed'
+  noClientCard.addEventListener('click', () => selectClient(null, false))
+  const noClientName = document.createElement('div')
+  noClientName.className = 'client-card-name'
+  noClientName.style.color = 'var(--mu)'
+  noClientName.textContent = 'No client'
+  const noClientSub = document.createElement('div')
+  noClientSub.className = 'client-card-pkg'
+  noClientSub.style.color = 'var(--mu2)'
+  noClientSub.textContent = 'Internal / general task'
+  noClientCard.appendChild(noClientName)
+  noClientCard.appendChild(noClientSub)
+
+  grid.innerHTML = ''
+  grid.appendChild(noClientCard)
+
+  allClients.forEach(c => {
+    const sel = selectedClientId === c.id
     const pkg = c.active_package
     const pkgLabel = pkg
       ? `${pkg.sessions_used}/${pkg.total_sessions} sessions`
       : 'No package'
-    return `
-      <div class="client-card${sel}" onclick="selectClient('${c.id}')">
-        <div class="client-card-name">${c.full_name}</div>
-        <div class="client-card-pkg">${pkgLabel}</div>
-      </div>`
-  }).join('')
-  grid.innerHTML = html
+
+    const card = document.createElement('div')
+    card.className = 'client-card' + (sel ? ' sel' : '')
+    // Card click selects but does NOT open panel
+    card.addEventListener('click', () => selectClient(c.id, false))
+
+    const nameEl = document.createElement('div')
+    nameEl.className = 'client-card-name'
+
+    // Name link opens the slide-in panel
+    const nameLink = document.createElement('a')
+    nameLink.href = '#'
+    nameLink.textContent = c.full_name
+    nameLink.style.cssText = 'color:inherit;text-decoration:underline;text-underline-offset:2px'
+    nameLink.addEventListener('click', e => {
+      e.stopPropagation()
+      e.preventDefault()
+      showClientDetail(c.id)
+    })
+    nameEl.appendChild(nameLink)
+
+    const pkgEl = document.createElement('div')
+    pkgEl.className = 'client-card-pkg'
+    pkgEl.textContent = pkgLabel
+
+    card.appendChild(nameEl)
+    card.appendChild(pkgEl)
+    grid.appendChild(card)
+  })
 }
 
-function selectClient(id) {
+function selectClient(id, _unused) {
   selectedClientId = id
   renderClientPicker()
   updatePackageTracker()
-  if (!id) {
-    const taskId = document.getElementById('f-task-type').value
-    if (taskId && !isNoClientTaskType(taskId)) {
-      document.getElementById('f-task-type').value = ''
-      document.getElementById('f-rate').value = ''
-      document.getElementById('f-subtotal').textContent = '$0.00'
-    }
+  if (id) {
+    autoSelectTaskType(id)
   }
 }
 window.selectClient = selectClient
+
+function autoSelectTaskType(clientId) {
+  const client = allClients.find(c => c.id === clientId)
+  if (!client) return
+  const serviceType = client.active_package?.service_type || client.active_package?.task_type_name
+  if (!serviceType) return
+  const match = taskTypes.find(t =>
+    t.name?.toLowerCase() === serviceType.toLowerCase() ||
+    t.service_type?.toLowerCase() === serviceType.toLowerCase()
+  )
+  if (!match) return
+  const sel = document.getElementById('f-task-type')
+  if (sel && !sel.value) {
+    sel.value = match.id
+    onTaskTypeChange()
+  }
+}
 
 function updatePackageTracker() {
   const tracker = document.getElementById('package-tracker')
@@ -253,20 +357,16 @@ function updatePackageTracker() {
 
 function renderTaskTypeDropdown() {
   const sel = document.getElementById('f-task-type')
-  sel.innerHTML = '<option value="">— Select task type —</option>' +
-    taskTypes.map(t => `<option value="${t.id}">${t.name}</option>`).join('')
+  sel.innerHTML = '<option value="">— No task type —</option>' +
+    taskTypes.filter(t => t.id && t.id !== 'general')
+      .map(t => `<option value="${t.id}">${t.name}</option>`).join('')
 }
 
 function onTaskTypeChange() {
   const id   = document.getElementById('f-task-type').value
   const rate = id ? getTaskTypeRate(id) : 0
-  document.getElementById('f-rate').value = rate ? fmt(rate) + '/hour' : ''
+  document.getElementById('f-rate').value = rate ? `${rate}/h` : ''
   updateSubtotal()
-  if (id && isNoClientTaskType(id) && selectedClientId) {
-    selectedClientId = null
-    renderClientPicker()
-    updatePackageTracker()
-  }
 }
 window.onTaskTypeChange = onTaskTypeChange
 
@@ -278,16 +378,27 @@ function updateSubtotal() {
 }
 
 function renderMonthStats() {
-  const ym      = new Date().toISOString().slice(0, 7)
-  const month   = allSessions.filter(s => (s.session_date || '').startsWith(ym))
-  const hours   = month.reduce((sum, s) => sum + (s.hours || 0), 0)
-  const clients = new Set(month.filter(s => s.client_id).map(s => s.client_id)).size
+  // stat cards were removed from the Log Session tab — nothing to render
+}
 
-  document.getElementById('month-label').textContent =
-    new Date().toLocaleDateString('en', { month: 'long', year: 'numeric' })
-  document.getElementById('stat-hours').textContent    = hours
-  document.getElementById('stat-sessions').textContent = month.length
-  document.getElementById('stat-clients').textContent  = clients
+function renderCoverWidgets() {
+  const ym = new Date().toISOString().slice(0, 7)
+  const sessionsThisMonth = allSessions.filter(s => (s.session_date || '').startsWith(ym)).length
+  const pendingApproval = draftBill?.status === 'submitted' ? 1 : 0
+  const activePackages = allClients.filter(c => {
+    const status = c?.active_package?.status
+    return !!c?.active_package && (!status || status === 'active')
+  }).length
+  const reassignments = vendorAssignments.filter(a => !!a.valid_to).length
+
+  const setVal = (id, value) => {
+    const el = document.getElementById(id)
+    if (el) el.textContent = String(value)
+  }
+  setVal('wl-cover-sessions-month', sessionsThisMonth)
+  setVal('wl-cover-pending-approval', pendingApproval)
+  setVal('wl-cover-active-packages', activePackages)
+  setVal('wl-cover-reassignments', reassignments)
 }
 
 function renderRecentSessions() {
@@ -323,13 +434,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('session-form')?.addEventListener('submit', async e => {
     e.preventDefault()
     if (!currentVendor) { showToast('No vendor selected', 'warn'); return }
-    const taskTypeId = document.getElementById('f-task-type').value
-    if (!taskTypeId) { showToast('Please select a task type', 'warn'); return }
-    if (!selectedClientId && !isNoClientTaskType(taskTypeId)) {
-      showToast('Please select a client for this task type', 'warn'); return
-    }
 
-    const rateUsd = getTaskTypeRate(taskTypeId)
+    const taskTypeId = document.getElementById('f-task-type').value || null
+    const rateUsd    = taskTypeId ? getTaskTypeRate(taskTypeId) : 0
+    const dateVal    = document.getElementById('f-date').value || new Date().toISOString().slice(0, 10)
+    const hours      = parseFloat(document.getElementById('f-duration').value) || 1
+
     const btn = e.target.querySelector('[type=submit]')
     btn.disabled = true
     btn.textContent = 'Saving…'
@@ -338,26 +448,33 @@ document.addEventListener('DOMContentLoaded', () => {
       await logSessionV2({
         vendorId:    currentVendor.id,
         clientId:    selectedClientId,
-        sessionDate: document.getElementById('f-date').value,
+        sessionDate: dateVal,
         startTime:   document.getElementById('f-time').value || null,
-        hours:       parseFloat(document.getElementById('f-duration').value),
-        taskTypeId,
+        hours,
+        taskTypeId:  dbTaskTypeId(taskTypeId),
         rateUsd,
         notes:       document.getElementById('f-notes').value || null,
       })
-
-      // Reset form fields (keep date and client)
-      document.getElementById('f-task-type').value = ''
-      document.getElementById('f-rate').value = ''
-      document.getElementById('f-subtotal').textContent = '$0.00'
-      document.getElementById('f-notes').value = ''
-
-      await loadVendorData()
-      renderLogTab()
-      showToast('Session logged')
     } catch (err) {
       console.error(err)
       showToast('Failed to log session', 'warn')
+      btn.disabled = false
+      btn.textContent = 'Log session'
+      return
+    }
+
+    // Insert succeeded — reset form and reload
+    document.getElementById('f-task-type').value = ''
+    document.getElementById('f-rate').value = ''
+    document.getElementById('f-subtotal').textContent = '$0.00'
+    document.getElementById('f-notes').value = ''
+    showToast('Session logged')
+
+    try {
+      await loadVendorData()
+      renderLogTab()
+    } catch (reloadErr) {
+      console.warn('[workload] reload after log failed:', reloadErr?.message || reloadErr)
     } finally {
       btn.disabled = false
       btn.textContent = 'Log session'
@@ -368,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// TAB 2: MY WORK
+// TAB 2: SESSIONS
 // ═══════════════════════════════════════════════════════════════
 
 function renderWorkTab() {
@@ -495,10 +612,17 @@ function renderDraftBillCard() {
   card.style.display = 'block'
   document.getElementById('draft-amount').textContent = fmt(draftBill.total_amount)
   const n = (draftBill.sessions || []).length
-  const submitted = draftBill.submitted_at
+  const isSubmitted = draftBill.status === 'submitted'
+  const statusText = isSubmitted
     ? `Submitted ${formatDateShort(draftBill.submitted_at)}`
     : `Created ${formatDateShort(draftBill.created_at)}`
-  document.getElementById('draft-info').textContent = `${n} sessions · ${submitted}`
+  document.getElementById('draft-info').textContent = `${n} sessions · ${statusText}`
+
+  const submitBtn = document.getElementById('submit-draft-btn')
+  if (submitBtn) {
+    submitBtn.disabled = isSubmitted
+    submitBtn.textContent = isSubmitted ? 'Awaiting review…' : 'Submit for review ↗'
+  }
 }
 
 function renderRejectedBillCard() {
@@ -534,13 +658,46 @@ function openEditModal(sessionId) {
   if (isSessionLocked(s)) { showToast('Cannot edit a session in an approved or paid bill', 'warn'); return }
 
   const sel = document.getElementById('edit-task-type')
-  sel.innerHTML = '<option value="">— Select —</option>' +
-    taskTypes.map(t => `<option value="${t.id}"${t.id === s.task_type_id ? ' selected' : ''}>${t.name}</option>`).join('')
+  sel.options.length = 0
+  const placeholder = document.createElement('option')
+  placeholder.value = ''
+  placeholder.textContent = '— No task type —'
+  sel.appendChild(placeholder)
+  taskTypes.filter(t => t.id && t.id !== 'general').forEach(t => {
+    const opt = document.createElement('option')
+    opt.value = t.id
+    opt.textContent = t.name
+    if (t.id === s.task_type_id) opt.selected = true
+    sel.appendChild(opt)
+  })
 
   document.getElementById('edit-session-id').value = sessionId
   document.getElementById('edit-date').value        = s.session_date || ''
   document.getElementById('edit-duration').value    = String(s.hours || 1)
   document.getElementById('edit-notes').value       = s.notes || ''
+
+  // Client reassign — admin/manager only, non-locked sessions
+  const role = (window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase()
+  const clientWrap = document.getElementById('edit-client-wrap')
+  const clientSel  = document.getElementById('edit-client')
+  if (role === 'admin' || role === 'manager') {
+    clientWrap.style.display = ''
+    clientSel.options.length = 0
+    const noneOpt = document.createElement('option')
+    noneOpt.value = ''
+    noneOpt.textContent = '— No client —'
+    clientSel.appendChild(noneOpt)
+    allClients.forEach(c => {
+      const opt = document.createElement('option')
+      opt.value = c.id
+      opt.textContent = c.full_name
+      opt.selected = s.client_id === c.id
+      clientSel.appendChild(opt)
+    })
+  } else {
+    clientWrap.style.display = 'none'
+  }
+
   document.getElementById('edit-session-modal').classList.add('open')
 }
 window.openEditModal = openEditModal
@@ -553,21 +710,28 @@ function closeEditModal() {
 }
 window.closeEditModal = closeEditModal
 
+// Required by workload.html inline onchange — task type changes in the edit modal
+// don't need special handling (unlike the log form's onTaskTypeChange).
 function onEditTaskTypeChange() {}
 window.onEditTaskTypeChange = onEditTaskTypeChange
 
 async function saveEditSession() {
   const id          = document.getElementById('edit-session-id').value
-  const taskTypeId  = document.getElementById('edit-task-type').value
-  const hours       = parseFloat(document.getElementById('edit-duration').value)
-  const sessionDate = document.getElementById('edit-date').value
+  const taskTypeId  = document.getElementById('edit-task-type').value || null
+  const hours       = parseFloat(document.getElementById('edit-duration').value) || 1
+  const sessionDate = document.getElementById('edit-date').value || new Date().toISOString().slice(0, 10)
   const notes       = document.getElementById('edit-notes').value
-  if (!taskTypeId) { showToast('Select a task type', 'warn'); return }
+  const rateUsd     = taskTypeId ? getTaskTypeRate(taskTypeId) : 0
+
+  const role = (window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase()
+  const clientWrap = document.getElementById('edit-client-wrap')
+  const canReassign = (role === 'admin' || role === 'manager') && clientWrap?.style.display !== 'none'
+  const clientId = canReassign ? (document.getElementById('edit-client').value || null) : undefined
 
   const saveBtn = document.querySelector('#edit-session-modal .btn-primary')
   saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
   try {
-    await updateSessionV2(id, { sessionDate, hours, taskTypeId, rateUsd: getTaskTypeRate(taskTypeId), notes })
+    await updateSessionV2(id, { sessionDate, hours, taskTypeId: dbTaskTypeId(taskTypeId), rateUsd, notes, clientId })
     closeEditModal()
     await loadVendorData()
     if (currentTab === 'log')  renderLogTab()
@@ -584,26 +748,38 @@ window.saveEditSession = saveEditSession
 
 async function deleteSessionFromModal() {
   const id = document.getElementById('edit-session-id').value
-  if (!confirm('Delete this session? This cannot be undone.')) return
-  try {
-    await deleteSessionV2(id)
-    closeEditModal()
-    await loadVendorData()
-    if (currentTab === 'log')  renderLogTab()
-    if (currentTab === 'work') renderWorkTab()
-    showToast('Session deleted')
-  } catch (err) {
-    showToast(err.message || 'Failed to delete', 'warn')
-  }
+  showConfirm('Delete this session? This cannot be undone.', async () => {
+    try {
+      await deleteSessionV2(id)
+      closeEditModal()
+      await loadVendorData()
+      if (currentTab === 'log')  renderLogTab()
+      if (currentTab === 'work') renderWorkTab()
+      showToast('Session deleted')
+    } catch (err) {
+      showToast(err.message || 'Failed to delete', 'warn')
+    }
+  })
 }
 window.deleteSessionFromModal = deleteSessionFromModal
 
-function editDraftBill() {
-  // Opens the same view-bill overlay — vendor can then withdraw and recreate
-  // Full session editing is handled via withdraw → re-select
-  viewDraftBill()
+async function submitDraftBill() {
+  if (!draftBill) return
+  if (draftBill.status === 'submitted') { showToast('Bill already submitted', 'warn'); return }
+  const btn = document.getElementById('submit-draft-btn')
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…' }
+  try {
+    await submitDraftBillV2(draftBill.id)
+    await loadVendorData()
+    renderWorkTab()
+    showToast('Bill submitted for review')
+  } catch (err) {
+    console.error(err)
+    showToast(err.message || 'Failed to submit', 'warn')
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit for review ↗' }
+  }
 }
-window.editDraftBill = editDraftBill
+window.submitDraftBill = submitDraftBill
 
 function viewDraftBill() {
   if (!draftBill) return
@@ -644,15 +820,16 @@ window.viewDraftBill = viewDraftBill
 
 async function withdrawDraftBill() {
   if (!draftBill) return
-  if (!confirm('Withdraw this draft bill? Sessions will be returned to unpaid.')) return
-  try {
-    await withdrawBillV2(draftBill.id)
-    await loadVendorData()
-    renderWorkTab()
-    showToast('Draft bill withdrawn')
-  } catch (err) {
-    showToast('Failed to withdraw', 'warn')
-  }
+  showConfirm('Withdraw this draft bill? Sessions will be returned to unpaid.', async () => {
+    try {
+      await withdrawBillV2(draftBill.id)
+      await loadVendorData()
+      renderWorkTab()
+      showToast('Draft bill withdrawn')
+    } catch (err) {
+      showToast('Failed to withdraw', 'warn')
+    }
+  })
 }
 window.withdrawDraftBill = withdrawDraftBill
 
@@ -667,9 +844,7 @@ async function createNewDraftAfterRejection() {
 window.createNewDraftAfterRejection = createNewDraftAfterRejection
 
 function renderHistory() {
-  const div   = document.getElementById('history-bills')
-  const paid  = (allSessions.length ? [] : []) // placeholder; history comes from paidBills
-  // We'll use a separate load — paidBills is loaded alongside allSessions
+  const div = document.getElementById('history-bills')
   if (!window._paidBills || !window._paidBills.length) {
     div.innerHTML = '<div style="color:var(--mu2);font-size:12px;padding:8px">No paid bills yet</div>'
     return
@@ -734,7 +909,14 @@ function showClientDetail(id) {
     Router.open({ entity: 'client', id, view: 'panel', from: 'clients' })
     return
   }
+  if (window.PanelManager?.open) {
+    window.PanelManager.open('client', id)
+    return
+  }
+  _showClientDetailInline(id)
+}
 
+function _showClientDetailInline(id) {
   const c        = allClients.find(x => x.id === id)
   if (!c) return
   const pkg      = c?.active_package
@@ -813,14 +995,14 @@ window.clearClientDetail = clearClientDetail
 // ═══════════════════════════════════════════════════════════════
 
 function renderProfileTab() {
-  document.getElementById('rate-sheet').innerHTML = taskTypes.map(t => `
-    <tr><td>${t.name}</td><td style="text-align:right" class="mono">${fmt(t.rate_usd)}</td></tr>`).join('')
-  if (currentVendor) {
-    document.getElementById('profile-info').innerHTML = `
-      <div class="sp-row"><div class="sp-row-label">Full name</div><div class="sp-row-val">${currentVendor.full_name}</div></div>
-      <div class="sp-row"><div class="sp-row-label">Email</div><div class="sp-row-val mono">${currentVendor.email || '—'}</div></div>
-      <div class="sp-row"><div class="sp-row-label">Phone</div><div class="sp-row-val mono">${currentVendor.phone || '—'}</div></div>
-      <div class="sp-row"><div class="sp-row-label">Type</div><div class="sp-row-val">${currentVendor.vendor_type || '—'}</div></div>`
+  const frame = document.getElementById('workload-profile-frame')
+  if (!frame || !currentVendor?.id) return
+  const role = (window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase()
+  const readOnly = role === 'vendor' ? '1' : '0'
+  const src = `vendor-profile.html?id=${encodeURIComponent(currentVendor.id)}&readonly=${readOnly}&from=workload`
+  if (frame.dataset.src !== src) {
+    frame.dataset.src = src
+    frame.src = src
   }
 }
 
@@ -844,23 +1026,26 @@ document.addEventListener('click', e => {
 async function loadVendorData() {
   if (!currentVendor) return
 
-  const [sessions, unpaid, draft, rejected, paid, clients, types] = await Promise.all([
+  const [sessions, unpaid, draft, rejected, paid, clients, types, assignments] = await Promise.all([
     getVendorSessionsV2(currentVendor.id),
     getUnpaidSessionsV2(currentVendor.id),
     getDraftBillV2(currentVendor.id),
     getRejectedBillV2(currentVendor.id),
     getPaidBillsV2(currentVendor.id),
     getVendorClientsWithPackages(currentVendor.id),
-    getTaskTypes(currentVendor.id),
+    getVendorRatesAsTaskTypes(currentVendor.id),
+    getVendorClientAssignments({ vendor_id: currentVendor.id }).catch(() => []),
   ])
 
   allSessions    = sessions
   unpaidSessions = unpaid
   draftBill      = draft
   rejectedBill   = rejected
+  vendorAssignments = assignments || []
   window._paidBills = paid
   allClients     = clients
   taskTypes      = types
+  renderCoverWidgets()
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -868,6 +1053,11 @@ async function loadVendorData() {
 // ═══════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Workload is accessible to all roles. No guardSpace() call needed.
+  // Load shared layout first — topbar.html is fetched asynchronously and
+  // must be in the DOM before we try to wire the avatar click handler.
+  await LAYOUT.init('Workload', 'workload')
+
   registerRouterHandlers()
 
   // Show vendor picker
@@ -878,19 +1068,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   currentVendor = vendor
   updateTopbarUser(vendor)
 
-  // Wire avatar click to re-pick vendor
-  document.querySelector('.tb-av')?.addEventListener('click', async () => {
-    const v = await showVendorPicker()
-    if (v) {
-      currentVendor = v
-      selectedClientId = null
-      selectedUnpaid.clear()
-      draftBill = null
-      rejectedBill = null
-      await loadVendorData()
-      switchTab(currentTab)
-    }
-  })
+  // Wire avatar click to re-pick vendor (topbar is now loaded)
+  const _tbAv = document.querySelector('.tb-av')
+  if (_tbAv) {
+    _tbAv.style.cursor = 'pointer'
+    _tbAv.title = 'Switch vendor'
+    _tbAv.addEventListener('click', async () => {
+      const v = await showVendorPicker()
+      if (v) {
+        currentVendor = v
+        selectedClientId = null
+        selectedUnpaid.clear()
+        draftBill = null
+        rejectedBill = null
+        await loadVendorData()
+        switchTab(currentTab)
+      }
+    })
+  }
 
   try {
     await loadVendorData()

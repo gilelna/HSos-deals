@@ -1,0 +1,525 @@
+/* import.css — HSos CSV Canvas Importer styles
+   Builds on shared.css — uses all shared variables and components. */
+
+/* ─── Page shell ─────────────────────────────────────────────── */
+.imp-page {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.imp-body {
+  flex: 1;
+  padding: 28px 24px 40px;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ─── Heading ────────────────────────────────────────────────── */
+.imp-heading { margin-bottom: 24px; }
+.imp-title {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+.imp-sub { font-size: 12px; color: var(--mu); }
+
+/* ─── Error banner ───────────────────────────────────────────── */
+.imp-error {
+  background: var(--red-bg);
+  border: 1px solid #f0b8b0;
+  color: var(--red-text);
+  border-radius: var(--r);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ─── Step bar ───────────────────────────────────────────────── */
+.step-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--mu2);
+  cursor: default;
+}
+
+/* Past steps are clickable */
+.step-item.done { color: var(--mu); cursor: pointer; }
+.step-item.done:hover { color: var(--ink); }
+.step-item.active { color: var(--ink); font-weight: 500; }
+
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.step-item.active .step-num {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.step-item.done .step-num {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  font-size: 11px;
+}
+
+.step-sep {
+  width: 24px;
+  height: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 6px;
+}
+
+/* ─── Import card ────────────────────────────────────────────── */
+.imp-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.imp-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.imp-card-sub {
+  font-size: 12px;
+  color: var(--mu);
+  margin-bottom: 18px;
+}
+
+/* ─── Fields ─────────────────────────────────────────────────── */
+.field-row { margin-bottom: 14px; }
+
+.imp-textarea {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+  min-height: 160px;
+}
+
+.imp-table-sel { min-width: 180px; }
+
+.imp-field-err {
+  font-size: 11px;
+  color: var(--red-text);
+  margin-top: 4px;
+}
+
+/* ─── Hint + button row ──────────────────────────────────────── */
+.imp-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.imp-hint { font-size: 12px; color: var(--mu); }
+
+/* ─── Column mapper table ────────────────────────────────────── */
+.imp-map-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 0;
+}
+
+.imp-map-tbl th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--mu2);
+  font-weight: 400;
+  padding: 6px 8px 8px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.imp-map-tbl td {
+  padding: 9px 8px 9px 0;
+  border-bottom: 1px solid var(--border2);
+  vertical-align: top;
+}
+.imp-map-tbl tr:last-child td { border-bottom: none; }
+
+.imp-col-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  padding-top: 2px;
+  display: inline-block;
+}
+
+.imp-map-sel {
+  height: 32px;
+  font-size: 12px;
+  width: 100%;
+  max-width: 200px;
+}
+
+/* FK / resolver notes */
+.imp-fk-note {
+  font-size: 10px;
+  color: var(--blue-text);
+  margin-top: 4px;
+}
+.imp-fk-warn {
+  font-size: 10px;
+  color: var(--amber);
+  margin-top: 4px;
+}
+
+/* Type badge */
+.imp-type-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--mu);
+}
+.imp-type-fk       { background: var(--blue-bg);   color: var(--blue-text);   border-color: transparent; }
+.imp-type-required { background: var(--red-bg);    color: var(--red-text);    border-color: transparent; }
+.imp-type-number   { background: var(--purple-bg); color: var(--purple-text); border-color: transparent; }
+.imp-type-boolean  { background: var(--amber-bg);  color: var(--amber-text);  border-color: transparent; }
+.imp-type-date     { background: var(--green-bg);  color: var(--green-text);  border-color: transparent; }
+
+/* Required dot */
+.imp-req-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Confidence badges */
+.imp-conf         { font-size: 11px; font-family: var(--font-mono); }
+.imp-conf-exact   { color: var(--green-text); }
+.imp-conf-fuzzy   { color: var(--amber); }
+.imp-conf-none    { color: var(--red-text); }
+
+/* ─── Required-field warning (Step 2) ───────────────────────── */
+.imp-req-warning {
+  background: var(--amber-bg);
+  border: 1px solid #e8c87a;
+  color: var(--amber-text);
+  border-radius: var(--r);
+  padding: 10px 14px;
+  font-size: 12px;
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+.imp-req-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid #e8c87a;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin: 0 2px;
+}
+.imp-req-chip-type {
+  font-size: 9px;
+  color: var(--mu);
+  background: var(--bg);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+/* ─── Enum type badge ────────────────────────────────────────── */
+.imp-type-enum { background: var(--gold-bg); color: var(--amber-text); border-color: transparent; }
+
+/* ─── DedupeBy section ───────────────────────────────────────── */
+.dedup-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border2);
+}
+
+.dedup-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+
+.dedup-sub {
+  font-size: 11px;
+  color: var(--mu);
+  margin-bottom: 12px;
+}
+
+.dedup-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dedup-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: border-color .1s;
+  user-select: none;
+}
+.dedup-check-label:hover { border-color: var(--ink); }
+.dedup-check-label input[type=checkbox] { cursor: pointer; accent-color: var(--ink); }
+
+.dedup-check-unmapped {
+  opacity: .6;
+  border-style: dashed;
+}
+
+.dedup-type {
+  font-size: 9px;
+  color: var(--mu2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 2px;
+}
+
+.dedup-warn-icon { color: var(--amber); font-size: 10px; }
+
+.dedup-notice {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-radius: var(--r);
+  padding: 6px 10px;
+}
+
+/* ─── Summary bar ────────────────────────────────────────────── */
+.imp-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-radius: var(--r);
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.sum-ok   { color: var(--green-text); }
+.sum-dupe { color: var(--purple-text); }
+.sum-err  { color: var(--red-text); }
+.sum-warn { color: var(--amber-text); }
+
+/* ─── Dupe batch panel ───────────────────────────────────────── */
+.imp-dupe-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--amber-bg);
+  border: 1px solid #e8c87a;
+  border-radius: var(--r);
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+.imp-dupe-label { font-weight: 500; color: var(--amber-text); flex: 1; }
+.imp-dupe-sep   { color: var(--mu); font-size: 11px; }
+
+/* ─── Preview table ──────────────────────────────────────────── */
+.imp-preview-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 4px;
+}
+
+.imp-preview-tbl { font-size: 12px; }
+.imp-preview-tbl th { font-size: 10px; }
+.imp-preview-tbl td { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Row status left-border accent */
+.imp-row-error td:first-child { border-left: 3px solid var(--red);    }
+.imp-row-warn  td:first-child { border-left: 3px solid var(--amber);  }
+.imp-row-dupe  td:first-child { border-left: 3px solid var(--purple); }
+.imp-row-ready td:first-child { border-left: 3px solid var(--green);  }
+
+/* Status dot */
+.imp-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  cursor: default;
+  position: relative;
+}
+.imp-dot-ready  { background: var(--green); }
+.imp-dot-warn   { background: var(--amber); }
+.imp-dot-error  { background: var(--red); }
+.imp-dot-dupe   { background: var(--purple); }
+
+/* Tooltip on hover */
+.imp-dot::after {
+  content: attr(data-tip);
+  display: none;
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: pre-line;
+  z-index: 200;
+  max-width: 280px;
+  pointer-events: none;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.imp-dot:hover::after { display: block; }
+
+/* Per-row dupe toggle */
+.imp-dupe-toggle { display: inline-flex; gap: 4px; }
+.imp-dupe-toggle .btn { font-size: 10px; padding: 2px 8px; }
+.imp-dt-skip-active   { background: var(--red-bg)!important;    color: var(--red-text)!important;    border-color: transparent!important; }
+.imp-dt-update-active { background: var(--blue-bg)!important;   color: var(--blue-text)!important;   border-color: transparent!important; }
+
+/* ─── Progress + Result ──────────────────────────────────────── */
+.imp-progress-track {
+  height: 5px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.imp-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 99px;
+  transition: width .15s ease;
+}
+
+.imp-counters {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  margin-bottom: 20px;
+}
+.imp-cnt-ok  { color: var(--green-text); }
+.imp-cnt-sk  { color: var(--mu); }
+.imp-cnt-err { color: var(--red-text); }
+
+.imp-result {
+  background: var(--green-bg);
+  border: 1px solid #a8dcc5;
+  border-radius: var(--r);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.imp-result-title  { font-weight: 600; font-size: 14px; color: var(--green-text); margin-bottom: 8px; }
+.imp-result-stats  { display: flex; gap: 20px; font-size: 13px; font-family: var(--font-mono); margin-bottom: 6px; }
+.imp-result-batch  { font-family: var(--font-mono); font-size: 10px; color: var(--mu2); }
+
+.imp-failed-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--red-text);
+  margin-bottom: 8px;
+}
+.imp-failed-list {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--mu);
+  line-height: 1.9;
+  background: var(--bg);
+  border-radius: var(--r);
+  padding: 10px 12px;
+}
+
+/* ─── Recent imports panel ───────────────────────────────────── */
+.imp-recent {
+  padding: 20px 24px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  border-top: 1px solid var(--border);
+}
+
+.imp-recent-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--mu2);
+  margin-bottom: 12px;
+}
+
+/* Mapping detail (expands on row click) */
+.imp-map-detail-wrap { margin-top: 14px; }
+.imp-map-detail-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--mu2);
+  margin-bottom: 8px;
+}
+.imp-map-detail {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 14px;
+  line-height: 2;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.imp-map-csv { color: var(--mu); }
+.imp-map-db  { color: var(--ink); font-weight: 500; }

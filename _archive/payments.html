@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Payments</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <div class="mod-wrap">
+        <div class="mod-trigger" onclick="toggleModDD()">
+          PAYMENTS <span style="font-size:9px">▾</span>
+        </div>
+        <div class="mod-dd" id="mod-dd">
+          <div class="mod-item" onclick="location.href='workload.html'">
+            <div class="mod-dot" style="background:var(--green)"></div>Workload
+          </div>
+          <div class="mod-item" onclick="location.href='deals.html'">
+            <div class="mod-dot" style="background:var(--gold)"></div>Sales
+          </div>
+          <div class="mod-item cur">
+            <div class="mod-dot" style="background:var(--blue)"></div>Payments
+          </div>
+        </div>
+      </div>
+      <nav class="tb-nav" style="margin-left:8px">
+        <a class="cur" id="nav-vendor-bills" onclick="switchTab('vendor-bills')">Vendor Bills</a>
+        <a id="nav-history" onclick="switchTab('history')">History</a>
+      </nav>
+    </div>
+    <div class="tb-right">
+      <span class="tb-user-name">Manager</span>
+      <div class="tb-mode">DEMO</div>
+      <div class="tb-av">MG</div>
+    </div>
+  </div>
+
+  <!-- App body -->
+  <div class="app-body" id="app-body">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VENDOR BILLS TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-vendor-bills" class="main">
+
+      <!-- Vendor list view -->
+      <div id="vendor-list-view" class="scroll" style="padding:20px">
+        <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px">Vendor Bills</div>
+
+        <!-- Needs Review -->
+        <div style="margin-bottom:28px">
+          <div style="font-size:13px;font-weight:600;color:var(--red-text);margin-bottom:12px">🔴 NEEDS REVIEW (<span id="review-count">0</span>)</div>
+          <div id="review-list"></div>
+        </div>
+
+        <!-- Unpaid Work (no bill) -->
+        <div style="margin-bottom:28px">
+          <div style="font-size:13px;font-weight:600;color:var(--mu);margin-bottom:12px">⚪ UNPAID WORK — NO BILL YET (<span id="nobill-count">0</span>)</div>
+          <div id="nobill-list"></div>
+        </div>
+
+        <!-- Ready to Pay -->
+        <div style="margin-bottom:28px">
+          <div style="font-size:13px;font-weight:600;color:var(--green-text);margin-bottom:12px">✅ APPROVED — READY TO PAY (<span id="ready-count">0</span>)</div>
+          <div id="ready-list"></div>
+        </div>
+      </div>
+
+      <!-- Vendor detail view -->
+      <div id="vendor-detail-view" class="main hidden" style="background:var(--bg)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px;flex-shrink:0">
+          <button class="btn btn-sm btn-ghost" onclick="backToVendorList()">← Back</button>
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:600;color:var(--ink)" id="vendor-detail-name"></div>
+            <div style="font-size:11px;color:var(--mu);font-family:var(--font-mono)" id="vendor-detail-email"></div>
+          </div>
+        </div>
+
+        <div class="scroll" style="padding:20px">
+
+          <!-- Draft bill review -->
+          <div id="draft-bill-section" style="display:none;margin-bottom:24px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:15px;font-weight:600;color:var(--amber-text)">📄 Draft Bill</div>
+              <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--amber-text)" id="draft-total"></div>
+            </div>
+            <div style="font-size:11px;color:var(--mu);margin-bottom:12px" id="draft-meta"></div>
+
+            <div class="block" style="margin-bottom:12px">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th style="width:30px"></th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Task type</th>
+                    <th>Hours</th>
+                    <th style="text-align:right">Amount</th>
+                    <th>Notes</th>
+                    <th style="width:32px"></th>
+                  </tr>
+                </thead>
+                <tbody id="draft-sessions"></tbody>
+              </table>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+              <button class="btn btn-sm" onclick="selectAllDraft()">Select all</button>
+              <button class="btn btn-sm" onclick="unselectAllDraft()">Unselect all</button>
+            </div>
+
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="approveBill()">Approve Bill</button>
+              <button class="btn" onclick="rejectBill()">Reject & Return</button>
+            </div>
+          </div>
+
+          <!-- Unbilled sessions -->
+          <div id="unbilled-section" style="display:none;margin-bottom:24px">
+            <div style="font-size:13px;font-weight:600;color:var(--mu);margin-bottom:12px">⚪ Unbilled Sessions</div>
+            <div class="block">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Task type</th>
+                    <th>Hours</th>
+                    <th style="text-align:right">Amount</th>
+                    <th>Notes</th>
+                    <th style="width:32px"></th>
+                  </tr>
+                </thead>
+                <tbody id="unbilled-sessions"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div id="vendor-history-section">
+            <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px">✅ Payment History</div>
+            <div id="vendor-history"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         HISTORY TAB
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="tab-history" class="main hidden">
+      <!-- Monthly dashboard strip -->
+      <div id="history-dashboard" style="padding:20px 20px 0;flex-shrink:0"></div>
+      <!-- Bills list -->
+      <div class="scroll" style="padding:0 20px 20px">
+        <div style="font-family:var(--font-serif);font-size:24px;font-weight:700;margin-bottom:20px;padding-top:20px">Payment History</div>
+        <div id="all-history"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Reject Bill Modal -->
+<div class="overlay" id="reject-modal">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:480px;padding:24px">
+    <div style="font-size:17px;font-weight:600;margin-bottom:16px">Reject Bill</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:12px">This bill will be returned to the vendor. They will need to create a new draft.</div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Rejection notes (required)</label>
+      <textarea id="reject-notes" class="fi" rows="4" placeholder="Explain why you're rejecting this bill..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeRejectModal()">Cancel</button>
+      <button class="btn" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="confirmReject()">Reject Bill</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Session Modal (manager) -->
+<div class="overlay" id="mgr-edit-modal">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:460px;padding:24px">
+    <div style="font-size:17px;font-weight:600;margin-bottom:4px">Edit Session</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:16px" id="mgr-edit-vendor-label"></div>
+    <input type="hidden" id="mgr-edit-session-id">
+    <div class="form-row" style="margin-bottom:12px">
+      <div class="fg" style="flex:1">
+        <label class="fl">Date</label>
+        <input type="date" id="mgr-edit-date" class="fi">
+      </div>
+      <div class="fg" style="flex:1">
+        <label class="fl">Duration</label>
+        <select id="mgr-edit-duration" class="fi fsel">
+          <option value="0.5">30 min</option>
+          <option value="1">1 hour</option>
+          <option value="1.5">1.5 hours</option>
+          <option value="2">2 hours</option>
+          <option value="2.5">2.5 hours</option>
+          <option value="3">3 hours</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Task type</label>
+      <select id="mgr-edit-task-type" class="fi fsel" onchange="onMgrEditTaskTypeChange()">
+        <option value="">— Select —</option>
+      </select>
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Notes</label>
+      <textarea id="mgr-edit-notes" class="fi" rows="3"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeMgrEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMgrEditSession()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="payments.js"></script>
+</body>
+</html>

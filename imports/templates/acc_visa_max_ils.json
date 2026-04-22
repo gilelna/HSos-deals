@@ -1,0 +1,42 @@
+{
+  "account_id": "acc_visa_max_ils",
+  "source_label": "Visa Max (ILS)",
+  "file_type": "xlsx",
+  "sheet": "חיובים בשקלים",
+  "encoding": "utf-8",
+  "skip_until_header": true,
+  "header_detection": "תאריך חיוב",
+  "skip_rows_from_top": null,
+  "decimal_separator": "dot",
+  "date_format": "DD/MM/YYYY",
+  "direction_logic": "negative=in,positive=out",
+  "direction_column": null,
+  "multi_section": true,
+  "section_key_column": "card_type_detected",
+  "section_filter": "ויזה מקס",
+  "columns": {
+    "date": "תאריך העסקה",
+    "settled_date": "תאריך חיוב",
+    "amount": "סכום החיוב",
+    "currency": "fixed:ILS",
+    "vendor": "בית העסק",
+    "description": "בית העסק",
+    "amount_original": "סכום העסקה",
+    "currency_original": null,
+    "exchange_rate": null,
+    "entity_hint": null,
+    "category_hint": null
+  },
+  "filters": {
+    "require_column": "סכום החיוב",
+    "exclude_if_contains": null,
+    "status_column": null,
+    "valid_status_values": null
+  },
+  "internal_transfer_rule": {
+    "condition": null,
+    "event_type": "expense_vendor",
+    "include_in_pl": true
+  },
+  "notes": "Excel file with multiple sheets (ILS / USD). The ILS sheet has multiple card sections — detect header row by looking for 'תאריך עסקה'. Only process rows belonging to 'ויזה מקס' / 'Visa MAX' sections (not Mastercard sections). Between sections there may be summary rows — skip any row missing a valid numeric amount. Positive amounts = expenses (out), negative = refund/credit (in). If currency_original (מטבע עסקה) differs from ILS, store it as amount_original/currency_original."
+}

@@ -1,0 +1,445 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.app { display: flex; height: 100vh; min-height: 700px; background: var(--color-background-tertiary); }
+.sidebar { width: 200px; min-width: 200px; background: var(--color-background-primary); border-right: 0.5px solid var(--color-border-tertiary); display: flex; flex-direction: column; padding: 16px 0; }
+.sidebar-logo { padding: 0 16px 20px; font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.sidebar-section { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 16px 4px; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 16px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; border-radius: 0; transition: background 0.1s; }
+.nav-item:hover { background: var(--color-background-secondary); }
+.nav-item.active { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-border-secondary); }
+.nav-dot.teal { background: #1D9E75; }
+.nav-dot.blue { background: #378ADD; }
+.nav-dot.amber { background: #BA7517; }
+.nav-dot.coral { background: #D85A30; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { background: var(--color-background-primary); border-bottom: 0.5px solid var(--color-border-tertiary); padding: 0 24px; height: 52px; display: flex; align-items: center; justify-content: space-between; }
+.topbar-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.topbar-tabs { display: flex; gap: 0; height: 100%; align-items: flex-end; }
+.tab { font-size: 13px; color: var(--color-text-secondary); padding: 0 16px; height: 100%; display: flex; align-items: center; cursor: pointer; border-bottom: 2px solid transparent; }
+.tab:hover { color: var(--color-text-primary); }
+.tab.active { color: var(--color-text-primary); border-bottom: 2px solid var(--color-text-primary); font-weight: 500; }
+.topbar-actions { display: flex; gap: 8px; }
+.btn { font-size: 12px; padding: 6px 12px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: transparent; color: var(--color-text-primary); cursor: pointer; }
+.btn-primary { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px; }
+.metric-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; }
+.metric-value { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.metric-sub { font-size: 11px; color: var(--color-text-tertiary); margin-top: 3px; }
+.metric-value.green { color: #1D9E75; }
+.metric-value.amber { color: #BA7517; }
+.metric-value.red { color: #A32D2D; }
+.section { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; }
+.section-header { padding: 14px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; justify-content: space-between; }
+.section-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.section-actions { display: flex; gap: 8px; align-items: center; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+.badge-amber { background: #FAEEDA; color: #854F0B; }
+.badge-red { background: #FCEBEB; color: #A32D2D; }
+.badge-green { background: #EAF3DE; color: #3B6D11; }
+.badge-blue { background: #E6F1FB; color: #185FA5; }
+.badge-gray { background: #F1EFE8; color: #5F5E5A; }
+.filter-row { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
+.filter-chip { font-size: 11px; padding: 3px 10px; border: 0.5px solid var(--color-border-secondary); border-radius: 20px; cursor: pointer; color: var(--color-text-secondary); background: var(--color-background-primary); }
+.filter-chip.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); padding: 8px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
+td { padding: 10px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--color-background-secondary); }
+.amount-in { color: #1D9E75; font-weight: 500; }
+.amount-out { color: var(--color-text-primary); }
+.vendor-cell { display: flex; align-items: center; gap: 8px; }
+.vendor-icon { width: 24px; height: 24px; border-radius: 4px; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; color: var(--color-text-secondary); }
+.recon-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.recon-matched { background: #1D9E75; }
+.recon-unmatched { background: #BA7517; }
+.recon-review { background: #A32D2D; }
+.two-col { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+.pending-list { list-style: none; }
+.pending-item { padding: 12px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pending-item:last-child { border-bottom: none; }
+.pending-client { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.pending-meta { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.pending-amount { font-size: 14px; font-weight: 500; color: #BA7517; text-align: right; }
+.pending-days { font-size: 11px; color: var(--color-text-tertiary); text-align: right; }
+.link-btn { font-size: 11px; color: #185FA5; cursor: pointer; background: none; border: none; padding: 0; }
+.select-mini { font-size: 11px; border: 0.5px solid var(--color-border-secondary); border-radius: 4px; padding: 2px 6px; background: transparent; color: var(--color-text-secondary); }
+</style>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">HSos</div>
+    <div class="sidebar-section">Spaces</div>
+    <div class="nav-item"><div class="nav-dot blue"></div>Sales</div>
+    <div class="nav-item"><div class="nav-dot teal"></div>Operations</div>
+    <div class="nav-item active"><div class="nav-dot amber"></div>Payments</div>
+    <div class="nav-item"><div class="nav-dot coral"></div>Clients</div>
+    <div class="sidebar-section" style="margin-top:16px;">Finance</div>
+    <div class="nav-item">Accounts</div>
+    <div class="nav-item">Import</div>
+    <div class="nav-item">Reports</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex; align-items:center; gap:0;">
+        <div class="topbar-title" style="margin-right:24px;">Payments</div>
+        <div class="topbar-tabs">
+          <div class="tab active" onclick="showTab('transactions',this)">Transactions</div>
+          <div class="tab" onclick="showTab('expected',this)">Expected income</div>
+          <div class="tab" onclick="showTab('vendors',this)">Vendor bills</div>
+          <div class="tab" onclick="showTab('reconcile',this)">Reconcile</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <select class="select-mini"><option>Feb 2026</option><option>Jan 2026</option><option>Dec 2025</option></select>
+        <button class="btn">Import CSV</button>
+        <button class="btn btn-primary">+ Add transaction</button>
+      </div>
+    </div>
+
+    <div class="content" id="tab-transactions">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Income (Feb)</div>
+          <div class="metric-value green">$18,420</div>
+          <div class="metric-sub">14 transactions</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Expenses (Feb)</div>
+          <div class="metric-value">$6,830</div>
+          <div class="metric-sub">31 transactions</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Net (Feb)</div>
+          <div class="metric-value green">+$11,590</div>
+          <div class="metric-sub">P&L excl. transfers</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Needs review</div>
+          <div class="metric-value amber">7</div>
+          <div class="metric-sub">unclassified</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Transactions</div>
+          <div class="section-actions">
+            <span class="badge badge-amber">7 unmatched</span>
+            <button class="btn">Filter</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-chip active">All</div>
+          <div class="filter-chip">Income</div>
+          <div class="filter-chip">Expenses</div>
+          <div class="filter-chip">Transfers</div>
+          <div class="filter-chip">Needs review</div>
+          <div class="filter-chip">Wise</div>
+          <div class="filter-chip">Brex</div>
+          <div class="filter-chip">Mizrahi</div>
+        </div>
+        <table>
+          <tr>
+            <th style="width:90px;">Date</th>
+            <th>Vendor / description</th>
+            <th>Account</th>
+            <th>Category</th>
+            <th style="width:80px;">Status</th>
+            <th style="text-align:right; width:100px;">Amount</th>
+          </tr>
+          <tr>
+            <td style="color:var(--color-text-secondary);">Feb 12</td>
+            <td><div class="vendor-cell"><div class="vendor-icon">GI</div><div><div>Zohar Shraga</div><div style="font-size:11px;color:var(--color-text-tertiary);">Green Invoice</div></div></div></td>
+            <td style="color:var(--color-text-secondary);">acc_greeninvoice_il</td>
+            <td><span class="badge badge-green">Income</span></td>
+            <td><span class="recon-dot recon-matched"></span> matched</td>
+            <td class="amount-in" style="text-align:right;">+₪4,200</td>
+          </tr>
+          <tr>
+            <td style="color:var(--color-text-secondary);">Feb 10</td>
+            <td><div class="vendor-cell"><div class="vendor-icon">BR</div><div><div>Google Cloud</div><div style="font-size:11px;color:var(--color-text-tertiary);">Brex 2119</div></div></div></td>
+            <td style="color:var(--color-text-secondary);">acc_brex_us_2119</td>
+            <td><span class="badge badge-blue">Software SaaS</span></td>
+            <td><span class="recon-dot recon-matched"></span> matched</td>
+            <td class="amount-out" style="text-align:right;">−$0.04</td>
+          </tr>
+          <tr>
+            <td style="color:var(--color-text-secondary);">Feb 08</td>
+            <td><div class="vendor-cell"><div class="vendor-icon">W</div><div><div>Daniel Shani</div><div style="font-size:11px;color:var(--color-text-tertiary);">Wise USD</div></div></div></td>
+            <td style="color:var(--color-text-secondary);">acc_wise_usd</td>
+            <td><span class="badge badge-gray">Contractors</span></td>
+            <td><span class="recon-dot recon-matched"></span> matched</td>
+            <td class="amount-out" style="text-align:right;">−$850</td>
+          </tr>
+          <tr style="background:rgba(250,238,218,0.3);">
+            <td style="color:var(--color-text-secondary);">Feb 06</td>
+            <td><div class="vendor-cell"><div class="vendor-icon">?</div><div><div style="color:var(--color-text-secondary);">העברה 4821...</div><div style="font-size:11px;color:var(--color-text-tertiary);">Mizrahi IL</div></div></div></td>
+            <td style="color:var(--color-text-secondary);">acc_mizrachi_il</td>
+            <td><span class="badge badge-amber">Unclassified</span></td>
+            <td><span class="recon-dot recon-unmatched"></span> review</td>
+            <td class="amount-out" style="text-align:right;">−₪1,200</td>
+          </tr>
+          <tr>
+            <td style="color:var(--color-text-secondary);">Feb 05</td>
+            <td><div class="vendor-cell"><div class="vendor-icon">TC</div><div><div>ThriveCart — Beyond</div><div style="font-size:11px;color:var(--color-text-tertiary);">Stripe HS</div></div></div></td>
+            <td style="color:var(--color-text-secondary);">acc_stripe_hs</td>
+            <td><span class="badge badge-green">Income</span></td>
+            <td><span class="recon-dot recon-matched"></span> matched</td>
+            <td class="amount-in" style="text-align:right;">+$37</td>
+          </tr>
+          <tr>
+            <td style="color:var(--color-text-secondary);">Feb 03</td>
+            <td><div class="vendor-cell"><div class="vendor-icon">PP</div><div><div>PayPal fee</div><div style="font-size:11px;color:var(--color-text-tertiary);">PayPal IL</div></div></div></td>
+            <td style="color:var(--color-text-secondary);">acc_paypal_il</td>
+            <td><span class="badge badge-gray">Bank fees</span></td>
+            <td><span class="recon-dot recon-matched"></span> matched</td>
+            <td class="amount-out" style="text-align:right;">−$1.20</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="content" id="tab-expected" style="display:none;">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Open / pending</div>
+          <div class="metric-value amber">$14,200</div>
+          <div class="metric-sub">8 deals</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Link sent</div>
+          <div class="metric-value">$6,400</div>
+          <div class="metric-sub">4 deals</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Invoiced</div>
+          <div class="metric-value blue" style="color:#185FA5;">$3,800</div>
+          <div class="metric-sub">2 deals</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Paid (Feb)</div>
+          <div class="metric-value green">$18,420</div>
+          <div class="metric-sub">closed this month</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Expected income — open deals</div>
+          <div class="section-actions">
+            <span class="badge badge-amber">8 pending</span>
+          </div>
+        </div>
+        <table>
+          <tr>
+            <th>Client</th>
+            <th>Deal / product</th>
+            <th>Billing type</th>
+            <th>Status</th>
+            <th style="text-align:right;">Amount</th>
+            <th>Action</th>
+          </tr>
+          <tr>
+            <td><div style="font-size:13px;font-weight:500;">BioCatch LTD</div><div style="font-size:11px;color:var(--color-text-tertiary);">B2B · Wise</div></td>
+            <td>Pronunciation coaching x10</td>
+            <td><span class="badge badge-gray">b2b</span></td>
+            <td><span class="badge badge-amber">pending</span></td>
+            <td style="text-align:right;font-weight:500;">$1,300</td>
+            <td><button class="btn" style="font-size:11px;padding:4px 8px;">Send link</button></td>
+          </tr>
+          <tr>
+            <td><div style="font-size:13px;font-weight:500;">Albino Productions</div><div style="font-size:11px;color:var(--color-text-tertiary);">B2B · Bank transfer</div></td>
+            <td>New Sound VIP</td>
+            <td><span class="badge badge-gray">b2b</span></td>
+            <td><span class="badge badge-blue">link sent</span></td>
+            <td style="text-align:right;font-weight:500;">$1,597</td>
+            <td><button class="btn" style="font-size:11px;padding:4px 8px;">Match tx</button></td>
+          </tr>
+          <tr>
+            <td><div style="font-size:13px;font-weight:500;">Yaakov Havia</div><div style="font-size:11px;color:var(--color-text-tertiary);">B2B · Wise</div></td>
+            <td>Fluency Sessions x5</td>
+            <td><span class="badge badge-gray">b2b</span></td>
+            <td><span class="badge badge-amber">pending</span></td>
+            <td style="text-align:right;font-weight:500;">$250</td>
+            <td><button class="btn" style="font-size:11px;padding:4px 8px;">Send link</button></td>
+          </tr>
+          <tr>
+            <td><div style="font-size:13px;font-weight:500;">ThriveCart — auto</div><div style="font-size:11px;color:var(--color-text-tertiary);">Online · TC webhook</div></td>
+            <td>Beyond monthly (3 active)</td>
+            <td><span class="badge badge-green">thrivecart</span></td>
+            <td><span class="badge badge-green">paid</span></td>
+            <td style="text-align:right;font-weight:500;">$111</td>
+            <td><span style="font-size:11px;color:var(--color-text-tertiary);">auto-closed</span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="content" id="tab-vendors" style="display:none;">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Due this month</div>
+          <div class="metric-value amber">$9,240</div>
+          <div class="metric-sub">6 bills</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Approved / ready</div>
+          <div class="metric-value">$5,800</div>
+          <div class="metric-sub">4 bills</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Paid (Feb)</div>
+          <div class="metric-value green">$12,400</div>
+          <div class="metric-sub">via Wise</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Drafts pending</div>
+          <div class="metric-value red" style="color:#A32D2D;">2</div>
+          <div class="metric-sub">awaiting approval</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Vendor bills</div>
+        </div>
+        <table>
+          <tr>
+            <th>Vendor</th>
+            <th>Type</th>
+            <th>Period</th>
+            <th>Status</th>
+            <th style="text-align:right;">Amount</th>
+            <th>Payout</th>
+          </tr>
+          <tr>
+            <td><div style="font-size:13px;font-weight:500;">Daniel Shani</div><div style="font-size:11px;color:var(--color-text-tertiary);">Contractor</div></td>
+            <td><span class="badge badge-gray">contractor</span></td>
+            <td>Feb 2026</td>
+            <td><span class="badge badge-green">approved</span></td>
+            <td style="text-align:right;font-weight:500;">$850</td>
+            <td style="font-size:11px;color:var(--color-text-secondary);">Wise USD</td>
+          </tr>
+          <tr>
+            <td><div style="font-size:13px;font-weight:500;">Uri Bar</div><div style="font-size:11px;color:var(--color-text-tertiary);">Contractor</div></td>
+            <td><span class="badge badge-gray">contractor</span></td>
+            <td>Feb 2026</td>
+            <td><span class="badge badge-amber">draft</span></td>
+            <td style="text-align:right;font-weight:500;">$1,200</td>
+            <td style="font-size:11px;color:var(--color-text-secondary);">Wise USD</td>
+          </tr>
+          <tr>
+            <td><div style="font-size:13px;font-weight:500;">Doron Biber CPA</div><div style="font-size:11px;color:var(--color-text-tertiary);">Contractor · recurring</div></td>
+            <td><span class="badge badge-gray">contractor</span></td>
+            <td>Feb 2026</td>
+            <td><span class="badge badge-blue">ready to pay</span></td>
+            <td style="text-align:right;font-weight:500;">₪2,800</td>
+            <td style="font-size:11px;color:var(--color-text-secondary);">Mizrahi ILS</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="content" id="tab-reconcile" style="display:none;">
+      <div class="two-col">
+        <div class="section">
+          <div class="section-header">
+            <div class="section-title">Unmatched transactions</div>
+            <span class="badge badge-amber">7 pending</span>
+          </div>
+          <table>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th style="text-align:right;">Amount</th>
+              <th>Action</th>
+            </tr>
+            <tr style="background:rgba(250,238,218,0.2);">
+              <td style="color:var(--color-text-secondary);font-size:11px;">Feb 06</td>
+              <td><div style="font-size:12px;">העברה 4821...</div><div style="font-size:11px;color:var(--color-text-tertiary);">Mizrahi IL</div></td>
+              <td style="text-align:right;font-size:12px;">₪1,200</td>
+              <td><button class="link-btn">Match deal ↗</button></td>
+            </tr>
+            <tr style="background:rgba(250,238,218,0.2);">
+              <td style="color:var(--color-text-secondary);font-size:11px;">Feb 04</td>
+              <td><div style="font-size:12px;">PayPal transfer</div><div style="font-size:11px;color:var(--color-text-tertiary);">PayPal IL</div></td>
+              <td style="text-align:right;font-size:12px;">$210</td>
+              <td><button class="link-btn">Match deal ↗</button></td>
+            </tr>
+            <tr style="background:rgba(252,235,235,0.2);">
+              <td style="color:var(--color-text-secondary);font-size:11px;">Feb 01</td>
+              <td><div style="font-size:12px;">Unknown — Brex</div><div style="font-size:11px;color:var(--color-text-tertiary);">Brex 6004</div></td>
+              <td style="text-align:right;font-size:12px;">−$43</td>
+              <td><button class="link-btn">Classify ↗</button></td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="section">
+            <div class="section-header">
+              <div class="section-title">Reconcile status</div>
+            </div>
+            <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:12px;color:var(--color-text-secondary);">Matched</span>
+                <span style="font-size:13px;font-weight:500;color:#1D9E75;">38</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:12px;color:var(--color-text-secondary);">Unmatched</span>
+                <span style="font-size:13px;font-weight:500;color:#BA7517;">7</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:12px;color:var(--color-text-secondary);">Reconciled</span>
+                <span style="font-size:13px;font-weight:500;color:#185FA5;">22</span>
+              </div>
+              <div style="height:0.5px;background:var(--color-border-tertiary);margin:4px 0;"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:12px;color:var(--color-text-secondary);">Green Invoice docs missing receipt</span>
+                <span style="font-size:13px;font-weight:500;color:#A32D2D;">3</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <div class="section-title">Open deals to match</div>
+            </div>
+            <ul class="pending-list">
+              <li class="pending-item">
+                <div>
+                  <div class="pending-client">Albino Productions</div>
+                  <div class="pending-meta">$1,597 · link sent · 8 days ago</div>
+                </div>
+                <button class="link-btn">Match tx ↗</button>
+              </li>
+              <li class="pending-item">
+                <div>
+                  <div class="pending-client">BioCatch LTD</div>
+                  <div class="pending-meta">$1,300 · pending · 12 days ago</div>
+                </div>
+                <button class="link-btn">Match tx ↗</button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(name, el) {
+  ['transactions','expected','vendors','reconcile'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = 'none';
+  });
+  document.getElementById('tab-'+name).style.display = 'flex';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>

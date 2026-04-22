@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Title — HSos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Layout containers — filled by layout.js -->
+  <div id="layout-topbar"></div>
+
+  <!-- App body -->
+  <div class="app-body" id="app-body">
+
+    <!-- Layout containers — filled by layout.js -->
+    <div id="layout-sidebar"></div>
+
+    <!-- Content area -->
+    <div class="app-content">
+
+      <!-- Space cover (page-specific) -->
+      <div class="space-cover [operations|workload|payments]">
+        <div class="space-cover__bg" style="background-image:url('/files/[image].png')"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow">Space · Role</div>
+        <div class="space-cover-title">Page Title</div>
+      </div>
+
+      <!-- Alert bar (page-specific) -->
+      <div class="alert-bar">
+        <a class="alert-card" href="#" onclick="return false">
+          <div class="alert-card-val">—</div>
+          <div class="alert-card-label">Metric label</div>
+        </a>
+      </div>
+
+      <!-- Page body content here -->
+      <div class="main scroll" style="padding:16px">
+        <!-- page specific content -->
+      </div>
+
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
+
+<!-- Scripts: always in this order -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/env-keys.js"></script>
+<script src="/env-config.js"></script>
+<script src="/db.js"></script>
+<script src="/app.js"></script>
+<script src="/router.js"></script>
+<script src="/components/layout.js"></script>
+<script src="/page-specific.js"></script>
+<script>
+  // Every page ends with this
+  document.addEventListener('DOMContentLoaded', async () => {
+    await LAYOUT.init('Page Title', 'operations') // space: 'operations' | 'workload' | 'payments'
+    await init() // or whatever the page init function is called
+  })
+</script>
+
+</body>
+</html>

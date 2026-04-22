@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup — Deal Detail (Complete)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--border2); border-radius: var(--r); overflow: hidden; }
+    .info-cell { padding: 10px 14px; border-bottom: 1px solid var(--border2); border-right: 1px solid var(--border2); }
+    .info-cell:nth-child(even) { border-right: none; }
+    .info-cell:nth-last-child(-n+2) { border-bottom: none; }
+    .info-cell-label { font-size: 10px; font-family: var(--font-mono); color: var(--mu2); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 3px; }
+    .info-cell-val { font-size: 13px; font-weight: 500; }
+    .info-cell-val.empty { color: var(--mu2); font-weight: 400; }
+    .section-title { font-size: 10px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .14em; color: var(--mu2); margin: 20px 0 8px; }
+    .new-badge { display: inline-block; font-size: 9px; font-family: var(--font-mono); background: var(--amber-bg); color: var(--amber-text); border: 1px solid var(--amber); padding: 1px 6px; border-radius: 10px; margin-left: 6px; }
+    .link-field { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); }
+    .link-field a { font-size: 12px; font-family: var(--font-mono); color: var(--blue-text); text-decoration: none; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .link-field a:hover { text-decoration: underline; }
+    .reminder-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border2); }
+    .reminder-item:last-child { border-bottom: none; }
+    .reminder-done { text-decoration: line-through; color: var(--mu2); }
+    .origin-badge { display: inline-block; font-size: 10px; font-family: var(--font-mono); padding: 2px 9px; border-radius: 10px; }
+    .origin-badge.thrivecart { background: var(--purple-bg); color: var(--purple-text); }
+    .gateway-section { border: 1px solid var(--border2); border-radius: var(--r); overflow: hidden; }
+    .gateway-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border2); }
+    .gateway-row:last-child { border-bottom: none; }
+    .gateway-label { font-size: 10px; font-family: var(--font-mono); color: var(--mu2); text-transform: uppercase; letter-spacing: .1em; width: 120px; flex-shrink: 0; }
+    .gateway-val { font-size: 12px; font-family: var(--font-mono); color: var(--ink); flex: 1; }
+    .gateway-val.empty { color: var(--mu2); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="tb-logo">HSos</span>
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber);border-radius:20px;padding:3px 10px;margin-left:12px">
+        MOCKUP — Deal Detail Complete
+      </div>
+    </div>
+    <div class="tb-right">
+      <div class="tb-av">HS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div class="scroll" style="flex:1;padding:24px;max-width:640px">
+
+      <!-- Deal header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <div style="font-family:var(--font-serif);font-size:26px;font-weight:700">Leadership Coaching Package</div>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
+            <span class="origin-badge thrivecart">thrivecart</span>
+            <!-- NEW: deal.external_id already shown conditionally — make always visible -->
+            <span style="font-size:11px;font-family:var(--font-mono);color:var(--mu2)">ext: TC-48291-9823</span>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm">Edit Deal</button>
+      </div>
+
+      <!-- Core fields — currently shown -->
+      <div class="section-title">Deal Overview</div>
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="info-cell-label">Client</div>
+          <div class="info-cell-val">Tamar Cohen</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Product</div>
+          <div class="info-cell-val">Leadership Package</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Price</div>
+          <div class="info-cell-val" style="font-family:var(--font-mono)">€ 1,800</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">VAT</div>
+          <div class="info-cell-val" style="font-family:var(--font-mono)">17% (excl) → € 2,106</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Sales Status</div>
+          <div class="info-cell-val"><span class="pill active">active</span></div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Billing</div>
+          <div class="info-cell-val"><span class="pill paid">paid</span></div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Delivery Vendor</div>
+          <div class="info-cell-val">Noa Ben-David</div>
+        </div>
+        <!-- NEW: deals.owner_vendor_id — currently ❌ NOT DISPLAYED -->
+        <div class="info-cell">
+          <div class="info-cell-label">
+            Deal Owner
+            <!-- NEW: deals.owner_vendor_id — the account manager, different from the delivery vendor -->
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="info-cell-val" style="color:var(--blue-text)">Shira Katz</div>
+        </div>
+        <!-- NEW: deals.discount — currently ❌ NOT DISPLAYED -->
+        <div class="info-cell">
+          <div class="info-cell-label">
+            Discount
+            <!-- NEW: deals.discount — text field for coupon/discount description -->
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="info-cell-val" style="color:var(--green-text)">COACH20 (20%)</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Created</div>
+          <div class="info-cell-val">Mar 12, 2026</div>
+        </div>
+        <!-- NEW: deals.updated_at — currently ❌ NOT DISPLAYED -->
+        <div class="info-cell">
+          <div class="info-cell-label">
+            Updated
+            <!-- NEW: deals.updated_at — last modification timestamp -->
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="info-cell-val" style="color:var(--mu2)">2 days ago</div>
+        </div>
+      </div>
+
+      <!-- Payment Gateway IDs — currently ALL ❌ NOT DISPLAYED -->
+      <!--
+        NEW SECTION: All of these fields exist in the deals table but have no UI.
+        deals.payment_processor, deals.stripe_payment_link, deals.stripe_customer_id,
+        deals.gi_client_id, deals.gi_invoice_series, deals.wise_iban, deals.wise_bank_ref,
+        deals.thrive_ref
+      -->
+      <div class="section-title">
+        Payment & Invoicing
+        <span class="new-badge">NEW SECTION</span>
+      </div>
+      <div class="gateway-section">
+        <div class="gateway-row">
+          <div class="gateway-label">Processor</div>
+          <div class="gateway-val"><span class="pill">thrive</span></div>
+        </div>
+        <!-- NEW: deals.stripe_payment_link -->
+        <div class="gateway-row">
+          <div class="gateway-label">
+            Stripe Link
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="gateway-val empty">—</div>
+        </div>
+        <!-- NEW: deals.stripe_customer_id -->
+        <div class="gateway-row">
+          <div class="gateway-label">
+            Stripe Customer
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="gateway-val empty">—</div>
+        </div>
+        <!-- NEW: deals.thrive_ref -->
+        <div class="gateway-row">
+          <div class="gateway-label">
+            ThriveCart Ref
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="gateway-val">TC-ORD-48291</div>
+        </div>
+        <!-- NEW: deals.gi_client_id -->
+        <div class="gateway-row">
+          <div class="gateway-label">
+            GI Client ID
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="gateway-val empty">—</div>
+        </div>
+        <!-- NEW: deals.gi_invoice_series -->
+        <div class="gateway-row">
+          <div class="gateway-label">
+            GI Invoice Series
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="gateway-val empty">—</div>
+        </div>
+        <!-- NEW: deals.wise_iban -->
+        <div class="gateway-row">
+          <div class="gateway-label">
+            Wise IBAN
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="gateway-val empty">—</div>
+        </div>
+        <!-- NEW: deals.wise_bank_ref -->
+        <div class="gateway-row">
+          <div class="gateway-label">
+            Wise Bank Ref
+            <span class="new-badge">NEW</span>
+          </div>
+          <div class="gateway-val empty">—</div>
+        </div>
+      </div>
+
+      <!-- Stripe payment link — actionable, shown prominently when set -->
+      <!--
+        NEW: deals.stripe_payment_link shown as a clickable button.
+        This is the most operationally important hidden field.
+      -->
+      <div style="margin-top:12px">
+        <div class="link-field">
+          <span style="font-size:16px">💳</span>
+          <a href="https://buy.stripe.com/test_abc123xyz789" target="_blank" rel="noopener">https://buy.stripe.com/test_abc123xyz789</a>
+          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('https://buy.stripe.com/test_abc123xyz789')">Copy</button>
+          <a href="https://buy.stripe.com/test_abc123xyz789" target="_blank" rel="noopener" class="btn btn-sm">Open ↗</a>
+        </div>
+        <div style="font-size:10px;color:var(--mu2);margin-top:4px;font-family:var(--font-mono)">
+          <!-- NEW: This is deals.stripe_payment_link — send to client for payment -->
+          NEW: deals.stripe_payment_link — send to client
+        </div>
+      </div>
+
+      <!-- NEW: deal_reminders — queried but NEVER rendered -->
+      <!--
+        NEW SECTION: deal_reminders table is fully built in DB and queried via getDeals()
+        but the render function was never written. Data is already in the client.
+      -->
+      <div class="section-title">
+        Reminders
+        <!-- NEW: deal_reminders — loaded but never rendered -->
+        <span class="new-badge">NEW — data already loaded</span>
+      </div>
+      <div style="border:1px solid var(--border2);border-radius:var(--r);padding:12px 14px;background:var(--surface)">
+        <div class="reminder-item">
+          <input type="checkbox" checked style="margin-top:2px;flex-shrink:0">
+          <div>
+            <div style="font-size:13px;text-decoration:line-through;color:var(--mu2)">Send welcome email</div>
+            <div style="font-size:10px;font-family:var(--font-mono);color:var(--mu2)">Due: Mar 13, 2026</div>
+          </div>
+        </div>
+        <div class="reminder-item">
+          <input type="checkbox" style="margin-top:2px;flex-shrink:0">
+          <div>
+            <div style="font-size:13px">Follow up on payment</div>
+            <div style="font-size:10px;font-family:var(--font-mono);color:var(--red-text)">Due: Apr 15, 2026</div>
+          </div>
+        </div>
+        <div class="reminder-item" style="border-bottom:none;padding-bottom:4px">
+          <input type="checkbox" style="margin-top:2px;flex-shrink:0">
+          <div>
+            <div style="font-size:13px">Schedule first coaching session</div>
+            <div style="font-size:10px;font-family:var(--font-mono);color:var(--mu2)">No due date</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border2);display:flex;gap:8px">
+          <input type="text" class="fi" style="height:32px;flex:1" placeholder="Add reminder…">
+          <button class="btn btn-sm btn-primary">+ Add</button>
+        </div>
+      </div>
+
+      <!-- NEW: plan info — would come from product_plans table (TASK 4) -->
+      <!--
+        NEW SECTION: requires product_plans table from TASK 4 migration.
+        Shows which plan variant was used for this deal (e.g. Israel pricing, Green Invoice gateway).
+      -->
+      <div class="section-title">
+        Plan Details
+        <!-- NEW: requires product_plans table (TASK 4) -->
+        <span class="new-badge">NEW — requires product_plans table</span>
+      </div>
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="info-cell-label">Plan Name</div>
+          <div class="info-cell-val" style="color:var(--blue-text)">Israel — Green Invoice</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Plan Code</div>
+          <div class="info-cell-val" style="font-family:var(--font-mono)">IL-GI-001</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Gateway</div>
+          <div class="info-cell-val">green_invoice</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Installments</div>
+          <div class="info-cell-val">3 × ₪ 700</div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="section-title">Notes</div>
+      <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;font-size:13px;color:var(--ink);line-height:1.6;background:var(--surface)">
+        Client requested Hebrew-language sessions. Prefers evening time slots. Discount applied per referral program.
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

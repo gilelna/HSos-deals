@@ -1,0 +1,59 @@
+{
+  "account_id": "acc_paypal_il",
+  "source_label": "PayPal (IL)",
+  "file_type": "csv",
+  "sheet": null,
+  "encoding": "utf-8",
+  "skip_until_header": false,
+  "header_detection": null,
+  "skip_rows_from_top": 0,
+  "decimal_separator": "dot",
+  "date_format": "DD/MM/YYYY",
+  "direction_logic": "column:Balance Impact",
+  "direction_column": "Balance Impact",
+  "multi_section": false,
+  "section_key_column": null,
+  "columns": {
+    "date": "Date",
+    "settled_date": null,
+    "amount": "Net",
+    "currency": "Currency",
+    "vendor": "Name",
+    "description": "Item Title",
+    "amount_original": "Gross",
+    "currency_original": "Currency",
+    "exchange_rate": null,
+    "entity_hint": null,
+    "category_hint": "Type"
+  },
+  "filters": {
+    "require_column": "Net",
+    "exclude_if_contains": null,
+    "status_column": "Status",
+    "valid_status_values": ["Completed"]
+  },
+  "direction_map": {
+    "Credit": "in",
+    "Debit": "out"
+  },
+  "hold_reversal_rule": {
+    "skip_types": ["Account Hold for Open Authorization", "Reversal of General Account Hold"],
+    "link_column": "Reference Txn ID",
+    "note": "Holds and their reversals cancel each other out — skip both"
+  },
+  "event_type_map": {
+    "Express Checkout Payment": "income_customer",
+    "PreApproved Payment Bill User Payment": "expense_vendor",
+    "General Payment": "expense_vendor",
+    "Payment Reversal": "refund",
+    "Refund": "refund",
+    "Account Hold for Open Authorization": "skip",
+    "Reversal of General Account Hold": "skip"
+  },
+  "internal_transfer_rule": {
+    "condition": null,
+    "event_type": null,
+    "include_in_pl": true
+  },
+  "notes": "Use Net as the effective amount (after PayPal fee). Store Gross and Fee in raw_data. Use Balance Impact column for direction (Credit=in, Debit=out) — more reliable than Net sign. Skip ALL rows where Status != Completed. Skip hold/reversal pairs (T1501 / T1105 event codes) — these are authorization holds that resolve same day. Transaction ID column is the external_id. Name is counterparty. Item Title is product/description when available."
+}

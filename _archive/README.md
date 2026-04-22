@@ -1,4 +1,4 @@
-# CRM + Operations System — Google Sheets + Apps Script
+      # CRM + Operations System — Google Sheets + Apps Script
 
 A complete system for managing students, vendors, sessions, and finances using Google Sheets and Apps Script.
 

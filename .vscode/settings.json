@@ -1,3 +1,18 @@
 {
-    "livePreview.defaultPreviewPath": "/workload.html"
+  "livePreview.defaultPreviewPath": "/workload.html",
+  "liveServer.settings.ignoreFiles": [
+    ".git/**",
+    ".claude/**",
+    ".agent/**",
+    "*.md",
+    "STATUS.md",
+    "CHANGELOG.md",
+    "ROADMAP.md",
+    "RULES.md",
+    "_archive/**",
+    "_design-book/**",
+    "docs/**"
+  ],
+  "liveServer.settings.doNotVerifyTags": true,
+  "liveServer.settings.fullReload": false
 }

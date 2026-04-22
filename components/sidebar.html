@@ -1,0 +1,19 @@
+<!-- components/sidebar.html — Shared sidebar component -->
+<!-- The nav section below .sb-space-selector is injected by layout.js based on the active space -->
+<div class="sidebar">
+  <div class="sb-space-selector">
+    <button class="sb-space-btn" id="space-btn-operations" onclick="window.location.href=Router.pathForPage('operations')">
+      <span class="sb-space-dot operations"></span> Operations
+    </button>
+    <button class="sb-space-btn" id="space-btn-workload" onclick="window.location.href=Router.pathForPage('workload')">
+      <span class="sb-space-dot workload"></span> Workload
+    </button>
+    <button class="sb-space-btn" id="space-btn-payments" onclick="window.location.href=Router.pathForPage('payments')">
+      <span class="sb-space-dot payments"></span> Payments
+    </button>
+    <button class="sb-space-btn" disabled style="opacity:.4;cursor:default" title="Coming soon">
+      <span class="sb-space-dot clients"></span> Clients Portal (Coming soon)
+    </button>
+  </div>
+  <div id="sb-nav-container"></div>
+</div>

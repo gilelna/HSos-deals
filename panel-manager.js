@@ -949,6 +949,13 @@
     return list.find(p => String(p.status || '').toLowerCase() === 'active') || list[0] || null
   }
 
+  function staticField(label, value) {
+    const displayVal = (value !== null && value !== undefined && value !== '')
+      ? esc(String(value))
+      : '<span class="ep-muted">\u2014</span>'
+    return '<div class="ep-k">' + esc(label) + '</div><div class="ep-v">' + displayVal + '</div>'
+  }
+
   function renderClientBody(model) {
     const client = model?.client || {}
     const deals = model?.deals || []
@@ -956,6 +963,9 @@
     const activeDeal = pickActiveDeal(deals)
     const activePackage = pickActivePackage(model?.packages || [])
     const assignedVendor = vendors[0] || activeDeal?.vendors || null
+
+    const role = (window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase()
+    const isVendor = role === 'vendor'
 
     const sessionsLeft = activePackage
       ? (activePackage.sessions_remaining != null
@@ -966,6 +976,54 @@
     const packageName = activePackage
       ? (activePackage.plan_name || `${activePackage.total_sessions || 0}-session package`)
       : '—'
+
+    if (isVendor) {
+      const coreKv = [
+        staticField('Name', client.full_name),
+        staticField('Email', client.email),
+        staticField('Phone', client.phone),
+        staticField('Kind', client.client_kind),
+        staticField('Company', client.company),
+      ].join('')
+
+      return `
+        <div class="ep-card">
+          <div class="ep-section-title">Core</div>
+          <div class="ep-kv">${coreKv}</div>
+        </div>
+
+        <div class="ep-card">
+          <div class="ep-section-title">Notes</div>
+          <div class="ep-field" data-field="notes" data-input-type="textarea" data-current="${esc(client.notes || '')}">
+            <span class="ep-field-value editable">${client.notes ? esc(client.notes) : '<span class="ep-muted">No notes</span>'}</span>
+          </div>
+        </div>
+
+        <div class="ep-card">
+          <div class="ep-section-title">Active Package</div>
+          ${activePackage
+            ? `<div class="ep-kv">
+                ${staticField('Name', packageName)}
+                ${staticField('Sessions left', String(sessionsLeft))}
+              </div>`
+            : '<div class="ep-muted">No active package</div>'}
+        </div>
+
+        <div class="ep-card">
+          <div class="ep-section-title">Deal Summary</div>
+          ${activeDeal
+            ? `<div class="ep-kv">
+                ${staticField('Product', activeDeal.products?.name || 'Deal')}
+                ${staticField('Status', `${activeDeal.sales_status || '—'} · ${activeDeal.billing_status || '—'}`)}
+              </div>`
+            : '<div class="ep-muted">No deals</div>'}
+        </div>
+
+        <div class="ep-card" style="border:1px dashed var(--border2);border-radius:var(--r);padding:10px 14px">
+          <div style="font-size:11px;color:var(--mu2);margin-bottom:6px">+ Session history &amp; documents available on request</div>
+        </div>
+      `
+    }
 
     const coreKv = [
       editableField('Name', 'full_name', client.full_name, 'text'),
@@ -1589,6 +1647,9 @@
       if (entry.type === 'client') {
         vendorClassificationLookup.categories = []
         vendorClassificationLookup.tags = []
+        if ((window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase() === 'vendor') {
+          els.fullLink?.classList.add('hidden')
+        }
         els.body.innerHTML = renderClientBody(model)
         return
       }

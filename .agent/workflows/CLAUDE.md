@@ -15,16 +15,14 @@ Auth: **Supabase Auth — Google OAuth**
 
 ## Current state
 
-### ✅ Built (mockups complete, Supabase connection in progress)
-- `deals.html` — Deals module: Kanban + list view, VAT calculator, payment processors,
-  deal side panel (info / billing / workflow / documents / notes), client profile panel
-- `workload.html` — Workload module: teacher view, student list, lesson history,
-  payment history, rates, work log
+### ✅ Live (connected to Supabase, fully working)
+- `workload.html` + `workload.js` — Operations module: session logging (optional client for internal tasks), client view with package tracker, bills workflow (draft → submit → approve → pay), history
+- `deals.html` + `deals.js` — Sales module: Kanban + list view, VAT calculator, payment plan routing (product_plans), deal side panel, client profile panel
+- `payments.html` + `payments.js` — Payments module: bill approval workflow, companies, accounts
 
 ### 🔲 Next to build
 - `invoicing.html` — Create and send invoices linked to deals
 - `reporting.html` — Monthly P&L, payroll summary, vendor hours report
-- `vendor-portal.html` — Teacher-facing: log hours, mark lessons done, view students
 - `login.html` — Google OAuth login page
 
 ### 🔲 Future
@@ -37,11 +35,11 @@ Auth: **Supabase Auth — Google OAuth**
 
 | Module | File | Status | Users |
 |--------|------|--------|-------|
-| Deals & Payments | deals.html | mockup done | admin |
-| Workload | workload.html | mockup done | admin + teacher |
+| Operations (Workload) | workload.html | ✅ live | vendor |
+| Sales (Deals) | deals.html | ✅ live | admin |
+| Payments | payments.html | ✅ live | finance |
 | Invoicing | invoicing.html | not started | admin |
 | Reporting | reporting.html | not started | admin |
-| Vendor Portal | vendor-portal.html | not started | teacher |
 | Login | login.html | not started | all |
 
 ---
@@ -123,21 +121,22 @@ clients ──< deals >── vendors
 
 ```
 /
-├── deals.html              # Deals & payments module
-├── workload.html           # Workload module (admin view)
-├── vendor-portal.html      # Vendor/teacher portal
-├── invoicing.html          # Invoicing module
-├── reporting.html          # Reports module
-├── login.html              # Auth page
-├── supabase-client.js      # Shared DB client + all data helpers
-├── schema.sql              # Run once in Supabase SQL Editor
-├── schema-seed.sql         # Dummy data for testing
-└── docs/
-    ├── CLAUDE.md           # This file — project context for Claude
-    ├── STACK.md            # Tech stack decisions
-    ├── SCHEMA.md           # Full schema reference
-    ├── ROADMAP.md          # Phased build plan
-    └── CONVENTIONS.md      # Code conventions
+├── deals.html + deals.js         # Sales module (admin)
+├── workload.html + workload.js  # Operations module (vendor) ← active
+├── payments.html + payments.js  # Payments module (finance) ← active
+├── clients-portal.html           # Clients portal
+├── client-profile.html + client-profile.js
+├── index.html, login.html, env-toggle.html
+├── app.js                        # Shared: vendor picker, toast, avatars, formatters
+├── db.js                         # All Supabase queries (replaces supabase-client.js)
+├── env-config.js                 # Supabase credentials (private)
+├── shared.css                    # Single CSS file for all pages
+├── hsos-schema.sql               # Current DB schema
+├── migrations/                   # SQL migration files (add-product-plans, seed-sample-plans)
+├── mockups/                      # HTML mockups only (not runtime)
+├── docs/                         # Reference docs (SCHEMA-AUDIT, PAYMENT-ROUTING, MISSING-UI-ELEMENTS)
+├── _archive/                     # Old files (workload v1, payments v1, one-time fixes, etc.)
+└── .agent/workflows/             # Claude project context (this file + SCHEMA, MODULES, etc.)
 ```
 
 ---
@@ -159,8 +158,9 @@ Paste the contents of CLAUDE.md at the start of any new conversation.
 2. All async calls must be wrapped in try/catch with showToast() for errors
 3. Keep the design system consistent — use existing CSS variables and class names
 4. No frameworks, no build tools, no npm — plain HTML + CDN only
-5. supabase-client.js is the single source of truth for all DB operations
-6. When adding a new feature — update CLAUDE.md and SCHEMA.md
+5. db.js is the single source of truth for all DB operations (not supabase-client.js — archived)
+6. DB layer is db.js — never call sb.from() directly in HTML files
+8. When adding a new feature — update CLAUDE.md and SCHEMA.md
 
 ---
 

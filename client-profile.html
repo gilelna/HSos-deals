@@ -4,496 +4,222 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HSos — Client Profile</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <!-- Quill rich text editor -->
-  <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
-  <script src="db.js"></script>
-  <script src="app.js"></script>
-  <script src="router.js"></script>
-  <style>
-    /* ─── client list sidebar ───────────────────────────── */
-    .cp-sidebar {
-      width: 260px;
-      flex-shrink: 0;
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: var(--surface);
-    }
-    .cp-sidebar-head {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border2);
-      flex-shrink: 0;
-    }
-    .cp-list-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border2);
-      transition: background .1s;
-    }
-    .cp-list-item:hover { background: var(--bg); }
-    .cp-list-item.sel   { background: var(--bg); border-left: 3px solid var(--ink); padding-left: 11px; }
-    .cp-list-item:last-child { border-bottom: none; }
-    .cp-item-name { font-size: 13px; font-weight: 500; color: var(--ink); }
-    .cp-item-sub  { font-size: 11px; color: var(--mu2); }
-
-    /* ─── profile area ──────────────────────────────────── */
-    .cp-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-
-    .cp-hero {
-      padding: 24px 28px 0;
-      border-bottom: 1px solid var(--border2);
-      background: var(--surface);
-      flex-shrink: 0;
-    }
-    .cp-hero-top {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-    .cp-name  { font-family: var(--font-serif); font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1.1; }
-    .cp-email { font-size: 12px; color: var(--mu); margin-top: 3px; }
-
-    /* ─── tab bar ───────────────────────────────────────── */
-    .cp-tabs { display: flex; gap: 0; margin-top: 12px; }
-
-    /* ─── tab body ──────────────────────────────────────── */
-    .cp-tab-content { flex: 1; overflow-y: auto; padding: 20px 28px; }
-    .cp-tab-pane    { display: none; }
-    .cp-tab-pane.cur { display: block; }
-
-    /* ─── section titles ────────────────────────────────── */
-    .cp-section-title {
-      font-size: 10px;
-      font-family: var(--font-mono);
-      text-transform: uppercase;
-      letter-spacing: .14em;
-      color: var(--mu2);
-      margin: 20px 0 8px;
-    }
-    .cp-section-title:first-child { margin-top: 0; }
-
-    /* ─── info grid ─────────────────────────────────────── */
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0;
-      border: 1px solid var(--border2);
-      border-radius: var(--r);
-      overflow: hidden;
-    }
-    .info-cell {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border2);
-      border-right: 1px solid var(--border2);
-    }
-    .info-cell:nth-child(even) { border-right: none; }
-    .info-cell:nth-last-child(-n+2) { border-bottom: none; }
-    .info-cell-label { font-size: 10px; font-family: var(--font-mono); color: var(--mu2); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 3px; }
-    .info-cell-val   { font-size: 13px; color: var(--ink); font-weight: 500; }
-    .info-cell-val.empty { color: var(--mu2); font-weight: 400; }
-
-    /* ─── vendor chip row ───────────────────────────────── */
-    .vendor-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .vendor-chip {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px 4px 6px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      font-size: 12px;
-      color: var(--ink);
-    }
-
-    /* ─── sessions tab ──────────────────────────────────── */
-    .sess-filters {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .sess-filters .fi { height: 32px; font-size: 12px; }
-
-    /* Timeline marker row */
-    .timeline-marker {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 0;
-    }
-    .timeline-marker-line { flex: 1; height: 1px; background: var(--border); }
-    .timeline-marker-dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
-    .timeline-marker-text {
-      color: var(--amber-text);
-      background: var(--amber-bg);
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 10px;
-      font-family: var(--font-mono);
-      white-space: nowrap;
-    }
-
-    /* ─── packages tab ──────────────────────────────────── */
-    .pkg-vendor-section { margin-bottom: 24px; }
-    .pkg-vendor-name {
-      font-size: 13px; font-weight: 600; color: var(--ink);
-      margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
-    }
-    .pkg-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 14px 16px;
-      margin-bottom: 8px;
-    }
-    .pkg-card-head {
-      display: flex; align-items: center;
-      justify-content: space-between; margin-bottom: 10px;
-    }
-    .pkg-card-deal {
-      font-size: 11px; color: var(--blue-text); cursor: pointer;
-      text-decoration: underline; text-decoration-style: dotted;
-    }
-    .pkg-card-deal:hover { color: var(--blue); }
-
-    /* ─── deal slide panel ──────────────────────────────── */
-    .deal-slide {
-      position: absolute;
-      top: 0; right: 0; bottom: 0;
-      width: 480px;
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transform: translateX(100%);
-      transition: transform .22s cubic-bezier(.4,0,.2,1);
-      z-index: 20;
-    }
-    .deal-slide.open { transform: translateX(0); }
-    .deal-slide-head {
-      padding: 20px 20px 16px;
-      border-bottom: 1px solid var(--border2);
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      flex-shrink: 0;
-    }
-    .deal-slide-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
-
-    .origin-badge {
-      display: inline-block;
-      font-size: 10px;
-      font-family: var(--font-mono);
-      padding: 2px 9px;
-      border-radius: 10px;
-    }
-    .origin-badge.manual     { background: var(--bg);        color: var(--mu); }
-    .origin-badge.thrivecart { background: var(--purple-bg); color: var(--purple-text); }
-    .origin-badge.stripe     { background: var(--blue-bg);   color: var(--blue-text); }
-    .origin-badge.other      { background: var(--amber-bg);  color: var(--amber-text); }
-
-    /* Deal tab trigger in pane */
-    .deal-tab-trigger {
-      display: flex; flex-direction: column; gap: 12px; padding-top: 4px;
-    }
-    .deal-summary-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      cursor: pointer;
-      transition: border-color .1s;
-    }
-    .deal-summary-row:hover { border-color: var(--ink); }
-
-    /* ─── documents tab ─────────────────────────────────── */
-    .doc-panel { display: flex; flex-direction: column; gap: 16px; }
-
-    .drop-zone {
-      border: 2px dashed var(--border);
-      border-radius: var(--r);
-      padding: 36px 24px;
-      text-align: center;
-      transition: border-color .15s, background .15s;
-      cursor: pointer;
-      background: var(--surface);
-    }
-    .drop-zone.drag-over { border-color: var(--ink); background: var(--bg); }
-    .drop-zone-icon { font-size: 28px; margin-bottom: 8px; opacity: .4; }
-    .drop-zone-text { font-size: 13px; color: var(--mu); }
-    .drop-zone-text b { color: var(--ink); }
-
-    .url-add-row { display: flex; gap: 8px; align-items: flex-end; }
-    .url-add-row .fg { flex: 1; }
-
-    .doc-list { display: flex; flex-direction: column; gap: 6px; }
-    .doc-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px;
-      background: var(--surface);
-      border: 1px solid var(--border2);
-      border-radius: var(--r);
-    }
-    .doc-item-icon { font-size: 18px; flex-shrink: 0; opacity: .6; }
-    .doc-item-name { flex: 1; font-size: 13px; color: var(--ink); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .doc-item-meta { font-size: 11px; color: var(--mu2); white-space: nowrap; }
-    .doc-item-open { font-size: 12px; color: var(--blue-text); cursor: pointer; text-decoration: none; }
-    .doc-item-open:hover { text-decoration: underline; }
-    .doc-item-del  { background: none; border: none; color: var(--mu2); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; line-height: 1; }
-    .doc-item-del:hover { color: var(--red); background: var(--red-bg); }
-
-    .upload-progress {
-      display: none; align-items: center; gap: 10px;
-      padding: 10px 12px;
-      background: var(--blue-bg); border: 1px solid var(--border2);
-      border-radius: var(--r); font-size: 12px; color: var(--blue-text);
-    }
-    .upload-progress.show { display: flex; }
-
-    /* ─── quill override (match HSos style) ─────────────── */
-    .ql-toolbar.ql-snow {
-      border-color: var(--border);
-      border-radius: var(--r) var(--r) 0 0;
-      padding: 6px 8px;
-      font-family: var(--font-sans);
-    }
-    .ql-container.ql-snow {
-      border-color: var(--border);
-      border-radius: 0 0 var(--r) var(--r);
-      font-family: var(--font-sans);
-      font-size: 13px;
-      min-height: 120px;
-    }
-    .ql-editor { min-height: 120px; }
-    .ql-editor p { margin-bottom: 4px; }
-    /* Focus ring matching .fi */
-    .ql-container.ql-snow:focus-within { border-color: var(--ink); }
-    .ql-toolbar.ql-snow:has(+ .ql-container.ql-snow:focus-within) { border-color: var(--ink); }
-  </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- Topbar -->
-  <div class="topbar">
-    <span class="tb-logo">HSos</span>
-    <div class="role-selector" id="role-selector"></div>
-    <div class="tb-av">HS</div>
-  </div>
+  <div id="layout-topbar"></div>
 
-  <!-- App body -->
-  <div class="app-body">
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sb-space-selector">
-        <button class="sb-space-btn cur" onclick="window.location.href=Router.pathForPage('sales')">
-          <span class="sb-space-dot sales"></span> Sales
-        </button>
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('operations')">
-          <span class="sb-space-dot operations"></span> Operations
-        </button>
-        <button class="sb-space-btn" onclick="window.location.href=Router.pathForPage('payments')">
-          <span class="sb-space-dot payments"></span> Payments
-        </button>
-        <button class="sb-space-btn" disabled style="opacity:.4;cursor:default">
-          <span class="sb-space-dot clients"></span> Clients Portal
-        </button>
-      </div>
-      <div class="sb-nav">
-        <div class="sb-section-label">Sales</div>
-        <a class="sb-link" href="deals.html">Deals</a>
-        <a class="sb-link cur" href="#">Clients</a>
-        <a class="sb-link" href="deals.html?page=vendors">Vendors</a>
-        <a class="sb-link" href="deals.html?page=products">Products</a>
-      </div>
-    </div>
+    <!-- Content -->
+    <div class="app-content" style="position:relative">
 
-    <!-- Content area -->
-    <div class="app-content">
+      <!-- ── Hero ─────────────────────────────────────────────── -->
+      <div class="prof-hero" id="prof-hero">
+        <div class="prof-hero__bg"></div>
+        <div class="prof-hero__overlay"></div>
 
-    <!-- Client list sidebar -->
-    <div class="cp-sidebar">
-      <div class="cp-sidebar-head">
-        <input type="text" class="fi" style="height:32px" placeholder="Search clients…"
-               id="cp-search" oninput="filterClientList(this.value)">
-      </div>
-      <div class="scroll" id="cp-list">
-        <div style="padding:24px;text-align:center;color:var(--mu2);font-size:12px">Loading…</div>
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <div class="cp-main" id="cp-empty">
-      <div class="empty">
-        <div class="empty-icon">◻</div>
-        <div>Select a client to view their profile</div>
-      </div>
-    </div>
-
-    <!-- Profile area -->
-    <div class="cp-main hidden" id="cp-profile">
-
-      <!-- Hero header -->
-      <div class="cp-hero" id="cp-hero">
-        <div class="cp-hero-top">
-          <div id="cp-hero-av" class="av av-xl"></div>
-          <div style="flex:1">
-            <div class="cp-name"  id="cp-hero-name">—</div>
-            <div class="cp-email" id="cp-hero-email">—</div>
-          </div>
-          <div id="cp-hero-status"></div>
+        <!-- Action buttons (top right) -->
+        <div class="prof-actions" id="prof-actions">
+          <button class="prof-action-btn" onclick="openNewSession()">+ Session</button>
+          <button class="prof-action-btn primary" onclick="openNewDeal()">+ New deal</button>
         </div>
-        <!-- Tab bar — uses hash links for shareable URLs -->
-        <div class="cp-tabs">
-          <button class="det-tab" id="tab-btn-overview"  onclick="switchCpTab('overview')">Overview</button>
-          <button class="det-tab" id="tab-btn-sessions"  onclick="switchCpTab('sessions')">Sessions</button>
-          <button class="det-tab" id="tab-btn-packages"  onclick="switchCpTab('packages')">Packages</button>
-          <button class="det-tab" id="tab-btn-deal"      onclick="switchCpTab('deal')">Deal</button>
-          <button class="det-tab" id="tab-btn-documents" onclick="switchCpTab('documents')">Documents</button>
-        </div>
-      </div>
 
-      <!-- Tab content -->
-      <div class="cp-tab-content">
-
-        <!-- ── Overview ─────────────────────────────────── -->
-        <div class="cp-tab-pane" id="pane-overview">
-
-          <div class="cp-section-title">Contact Info</div>
-          <div class="info-grid" id="ov-contact-grid"></div>
-
-          <div class="cp-section-title">Assigned Vendors</div>
-          <div id="ov-vendors" class="vendor-chips">
-            <span style="font-size:12px;color:var(--mu2)">No vendors assigned</span>
+        <div class="prof-hero__content" id="prof-hero-content">
+          <!-- Breadcrumb -->
+          <div class="prof-breadcrumb" id="prof-breadcrumb">
+            <a href="deals.html">Operations</a>
+            <span>·</span>
+            <a href="deals.html?page=clients">Clients</a>
+            <span>·</span>
+            <span id="bc-name">—</span>
           </div>
 
-          <div class="cp-section-title">Active Packages</div>
-          <div id="ov-packages">
-            <div style="font-size:12px;color:var(--mu2)">No active packages</div>
-          </div>
-
-          <div class="cp-section-title">Notes</div>
-          <div id="notes-editor"></div>
-
-        </div>
-
-        <!-- ── Sessions ─────────────────────────────────── -->
-        <div class="cp-tab-pane" id="pane-sessions">
-          <div class="sess-filters">
-            <select class="fi fsel" id="sess-filter-vendor" style="width:180px" onchange="renderSessions()">
-              <option value="">All vendors</option>
-            </select>
-            <input type="date" class="fi" id="sess-filter-from" style="width:140px" onchange="renderSessions()">
-            <span style="color:var(--mu2);font-size:12px">–</span>
-            <input type="date" class="fi" id="sess-filter-to"   style="width:140px" onchange="renderSessions()">
-            <button class="btn btn-sm btn-ghost" onclick="clearSessFilters()">Clear</button>
-          </div>
-          <div class="block">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Vendor</th>
-                  <th>Type</th>
-                  <th>Duration</th>
-                  <th>Status</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody id="sess-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- ── Packages ──────────────────────────────────── -->
-        <div class="cp-tab-pane" id="pane-packages">
-          <div id="pkg-by-vendor"></div>
-        </div>
-
-        <!-- ── Deal (triggers slide panel) ──────────────── -->
-        <div class="cp-tab-pane" id="pane-deal">
-          <div id="deal-list-wrap" class="deal-tab-trigger"></div>
-        </div>
-
-        <!-- ── Documents ────────────────────────────────── -->
-        <div class="cp-tab-pane" id="pane-documents">
-          <div class="doc-panel">
-
-            <div class="upload-progress" id="upload-progress">
-              <span>⏳</span><span>Uploading…</span>
-            </div>
-
-            <div class="drop-zone" id="drop-zone"
-                 onclick="document.getElementById('file-input').click()"
-                 ondragover="onDragOver(event)"
-                 ondragleave="onDragLeave(event)"
-                 ondrop="onDrop(event)">
-              <div class="drop-zone-icon">📎</div>
-              <div class="drop-zone-text"><b>Click to upload</b> or drag & drop a file</div>
-              <div style="font-size:11px;color:var(--mu2);margin-top:4px">PDF, image, Word, any format</div>
-            </div>
-            <input type="file" id="file-input" style="display:none" onchange="onFileInputChange(this)">
-
-            <div class="url-add-row">
-              <div class="fg">
-                <label class="fl">Or add a URL</label>
-                <input type="url" class="fi" id="doc-url-input" placeholder="https://drive.google.com/…">
+          <!-- Identity -->
+          <div class="prof-id">
+            <div class="prof-avatar" id="prof-avatar">?</div>
+            <div class="prof-id-right">
+              <div class="prof-name-row">
+                <div class="prof-name" id="prof-name">Loading…</div>
+                <button class="prof-name-edit" title="Edit name">✎</button>
               </div>
-              <div class="fg" style="max-width:200px">
-                <label class="fl">Label</label>
-                <input type="text" class="fi" id="doc-url-name" placeholder="Document name">
-              </div>
-              <button class="btn btn-sm" onclick="addDocumentUrl()"
-                      style="flex-shrink:0;height:36px;align-self:flex-end">Add</button>
+              <div class="prof-subline" id="prof-subline">—</div>
+              <div class="prof-badges" id="prof-badges"></div>
+              <div class="prof-qlinks" id="prof-qlinks"></div>
             </div>
+          </div>
+        </div>
 
-            <div>
-              <div class="cp-section-title" style="margin-top:4px">Saved Documents</div>
-              <div class="doc-list" id="doc-list">
-                <div style="font-size:12px;color:var(--mu2)">No documents yet</div>
+        <!-- Meta strip -->
+        <div class="prof-meta" id="prof-meta"></div>
+
+        <!-- Stats -->
+        <div class="prof-stats" id="prof-stats">
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">Total sessions</div>
+            <div class="prof-stat-val" id="stat-total-sessions">—</div>
+            <div class="prof-stat-sub" id="stat-sessions-since">—</div>
+          </div>
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">This month</div>
+            <div class="prof-stat-val" id="stat-month-sessions">—</div>
+            <div class="prof-stat-sub" id="stat-last-session">—</div>
+          </div>
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">Sessions left</div>
+            <div class="prof-stat-val" id="stat-sessions-left">—</div>
+            <div class="prof-stat-sub">in active package</div>
+          </div>
+          <div class="prof-stat-card">
+            <div class="prof-stat-label">Total paid</div>
+            <div class="prof-stat-val" id="stat-total-paid">—</div>
+            <div class="prof-stat-sub" id="stat-packages-count">—</div>
+          </div>
+        </div>
+      </div>
+      <!-- /hero -->
+
+      <!-- ── Body ──────────────────────────────────────────────── -->
+      <div class="prof-body" id="prof-body">
+        <div class="prof-body-inner">
+
+          <!-- Two-column section -->
+          <div class="prof-two-col">
+
+            <!-- Left: Deals & packages -->
+            <div class="block prof-section">
+              <div class="prof-section-head">
+                <div class="prof-section-title">Deals &amp; Packages</div>
+              </div>
+              <div id="deals-list">
+                <div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">Loading…</div>
               </div>
             </div>
 
+            <!-- Right: Payment history -->
+            <div class="block prof-section">
+              <div class="prof-section-head">
+                <div class="prof-section-title">Payment History</div>
+              </div>
+              <div id="payments-list">
+                <div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">Loading…</div>
+              </div>
+            </div>
           </div>
-        </div>
 
-      </div>
-
-      <!-- Deal slide panel (positioned absolute inside .cp-main) -->
-      <div class="deal-slide" id="deal-slide">
-        <div class="deal-slide-head">
-          <div>
-            <div style="font-family:var(--font-serif);font-size:20px;font-weight:700" id="ds-title">Deal</div>
-            <div id="ds-origin" style="margin-top:4px"></div>
+          <!-- Tags -->
+          <div class="block prof-section">
+            <div class="prof-section-head">
+              <div class="prof-section-title">Tags</div>
+              <div style="display:flex;gap:2px" id="tags-tabs">
+                <button class="det-tab cur" data-tab="all" onclick="switchTagsTab('all')">All</button>
+                <button class="det-tab" data-tab="ac"   onclick="switchTagsTab('ac')">ActiveCampaign</button>
+                <button class="det-tab" data-tab="mn"   onclick="switchTagsTab('mn')">Mighty Networks</button>
+                <button class="det-tab" data-tab="hsos" onclick="switchTagsTab('hsos')">HSos</button>
+              </div>
+            </div>
+            <div id="tags-body" class="prof-tags-wrap">
+              <span style="color:var(--mu2);font-size:12px">No tags yet.</span>
+            </div>
           </div>
-          <button class="sp-close" onclick="closeDealSlide()">✕</button>
-        </div>
-        <div class="deal-slide-body" id="ds-body"></div>
-      </div>
 
-    </div>
+          <!-- Communications -->
+          <div class="block prof-section">
+            <div class="prof-section-head">
+              <div class="prof-section-title">Communications</div>
+              <div style="display:flex;gap:2px" id="comms-tabs">
+                <button class="det-tab cur" data-tab="all"      onclick="switchCommsTab('all')">All</button>
+                <button class="det-tab"     data-tab="email"    onclick="switchCommsTab('email')">Email</button>
+                <button class="det-tab"     data-tab="slack"    onclick="switchCommsTab('slack')">Slack</button>
+                <button class="det-tab"     data-tab="sms"      onclick="switchCommsTab('sms')">SMS</button>
+                <button class="det-tab"     data-tab="calendar" onclick="switchCommsTab('calendar')">Calendar</button>
+                <button class="det-tab"     data-tab="notes"    onclick="switchCommsTab('notes')">Notes</button>
+              </div>
+            </div>
+            <div id="comms-body" class="prof-comms-empty">No communications logged yet.</div>
+          </div>
+
+          <!-- Documents -->
+          <div class="block prof-section">
+            <div class="prof-section-head">
+              <div class="prof-section-title">Documents</div>
+              <button class="btn btn-sm" onclick="openDocUpload()">+ Add</button>
+            </div>
+            <div class="prof-docs-grid" id="docs-grid">
+              <div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--mu2);font-size:12px">No documents yet.</div>
+            </div>
+          </div>
+
+          <!-- Freshdesk placeholder -->
+          <div class="prof-freshdesk">
+            <div style="font-size:20px;color:var(--mu2)">🎧</div>
+            <div>Freshdesk mini-widget — planned Phase 4</div>
+            <span class="pill planned">planned</span>
+          </div>
+
+        </div>
+      </div>
+      <!-- /body -->
+
+      <!-- ── Details side panel ───────────────────────────────── -->
+      <div class="prof-details-panel" id="details-panel">
+        <div class="prof-details-head">
+          <div class="prof-details-title">Client Details</div>
+          <button class="prof-details-close" onclick="closeDetailsPanel()">✕</button>
+        </div>
+        <div class="prof-details-body" id="details-body">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
 
     </div><!-- /.app-content -->
   </div><!-- /.app-body -->
 </div><!-- /.app -->
 
-<div id="hsos-toast" class="hsos-toast"></div>
+<!-- Doc upload overlay -->
+<div class="overlay" id="doc-upload-overlay">
+  <div style="background:var(--surface);border-radius:var(--r-lg);width:420px;padding:24px">
+    <div style="font-size:16px;font-weight:600;margin-bottom:16px">Add Document</div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Title</label>
+      <input type="text" id="doc-title" class="fi" placeholder="Document title">
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">URL (optional)</label>
+      <input type="url" id="doc-url" class="fi" placeholder="https://…">
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label class="fl">Or upload file</label>
+      <input type="file" id="doc-file" class="fi" style="padding:4px 8px;height:auto">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeDocUpload()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDoc()">Save</button>
+    </div>
+  </div>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="router.js"></script>
+<script src="profile.js"></script>
+<script src="components/layout.js"></script>
+<script src="panel-manager.js"></script>
 <script src="client-profile.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    LAYOUT.init('Client Profile', 'operations')
+    initClientProfile()
+  })
+</script>
 </body>
 </html>

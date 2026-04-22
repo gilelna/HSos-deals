@@ -4,10 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clients Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
 <script src="env-config.js"></script>
 <script src="supabase-client.js"></script>
+<script src="router.js"></script>
 <link rel="stylesheet" href="deals.css">
 <style>
 /* ── Clients Portal local styles ─────────────────────────── */
@@ -317,28 +321,34 @@
 const MOCK_CLIENTS = [
   { id:1, name:'Avi Cohen', company:'Cohen Consulting', email:'avi@cohen.com', level:'B2',
     initials:'AC', color:'#026360', colorBg:'#E6F4F1', status:'active',
+    kind:'corporate', source:'referral',
     tags:['B2','Corporate'], packageSize:10, sessionsUsed:4, paymentStatus:'paid',
-    deal:'English Private Package', dealAmt:'₪1,755', dealStatus:'invoiced' },
+    deal:'English Private Package', dealAmt:'₪1,755', dealStatus:'invoiced', outstanding:'₪0' },
   { id:2, name:'Dana Shapiro', company:'', email:'dana@shapiro.io', level:'C1',
     initials:'DS', color:'#4A6E7A', colorBg:'#EBF3F6', status:'active',
+    kind:'private', source:'partner',
     tags:['C1','VIP'], packageSize:20, sessionsUsed:12, paymentStatus:'pending',
-    deal:'English Private Package', dealAmt:'₪3,510', dealStatus:'paid' },
+    deal:'English Private Package', dealAmt:'₪3,510', dealStatus:'paid', outstanding:'₪3,510' },
   { id:3, name:'Tom Goldberg', company:'Goldberg Ltd.', email:'tom@goldberg.com', level:'A2',
     initials:'TG', color:'#C4622D', colorBg:'#FDEEE6', status:'paused',
+    kind:'corporate', source:'linkedin',
     tags:['A2','Trial'], packageSize:5, sessionsUsed:5, paymentStatus:'overdue',
-    deal:'Business English Workshop', dealAmt:'$800', dealStatus:'pending' },
+    deal:'Business English Workshop', dealAmt:'$800', dealStatus:'pending', outstanding:'$800' },
   { id:4, name:'Liora Ben-David', company:'Tech Solutions', email:'liora@techsol.com', level:'B1',
     initials:'LB', color:'#8B3A52', colorBg:'#F7EAEE', status:'active',
+    kind:'corporate', source:'website',
     tags:['B1','Corporate'], packageSize:15, sessionsUsed:7, paymentStatus:'paid',
-    deal:'English Private Package', dealAmt:'₪2,632', dealStatus:'active' },
+    deal:'English Private Package', dealAmt:'₪2,632', dealStatus:'active', outstanding:'₪0' },
   { id:5, name:'Eyal Dror', company:'', email:'eyal@example.com', level:'C2',
     initials:'ED', color:'#A8904F', colorBg:'#FAF5EC', status:'active',
+    kind:'private', source:'referral',
     tags:['C2','VIP','High Value'], packageSize:30, sessionsUsed:18, paymentStatus:'paid',
-    deal:'Intensive Program', dealAmt:'€3,200', dealStatus:'paid' },
+    deal:'Intensive Program', dealAmt:'€3,200', dealStatus:'paid', outstanding:'€0' },
   { id:6, name:'Noa Levi', company:'StartupX', email:'noa@startupx.io', level:'B2',
     initials:'NL', color:'#409690', colorBg:'#E6F3F3', status:'inactive',
+    kind:'corporate', source:'partner',
     tags:['B2','Renewal'], packageSize:10, sessionsUsed:10, paymentStatus:'inactive',
-    deal:'English Private Package', dealAmt:'₪1,755', dealStatus:'closed' },
+    deal:'English Private Package', dealAmt:'₪1,755', dealStatus:'closed', outstanding:'₪0' },
 ];
 
 const MOCK_SESSIONS = {
@@ -414,9 +424,16 @@ const MOCK_MB_CLIENTS = [
 let selectedClientId = null;
 let currentDetailTab = 'overview';
 let activeTagFilter = null;
+let _routerDispatching = false;
+let _routerRegistered = false;
 
 /* ── Page switching ──────────────────────────────────────── */
 function switchPage(page, btn) {
+  if (window.Router && !_routerDispatching) {
+    const params = Router.getParams();
+    if (params.entity === 'client' && page !== 'clients') Router.close();
+  }
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('cur'));
   const el = document.getElementById('page-' + page);
@@ -437,6 +454,13 @@ document.addEventListener('click', e => {
   if (!wrap.contains(e.target)) document.getElementById('mod-dd').classList.remove('open');
 });
 function goModule(m) {
+  if (window.Router) {
+    const map = { workload:'workload', deals:'operations', payments:'payments' };
+    if (map[m]) {
+      window.location.href = Router.pathForPage(map[m]);
+      return;
+    }
+  }
   const map = { workload:'workload.html', deals:'deals.html', payments:'payments.html' };
   if (map[m]) window.location.href = map[m];
 }
@@ -495,10 +519,49 @@ function renderClientList() {
 }
 
 function selectClient(id) {
+  if (window.Router && !_routerDispatching) {
+    Router.open({ entity:'client', id:String(id), view:'panel', from:'list' });
+    return;
+  }
   selectedClientId = id;
   currentDetailTab = 'overview';
   renderClientList();
   renderClientDetail();
+}
+
+function clearSelectedClient() {
+  selectedClientId = null;
+  renderClientList();
+  document.getElementById('rp-empty').style.display = 'flex';
+  document.getElementById('rp-detail').style.display = 'none';
+}
+
+function runWithRouterDispatch(fn) {
+  _routerDispatching = true;
+  try {
+    fn();
+  } finally {
+    _routerDispatching = false;
+  }
+}
+
+function registerRouterHandlers() {
+  if (!window.Router || _routerRegistered) return;
+  _routerRegistered = true;
+
+  Router.register('client', ({ id }) => {
+    runWithRouterDispatch(() => {
+      const navBtn = document.querySelector('#main-nav .nav-btn');
+      switchPage('clients', navBtn);
+      selectClient(Number(id));
+    });
+  });
+
+  document.addEventListener('router:close', () => {
+    runWithRouterDispatch(() => {
+      clearSelectedClient();
+    });
+  });
 }
 
 function renderClientDetail() {
@@ -519,6 +582,10 @@ function renderClientDetail() {
         <div class="det-name">${c.name}</div>
         <div class="det-co">${c.company || ''}</div>
         <div class="det-email">${c.email}</div>
+        <div style="display:flex;gap:12px;margin-top:5px">
+          ${c.kind ? `<span style="font-size:10px;color:var(--mu2)">Kind <span style="color:var(--tx);font-weight:500;text-transform:capitalize">${c.kind}</span></span>` : ''}
+          ${c.source ? `<span style="font-size:10px;color:var(--mu2)">Source <span style="color:var(--tx);font-weight:500;text-transform:capitalize">${c.source}</span></span>` : ''}
+        </div>
       </div>
     </div>
     <div class="det-tags">${c.tags.map(tagChip).join('')}${statusBadge(c.status)}</div>
@@ -548,7 +615,26 @@ function renderDetailTabBody(c) {
     const remaining = c.packageSize - c.sessionsUsed;
     const pct = Math.round((c.sessionsUsed / c.packageSize) * 100);
     const sessions = (MOCK_SESSIONS[c.id] || []).slice(0, 3);
+    const dealStatusDot = {
+      active:'var(--gn)', invoiced:'var(--pu)', paid:'var(--gn)',
+      pending:'var(--am)', overdue:'var(--rd)', closed:'var(--mu2)'
+    }[c.dealStatus] || 'var(--mu2)';
     body.innerHTML = `
+      <div class="block">
+        <div class="block-hd"><span class="block-title">Financial Summary</span></div>
+        <div class="block-body">
+          <div class="stat-pills">
+            <div class="stat-pill">
+              <div class="stat-pill-val">${c.dealAmt}</div>
+              <div class="stat-pill-lbl">Total Revenue</div>
+            </div>
+            <div class="stat-pill">
+              <div class="stat-pill-val" style="color:${c.outstanding && c.outstanding.replace(/[^\d.]/g,'') !== '0' ? 'var(--rd)' : 'var(--gn)'}">${c.outstanding || '—'}</div>
+              <div class="stat-pill-lbl">Outstanding</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="block">
         <div class="block-hd"><span class="block-title">Package Progress</span></div>
         <div class="block-body">
@@ -577,12 +663,15 @@ function renderDetailTabBody(c) {
           <div class="stat-pill-lbl" style="margin-top:4px">Payment</div>
         </div>
       </div>
-      <div class="block">
+      <div class="block" style="cursor:pointer" onclick="showToast('Deal detail — coming soon','info')">
         <div class="block-hd"><span class="block-title">Active Deal</span></div>
         <div class="deal-mini">
-          <div>
-            <div class="deal-mini-name">${c.deal}</div>
-            <div class="deal-mini-sub">Deal status: ${statusBadge(c.dealStatus)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${dealStatusDot};flex-shrink:0"></div>
+            <div>
+              <div class="deal-mini-name">${c.deal}</div>
+              <div class="deal-mini-sub">Status: ${statusBadge(c.dealStatus)}</div>
+            </div>
           </div>
           <div class="deal-mini-amt">${c.dealAmt}</div>
         </div>
@@ -821,8 +910,10 @@ function filterByTag(tag) {
 }
 
 /* ── Init ────────────────────────────────────────────────── */
+registerRouterHandlers();
 renderClientList();
 renderTags();
+if (window.Router) Router.dispatch();
 </script>
 <script>
   // Load environment toggle

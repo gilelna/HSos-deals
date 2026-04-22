@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Contractors &amp; Coaches</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .cc-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+      text-transform: uppercase; letter-spacing: -.5px;
+      background: var(--mu2);
+    }
+    .cc-avatar img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+
+    .cc-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .cc-dot-active   { background: var(--green); }
+    .cc-dot-inactive { background: var(--border); }
+
+    .cc-filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 0; margin-bottom: 12px;
+    }
+    .cc-filter-bar select, .cc-filter-bar input {
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: var(--surface); color: var(--ink); cursor: pointer; outline: none;
+    }
+    .cc-filter-bar input { cursor: text; width: 200px; }
+    .cc-filter-bar select:focus, .cc-filter-bar input:focus { border-color: var(--ink); }
+
+    .cc-empty { padding: 40px; text-align: center; color: var(--mu2); font-size: 13px; }
+
+    .cc-ytd-ok   { color: var(--green-text); }
+    .cc-ytd-none { color: var(--mu2); }
+    .cc-lp-ok    { color: var(--green-text); }
+    .cc-lp-old   { color: var(--amber-text); }
+    .cc-lp-none  { color: var(--mu2); }
+
+    .tx-toolbar-btn {
+      height: 28px; padding: 0 10px; border-radius: 6px; font-size: 11px;
+      font-family: var(--font-sans); cursor: pointer; white-space: nowrap;
+      border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .tx-toolbar-btn:hover { background: var(--bg); border-color: var(--ink); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div id="layout-topbar"></div>
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+    <div class="app-content">
+
+      <div class="space-cover payments">
+        <div class="space-cover__bg"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow">Payments · Finance</div>
+        <div class="space-cover-title">Contractors &amp; Coaches</div>
+        <div class="cover-widgets">
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-people">—</div>
+            <div class="alert-card-label">Active people</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-ytd">—</div>
+            <div class="alert-card-label">Paid out YTD</div>
+          </a>
+          <a class="alert-card" href="#" onclick="return false">
+            <div class="alert-card-val" id="alert-month">—</div>
+            <div class="alert-card-label">Paid out (month)</div>
+          </a>
+        </div>
+      </div>
+      <div class="alert-bar"></div>
+
+      <div class="main">
+      <div class="scroll" style="padding:20px">
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Total people</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700" id="metric-total">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Coaches</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--green-text)" id="metric-coaches">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Contractors</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--blue-text)" id="metric-contractors">—</div>
+          </div>
+          <div class="block" style="padding:14px 16px">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Team members</div>
+            <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--amber-text)" id="metric-team">—</div>
+          </div>
+        </div>
+
+        <div class="cc-filter-bar">
+          <input type="text" id="cc-search" placeholder="Search name…" oninput="applyAndRender()">
+          <select id="cc-type" onchange="applyAndRender()">
+            <option value="">All types</option>
+            <option value="coach">Coach</option>
+            <option value="contractor">Contractor</option>
+            <option value="team_member">Team member</option>
+          </select>
+          <select id="cc-active" onchange="applyAndRender()">
+            <option value="">Active &amp; inactive</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
+          </select>
+          <select id="cc-cadence" onchange="applyAndRender()">
+            <option value="">Any cadence</option>
+            <option value="recurring">Recurring</option>
+            <option value="project_based">Project-based</option>
+            <option value="one_time">One-time</option>
+          </select>
+          <button class="tx-toolbar-btn" style="margin-left:auto" onclick="ccExportCSV()">⬇ Export CSV</button>
+        </div>
+
+        <div class="block" style="overflow-x:auto">
+          <table class="tbl" id="cc-table">
+            <thead>
+              <tr>
+                <th style="width:44px"></th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Cadence</th>
+                <th>Currency</th>
+                <th>Last paid</th>
+                <th>Paid YTD</th>
+                <th>Paid this month</th>
+                <th>Tx count</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="cc-tbody">
+              <tr><td colspan="10" class="cc-empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="cc-pagination" style="display:flex;align-items:center;gap:6px;padding:12px 0;font-size:12px;color:var(--mu)"></div>
+
+      </div><!-- /.scroll -->
+      </div><!-- /.main -->
+    </div><!-- /.app-content -->
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="router.js"></script>
+<script src="components/layout.js"></script>
+<script src="components/table-framework.js"></script>
+<script src="components/badges.js"></script>
+<script src="panel-manager.js"></script>
+<script>
+const _tbl = TableFramework.create({
+  namespace:    'cc',
+  tableId:      'cc-tbody',
+  paginationId: 'cc-pagination',
+  pageSize:     50,
+  filename:     'contractors-coaches',
+  columns: [
+    { label: 'Name',          getValue: v => v.full_name || v.name || '' },
+    { label: 'Type',          getValue: v => v.vendor_type || '' },
+    { label: 'Cadence',       getValue: v => v.payment_cadence || '' },
+    { label: 'Currency',      getValue: v => v._domCur || '' },
+    { label: 'Last Paid',     getValue: v => v._lastPaid || '' },
+    { label: 'Paid YTD',      getValue: v => v._ytd ? v._ytd.toFixed(2) : '' },
+    { label: 'Paid (Month)',  getValue: v => v._month ? v._month.toFixed(2) : '' },
+    { label: 'Tx Count',      getValue: v => v._txCount || 0 },
+    { label: 'Status',        getValue: v => v.is_active !== false ? 'Active' : 'Inactive' },
+  ],
+})
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function fmtDate(s) {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' })
+}
+function fmtAmt(n, cur) {
+  if (!n) return '—'
+  const sym = cur === 'ILS' ? '₪' : '$'
+  return sym + new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+}
+function thisMonth() {
+  const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`
+}
+function thisYear() { return String(new Date().getFullYear()) }
+
+function initials(name) {
+  if (!name) return '?'
+  return name.split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase()
+}
+function avatarColor(name) {
+  const palette = ['#3D6B56','#378ADD','#534AB7','#B85A40','#1D9E75','#BA7517','#4A1A10','#185FA5','#085041','#633806']
+  let h = 0
+  for (const c of (name||'')) h = (h * 31 + c.charCodeAt(0)) & 0xFFFFFF
+  return palette[Math.abs(h) % palette.length]
+}
+function lastPaidClass(s) {
+  if (!s) return 'cc-lp-none'
+  const diff = (Date.now() - new Date(s)) / 86400000
+  return diff < 45 ? 'cc-lp-ok' : 'cc-lp-old'
+}
+function canSeeTeamFinancials() {
+  const role = window.Role?.get() || sessionStorage.getItem('hsos_role') || 'admin'
+  return ['admin', 'finance'].includes(role)
+}
+
+// ── Build enriched vendor list ────────────────────────────────────────────────
+function enrichVendors(vendors, txs) {
+  const txByVendor = {}
+  txs.forEach(r => {
+    if (!r.vendor_id || r.direction !== 'out') return
+    if (!txByVendor[r.vendor_id]) txByVendor[r.vendor_id] = []
+    txByVendor[r.vendor_id].push(r)
+  })
+
+  const tm = thisMonth()
+  const ty = thisYear()
+
+  return vendors.map(v => {
+    const vtxs = txByVendor[v.id] || []
+    const curCounts = {}
+    vtxs.forEach(r => { curCounts[r.currency] = (curCounts[r.currency]||0)+1 })
+    const domCur = Object.entries(curCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'USD'
+
+    const ytdTxs   = vtxs.filter(r => r.transaction_date?.startsWith(ty) && r.currency === domCur)
+    const monthTxs = vtxs.filter(r => r.transaction_date?.startsWith(tm) && r.currency === domCur)
+    const sorted   = [...vtxs].sort((a,b) => (b.transaction_date||'').localeCompare(a.transaction_date||''))
+
+    return {
+      ...v,
+      _txCount:  vtxs.length,
+      _domCur:   domCur,
+      _ytd:      ytdTxs.reduce((s,r) => s + (+r.amount||0), 0),
+      _month:    monthTxs.reduce((s,r) => s + (+r.amount||0), 0),
+      _lastPaid: sorted[0]?.transaction_date || null,
+    }
+  })
+}
+
+// ── metrics ───────────────────────────────────────────────────────────────────
+function updateMetrics(rows) {
+  const active  = rows.filter(v => v.is_active !== false)
+  const coaches = rows.filter(v => v.vendor_type === 'coach').length
+  const contractors = rows.filter(v => v.vendor_type === 'contractor').length
+  const team    = rows.filter(v => v.vendor_type === 'team_member').length
+
+  const ytdUsd   = rows.filter(v => v._domCur === 'USD').reduce((s,v) => s + v._ytd, 0)
+  const monthUsd = rows.filter(v => v._domCur === 'USD').reduce((s,v) => s + v._month, 0)
+
+  document.getElementById('metric-total').textContent       = rows.length
+  document.getElementById('metric-coaches').textContent     = coaches
+  document.getElementById('metric-contractors').textContent = contractors
+  document.getElementById('metric-team').textContent        = team
+
+  document.getElementById('alert-people').textContent = active.length
+  document.getElementById('alert-ytd').textContent    = ytdUsd   ? '$' + new Intl.NumberFormat().format(Math.round(ytdUsd))   : '—'
+  document.getElementById('alert-month').textContent  = monthUsd ? '$' + new Intl.NumberFormat().format(Math.round(monthUsd)) : '—'
+}
+
+// ── filter + render ─────────────────────────────────────────────────────────
+function applyAndRender() {
+  const q       = document.getElementById('cc-search').value.trim().toLowerCase()
+  const type    = document.getElementById('cc-type').value
+  const active  = document.getElementById('cc-active').value
+  const cadence = document.getElementById('cc-cadence').value
+
+  _tbl.state.search  = q
+  _tbl.state.filters = { type, active, cadence }
+
+  _tbl.applyFilters((v, { search, filters }) => {
+    if (search && !(v.full_name||v.name||'').toLowerCase().includes(search)) return false
+    if (filters.type    && v.vendor_type     !== filters.type)    return false
+    if (filters.cadence && v.payment_cadence !== filters.cadence) return false
+    if (filters.active === 'active'   && v.is_active === false) return false
+    if (filters.active === 'inactive' && v.is_active !== false) return false
+    return true
+  })
+
+  renderPage()
+  _tbl.pushUrl()
+}
+window.applyAndRender = applyAndRender
+
+function renderPage() {
+  const tbody = document.getElementById('cc-tbody')
+  const slice = _tbl.getPage()
+
+  updateMetrics(_tbl.state.filtered)
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="cc-empty">No people match your filters.</td></tr>'
+    _tbl.renderPaginationSimple('ccGoPage')
+    return
+  }
+
+  tbody.innerHTML = slice.map(v => {
+    const name     = v.full_name || v.name || '—'
+    const color    = avatarColor(name)
+    const isActive = v.is_active !== false
+    const lpCls    = lastPaidClass(v._lastPaid)
+    const ytdCls   = v._ytd > 0 ? 'cc-ytd-ok' : 'cc-ytd-none'
+    const typeBadge = Badges.vendorType(v.vendor_type)
+    const cadBadge  = v.payment_cadence ? Badges.cadence(v.payment_cadence) : '<span style="color:var(--mu2);font-size:11px">—</span>'
+
+    const avatarInner = v.avatar_url
+      ? `<img src="${v.avatar_url}" alt="${name}">`
+      : `${initials(name)}`
+
+    return `<tr style="cursor:pointer" onclick="openVendorPanelInContractors('${v.id}')">
+      <td style="padding:8px 6px 8px 12px">
+        <span class="cc-avatar" style="background:${v.avatar_url?'transparent':color}">${avatarInner}</span>
+      </td>
+      <td style="font-weight:600;font-size:13px">${name}</td>
+      <td>${typeBadge}</td>
+      <td>${cadBadge}</td>
+      <td style="font-size:11px;font-family:var(--font-mono);color:var(--mu)">${v._domCur || '—'}</td>
+      <td class="${lpCls}" style="font-family:var(--font-mono);font-size:11px">${fmtDate(v._lastPaid)}</td>
+      <td class="${ytdCls}" style="font-family:var(--font-mono);font-weight:600">${fmtAmt(v._ytd, v._domCur)}</td>
+      <td style="font-family:var(--font-mono);font-size:12px;color:var(--mu)">${fmtAmt(v._month, v._domCur)}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--mu)">${v._txCount || '—'}</td>
+      <td>
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px">
+          <span class="cc-dot ${isActive?'cc-dot-active':'cc-dot-inactive'}"></span>
+          ${isActive ? 'Active' : 'Inactive'}
+        </span>
+      </td>
+    </tr>`
+  }).join('')
+
+  _tbl.renderPaginationSimple('ccGoPage')
+}
+
+function ccGoPage(p) {
+  _tbl.goPage(p)
+  renderPage()
+  _tbl.pushUrl()
+}
+window.ccGoPage = ccGoPage
+
+function openVendorPanelInContractors(vendorId) {
+  if (!vendorId) return
+  window.PanelManager?.open('vendor', vendorId)
+}
+window.openVendorPanelInContractors = openVendorPanelInContractors
+
+function ccExportCSV() {
+  _tbl.exportCSV()
+}
+window.ccExportCSV = ccExportCSV
+
+// ── init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await LAYOUT.init('Contractors & Coaches', 'payments')
+
+  // Restore URL state into selects
+  const qs = new URLSearchParams(window.location.search)
+  if (qs.get('cc_q'))       document.getElementById('cc-search').value  = qs.get('cc_q')
+  if (qs.get('cc_type'))    document.getElementById('cc-type').value    = qs.get('cc_type')
+  if (qs.get('cc_active'))  document.getElementById('cc-active').value  = qs.get('cc_active')
+  if (qs.get('cc_cadence')) document.getElementById('cc-cadence').value = qs.get('cc_cadence')
+
+  try {
+    const [vendors, txs] = await Promise.all([
+      getVendors(),
+      getTransactions(),
+    ])
+
+    const showTeam = canSeeTeamFinancials()
+    const people = vendors.filter(v => {
+      if (!['coach','contractor','team_member'].includes(v.vendor_type)) return false
+      if (v.vendor_type === 'team_member' && !showTeam) return false
+      return true
+    })
+
+    _tbl.state.allRows = enrichVendors(people, txs)
+    applyAndRender()
+  } catch (e) {
+    console.error(e)
+    document.getElementById('cc-tbody').innerHTML =
+      '<tr><td colspan="10" class="cc-empty" style="color:var(--red-text)">Failed to load — check console.</td></tr>'
+  }
+})
+</script>
+</body>
+</html>
