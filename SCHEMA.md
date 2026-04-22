@@ -2,7 +2,7 @@
 _Single source of truth for database schema, enums, and vendor model._
 _Every migration MUST update this file. Every AI session MUST read this before touching DB or UI code._
 
-Last updated: 2026-04-14 (vendor model + transactions UI overhaul — migration 010 pending)
+Last updated: 2026-04-22 (activities foundation — migration 016, profiles patch, activities table + 5 db.js functions)
 
 ---
 
@@ -72,7 +72,7 @@ Set on vendor, auto-inherited by transactions on merchant match. Drives budget f
 ### New tables — text PKs
 `companies`, `accounts`, `transaction_categories`, `transaction_tags`,
 `transactions`, `products`, `plans`, `programs`, `import_logs`,
-`account_balances`, `system_settings`, `audit_log`
+`account_balances`, `system_settings`, `audit_log`, `activities`
 
 ### profiles
 ```
@@ -80,9 +80,26 @@ id          uuid PK    -- will match auth.users.id after Google OAuth (Phase 2)
 role        system_role NOT NULL DEFAULT 'vendor'  ← admin | manager | finance | vendor
 vendor_id   text → vendors(id) ON DELETE SET NULL  ← set for vendor-role users only
 full_name   text
-email       text UNIQUE
-created_at  timestamptz
-updated_at  timestamptz
+email         text UNIQUE
+slack_user_id text
+created_at    timestamptz
+updated_at    timestamptz
+```
+
+### activities
+```
+id            uuid PK    DEFAULT gen_random_uuid()
+entity_type   text NOT NULL   ← 'client' | 'deal' | 'vendor' | 'session' | 'paycheck' | 'invoice' | 'global'
+entity_id     uuid            ← null only when entity_type = 'global'
+type          text NOT NULL   ← 'note' | 'reminder' | 'system_log' | 'integration_event'
+subtype       text            ← 'status_change' | 'stage_move' | 'payment_sent' | 'slack_sent' | 'ac_tag_added'
+body          text            ← plain Markdown only (bold, italic, URLs). No HTML.
+created_by    uuid → profiles(id) ON DELETE SET NULL
+origin        text NOT NULL DEFAULT 'user'  ← 'user' | 'system' | 'integration'
+due_at        timestamptz     ← reminders only
+status        text            ← 'pending' | 'done' | 'dismissed' (reminders only, null otherwise)
+meta          jsonb NOT NULL DEFAULT '{}'
+created_at    timestamptz NOT NULL DEFAULT now()
 ```
 
 
@@ -193,6 +210,7 @@ business_training
 | 010_vendor_merchant_cadence.sql | merchant to vendor_type enum, payment_cadence on vendors + transactions, vendor_id on transactions | ⚠️ NOT YET RUN — UI ready, run migration on both envs to activate |
 | 011_products_plans_new_columns.sql | logo_url, category, status, price_min/max, currency, links, prd_uid on products; plan_uid, plan_type, status, description, link_source, link_id on plans; PLN/PRD auto-uid triggers | ✅ Demo — run on Production |
 | 015_profiles_role_foundation.sql | profiles table with system_role FK, RLS open for demo | ⚠️ NOT YET RUN — run on both |
+| 016_activities_foundation.sql | Patch profiles (email, slack_user_id, updated_at); create activities + 6 indexes | ✅ Production — run on Demo |
 
 
 ---
@@ -256,6 +274,11 @@ created_at       timestamptz
 | `createPlanFull(fields)` | plans | plan_uid auto-assigned by trigger |
 | `updatePlanFull(id, fields)` | plans | |
 | `deletePlanFull(id)` | plans | |
+| `logActivity(fields)` | activities | Insert one activity row |
+| `getActivities({ type, status, search })` | activities | All activities with optional filters |
+| `getClientReminders(clientId)` | activities | Client reminders ordered by due_at |
+| `getNotifications()` | activities | Pending reminders + integration events, limit 20 |
+| `updateActivity(id, fields)` | activities | Patch any field (e.g. status) |
 
 **Rule:** Every new DB query goes into db.js as a named function. Never write `.from(...)` directly in page JS files.
 

@@ -3,6 +3,41 @@ _Reverse chronological. One entry per session._
 
 ---
 
+## 2026-04-22 — Activities foundation + UI
+
+### DB (migration 016)
+- `profiles` patched: added `email`, `slack_user_id`, `updated_at`
+- `activities` table created with 6 indexes (entity, type, due_at, created_at DESC, status, origin)
+- FK: `activities.created_by → profiles(id) ON DELETE SET NULL`
+- Status: ✅ Production — ⚠️ Demo needs manual run
+
+### db.js
+- Added: `logActivity`, `getActivities`, `getClientReminders`, `getNotifications`, `updateActivity`
+
+### New: activity-log.html + activity-log.js
+- Full-width table sorted by created_at DESC
+- Filter bar: body search, type dropdown, status dropdown
+- Inline Markdown renderer (bold, italic, URLs — no external libs)
+- Added to Payments sidebar nav
+
+### components/topbar.html
+- Bell icon (SVG) with red unread badge
+
+### components/layout.js
+- `BELL` object: dropdown, badge count, per-item Done/Dismiss, markAllDone (race-safe)
+- Unread count = pending reminders + unseen integration events (localStorage hsos_bell_last_seen)
+- `BELL.init()` called from `LAYOUT.init()`
+- Activity Log link added to Payments sidebar nav
+
+### client-profile.html + client-profile.js
+- Reminders widget after Tags block
+- List with Markdown body, due_at, overdue red highlight, status badge
+- Inline add form: textarea (Markdown hint) + datetime picker
+- Per-row: Mark as done | Dismiss
+- `loadReminders()` called from `loadAll()`
+
+---
+
 ## 2026-04-21 — Bills QA + db.js refactor
 
 ### db.js

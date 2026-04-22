@@ -1,6 +1,6 @@
 # HSos — STATUS.md
 _Living handoff file. Update at end of every session._
-Last updated: 2026-04-22 (UI bug fixes — scroll, profile tab, bill clicks, company FK)
+Last updated: 2026-04-22 (Activities foundation + UI — migration 016, activity log, bell, reminders)
 
 ---
 
@@ -29,10 +29,11 @@ No framework. No build step. Files served directly.
 | Vendor profile | vendor-profile.html + vendor-profile.js | ✅ New — hero with overlay, stats, assigned clients, bills, docs |
 | Client profile | client-profile.html + client-profile.js | ✅ Rebuilt — hero with overlay, stats, deals/packages, payments, tags, docs, details panel |
 | Products | products.html + products.js | ✅ New — hero bands, floating plan cards, product + plan modals, deep linking |
+| Activity Log | activity-log.html + activity-log.js | ✅ New — full activity table, type/status filters, inline Markdown |
 | Import | import.html + import.js | 🟡 Exists |
 
 ### Known broken right now (2026-04-22 — post UI fixes)
-- None
+- Demo DB: migration 016 (activities + profiles patch) not yet run — must be run manually at https://pqkzffgpkpovternesmt.supabase.co
 
 ### Fixed 2026-04-22 (UI bug fixes)
 - `workload.html`: Sessions tab (`#tab-work`) had `overflow-y:auto` creating an inner scroll trap — removed, page now scrolls as one unit
@@ -67,7 +68,7 @@ No framework. No build step. Files served directly.
 
 ### DB schema state
 - Old tables (uuid PKs): clients, deals, vendors, sessions, bills, packages, rates, product_plans, customers, task_types, deal_reminders, deal_documents, vendor_client_assignments, paychecks, exchange_rates, documents
-- New tables (text PKs, added 2026-04-12): companies, accounts, transaction_categories, classification_rules, fee_rules, transaction_imports, transactions, products, plans
+- New tables (text PKs, added 2026-04-12): companies, accounts, transaction_categories, classification_rules, fee_rules, transaction_imports, transactions, products, plans, activities
 - account_balances: recreated 2026-04-13 — text PK, FK to accounts.id, columns: month, opening_balance, closing_balance, currency, notes. UNIQUE(account_id, month).
 - transactions.account_id: codebase now expects canonical text FK to `accounts.id` + joined account relation (`account:accounts(...)`); migration 007 updated accordingly for both demo + production.
 - transactions: classification columns added (migration 009) — category_id (FK→transaction_categories), tax_treatment, entity (check: business/private), tags[]
