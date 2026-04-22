@@ -1838,3 +1838,60 @@ async function getRoleFromDB() {
   // When auth is live: const user = await getCurrentUser(); return getProfile(user?.id)
   return null
 }
+
+// ─── activities ───────────────────────────────────────────────
+
+async function logActivity({ entity_type, entity_id, type, subtype, body,
+  created_by, origin = 'system', due_at, status, meta = {} }) {
+  const { data, error } = await _sb.from('activities').insert({
+    entity_type, entity_id, type, subtype, body,
+    created_by, origin, due_at, status, meta,
+  }).select().single()
+  if (error) throw error
+  return data
+}
+
+async function getActivities({ type, status, search } = {}) {
+  let q = _sb.from('activities').select('*').order('created_at', { ascending: false })
+  if (type)   q = q.eq('type', type)
+  if (status) q = q.eq('status', status)
+  if (search) q = q.ilike('body', `%${search}%`)
+  const { data, error } = await q
+  if (error) throw error
+  return data || []
+}
+
+async function getClientReminders(clientId) {
+  const { data, error } = await _sb
+    .from('activities')
+    .select('*')
+    .eq('entity_type', 'client')
+    .eq('entity_id', clientId)
+    .eq('type', 'reminder')
+    .order('due_at', { ascending: true, nullsFirst: false })
+  if (error) throw error
+  return data || []
+}
+
+async function getNotifications() {
+  const { data, error } = await _sb
+    .from('activities')
+    .select('*')
+    .in('type', ['reminder', 'integration_event'])
+    .or('status.eq.pending,origin.eq.integration')
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) throw error
+  return data || []
+}
+
+async function updateActivity(id, fields) {
+  const { data, error } = await _sb
+    .from('activities')
+    .update(fields)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
