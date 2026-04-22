@@ -1,3 +1,13 @@
 node_modules/
 .DS_Store
 env-keys.js
+
+# Local dev / secrets
+.vscode/
+.claude/
+.remember/
+
+# Not for version control
+_archive/
+migrations/
+docs/
