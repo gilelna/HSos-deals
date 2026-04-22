@@ -35,9 +35,9 @@ function statusBadge(status) {
 
 function entityLabel(row) {
   if (!row.entity_type) return '—'
+  if (!row.entity_id)   return row.entity_type
   const idSlice = row.entity_id.length > 8 ? row.entity_id.slice(0, 8) + '…' : row.entity_id
-  const id = row.entity_id ? `<br><span style="font-size:10px;color:var(--mu);font-family:var(--font-mono)">${idSlice}</span>` : ''
-  return row.entity_type + id
+  return row.entity_type + `<br><span style="font-size:10px;color:var(--mu);font-family:var(--font-mono)">${idSlice}</span>`
 }
 
 function renderActivityTable() {
