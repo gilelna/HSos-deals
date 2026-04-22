@@ -129,6 +129,32 @@
             </div>
           </div>
 
+          <!-- Reminders -->
+          <div class="block prof-section" id="reminders-block">
+            <div class="prof-section-head">
+              <div class="prof-section-title">Reminders</div>
+              <button class="btn btn-sm" id="add-reminder-btn" onclick="toggleAddReminderForm()">+ Add reminder</button>
+            </div>
+            <div id="add-reminder-form" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg)">
+              <div class="fg" style="margin-bottom:8px">
+                <label class="fl">Note <span style="color:var(--mu);font-size:10px">(Markdown: **bold**, *italic*, URLs)</span></label>
+                <textarea id="reminder-body" class="fi" rows="3" style="resize:vertical"
+                  placeholder="e.g. **Follow up** about renewal — check [invoice](https://...)"></textarea>
+              </div>
+              <div class="fg" style="margin-bottom:10px">
+                <label class="fl">Due date &amp; time (optional)</label>
+                <input type="datetime-local" id="reminder-due" class="fi" style="width:220px">
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-primary btn-sm" onclick="saveReminder()">Save</button>
+                <button class="btn btn-sm" onclick="toggleAddReminderForm()">Cancel</button>
+              </div>
+            </div>
+            <div id="reminders-list" style="padding:8px 0">
+              <div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">Loading…</div>
+            </div>
+          </div>
+
           <!-- Communications -->
           <div class="block prof-section">
             <div class="prof-section-head">
