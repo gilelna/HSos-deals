@@ -85,10 +85,14 @@ function renderProductSection(product) {
   const planCount = plans.length
   const currency  = product.currency || (plans[0]?.currency) || ''
 
+  const typeLabel = product.type === 'package' && product.sessions_included
+    ? `${product.sessions_included}-session package`
+    : product.type || ''
+
   const subLine = [
     planCount + ' plan' + (planCount !== 1 ? 's' : ''),
     currency,
-    product.category || '',
+    typeLabel || product.category || '',
   ].filter(Boolean).join(' · ')
 
   const logoHtml = product.logo_url
@@ -276,13 +280,16 @@ function openEditProductModal(productId) {
   document.getElementById('pm-delete-btn').style.display = ''
 
   // Populate form
-  document.getElementById('pm-name').value        = product.name || ''
-  document.getElementById('pm-category').value    = product.category || ''
-  document.getElementById('pm-status').value      = product.status || 'active'
-  document.getElementById('pm-description').value = product.description || ''
-  document.getElementById('pm-currency').value    = product.currency || 'USD'
-  document.getElementById('pm-price-min').value   = product.price_min != null ? product.price_min : ''
-  document.getElementById('pm-price-max').value   = product.price_max != null ? product.price_max : ''
+  document.getElementById('pm-name').value              = product.name || ''
+  document.getElementById('pm-type').value              = product.type || ''
+  document.getElementById('pm-sessions-included').value = product.sessions_included != null ? product.sessions_included : ''
+  document.getElementById('pm-category').value          = product.category || ''
+  document.getElementById('pm-status').value            = product.status || 'active'
+  document.getElementById('pm-description').value       = product.description || ''
+  document.getElementById('pm-currency').value          = product.currency || 'USD'
+  document.getElementById('pm-price-min').value         = product.price_min != null ? product.price_min : ''
+  document.getElementById('pm-price-max').value         = product.price_max != null ? product.price_max : ''
+  pmUpdateTypeFields()
 
   // Logo preview
   pmRefreshLogoPreview()
@@ -303,16 +310,24 @@ function closeProductModal() {
 }
 
 function pmResetForm() {
-  document.getElementById('pm-name').value        = ''
-  document.getElementById('pm-category').value    = ''
-  document.getElementById('pm-status').value      = 'active'
-  document.getElementById('pm-description').value = ''
-  document.getElementById('pm-currency').value    = 'USD'
-  document.getElementById('pm-price-min').value   = ''
-  document.getElementById('pm-price-max').value   = ''
+  document.getElementById('pm-name').value             = ''
+  document.getElementById('pm-type').value             = ''
+  document.getElementById('pm-sessions-included').value = ''
+  document.getElementById('pm-category').value         = ''
+  document.getElementById('pm-status').value           = 'active'
+  document.getElementById('pm-description').value      = ''
+  document.getElementById('pm-currency').value         = 'USD'
+  document.getElementById('pm-price-min').value        = ''
+  document.getElementById('pm-price-max').value        = ''
   document.getElementById('pm-price-computed').textContent = 'Computed from active plans'
+  pmUpdateTypeFields()
   pmRenderLinks([])
   pmRefreshLogoPreview()
+}
+
+function pmUpdateTypeFields() {
+  const type = document.getElementById('pm-type').value
+  document.getElementById('pm-sessions-wrap').style.display = type === 'package' ? '' : 'none'
 }
 
 function pmRefreshLogoPreview() {
@@ -401,8 +416,15 @@ async function pmSave() {
   const name = document.getElementById('pm-name').value.trim()
   if (!name) { showToast('Product name is required', 'warn'); return }
 
+  const type = document.getElementById('pm-type').value || null
+  const sessionsIncluded = type === 'package'
+    ? (parseInt(document.getElementById('pm-sessions-included').value) || null)
+    : null
+
   const fields = {
     name,
+    type,
+    sessions_included: sessionsIncluded,
     category:    document.getElementById('pm-category').value    || null,
     status:      document.getElementById('pm-status').value      || 'active',
     description: document.getElementById('pm-description').value.trim() || null,

@@ -111,6 +111,23 @@
         </div>
       </div>
 
+      <div class="form-row">
+        <div class="fg" style="flex:1">
+          <label class="fl">Type</label>
+          <select id="pm-type" class="fi fsel" onchange="pmUpdateTypeFields()">
+            <option value="">— select —</option>
+            <option value="session">session</option>
+            <option value="package">package</option>
+            <option value="workshop">workshop</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div class="fg" style="flex:1" id="pm-sessions-wrap" style="display:none">
+          <label class="fl">Sessions included</label>
+          <input type="number" id="pm-sessions-included" class="fi" placeholder="e.g. 10" min="1">
+        </div>
+      </div>
+
       <div class="fg">
         <label class="fl">Description</label>
         <textarea id="pm-description" class="fi" rows="2" placeholder="Internal description — not customer facing"></textarea>

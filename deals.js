@@ -883,7 +883,7 @@ async function _autoCreatePackage(dealId, clientId, vendorId, product) {
     .from('packages').select('id').eq('deal_id', dealId).maybeSingle()
   if (existing) return  // already exists
 
-  const totalSessions = product.default_package_sessions || 10
+  const totalSessions = product.sessions_included || 10
   await createPackage({
     deal_id:       dealId,
     client_id:     clientId,
