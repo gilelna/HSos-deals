@@ -11,6 +11,18 @@ const PLATFORM_URLS = {
   freshdesk:       id => id ? `https://accentway.freshdesk.com/contacts/${id}` : null,
 }
 
+// Minimal Markdown renderer — application data only, entities escaped first
+function renderMd(text) {
+  if (!text) return ''
+  let s = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>')
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+  s = s.replace(/(^|[^"'>])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>')
+  return s
+}
+
 // ─── State ────────────────────────────────────────────────────
 
 let _client      = null
@@ -100,6 +112,7 @@ async function loadAll() {
         showToast('Name updated')
       }
     )
+    loadReminders()
   } catch (e) {
     console.error('[ClientProfile]', e)
     showErrorState(e.message)
@@ -577,3 +590,130 @@ function showErrorState(msg) {
   document.getElementById('prof-body').innerHTML =
     `<div class="empty"><div class="empty-icon">⚠</div><div>${escHtml(msg)}</div></div>`
 }
+
+// ─── Reminders widget ─────────────────────────────────────────
+
+let _reminders = []
+let _addReminderOpen = false
+
+function toggleAddReminderForm() {
+  _addReminderOpen = !_addReminderOpen
+  const form = document.getElementById('add-reminder-form')
+  if (form) form.style.display = _addReminderOpen ? 'block' : 'none'
+  if (!_addReminderOpen) {
+    const bodyEl = document.getElementById('reminder-body')
+    const dueEl  = document.getElementById('reminder-due')
+    if (bodyEl) bodyEl.value = ''
+    if (dueEl)  dueEl.value  = ''
+  }
+}
+
+function _fmtDueAt(ts) {
+  if (!ts) return null
+  const d = new Date(ts)
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
+function _isOverdue(ts, status) {
+  if (!ts || status !== 'pending') return false
+  return new Date(ts) < new Date()
+}
+
+function renderReminders() {
+  const el = document.getElementById('reminders-list')
+  if (!el) return
+
+  if (!_reminders.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">No reminders yet.</div>'
+    return
+  }
+
+  el.innerHTML = _reminders.map(r => {
+    const overdue   = _isOverdue(r.due_at, r.status)
+    const dueStr    = _fmtDueAt(r.due_at)
+    const isPending = r.status === 'pending' || !r.status
+    const statusBg    = r.status === 'done'      ? 'var(--green-bg)'  :
+                        r.status === 'dismissed' ? 'var(--bg)'        :
+                        overdue                  ? 'var(--red-bg)'    : 'var(--amber-bg)'
+    const statusColor = r.status === 'done'      ? 'var(--green-text)' :
+                        r.status === 'dismissed' ? 'var(--mu)'         :
+                        overdue                  ? 'var(--red-text)'   : 'var(--amber-text)'
+    return `
+      <div style="padding:10px 16px;border-bottom:1px solid var(--border2);${overdue ? 'background:var(--red-bg)' : ''}">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;line-height:1.5">${renderMd(r.body)}</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:5px;flex-wrap:wrap">
+              ${dueStr ? `<span style="font-size:10px;font-family:var(--font-mono);color:${overdue ? 'var(--red-text)' : 'var(--mu)'}">${overdue ? '\u26a0 ' : ''}${dueStr}</span>` : ''}
+              <span style="font-size:10px;padding:1px 7px;border-radius:8px;background:${statusBg};color:${statusColor};font-family:var(--font-mono);font-weight:600">${r.status || 'pending'}</span>
+            </div>
+          </div>
+          ${isPending ? `
+            <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+              <button style="font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--green-bg);color:var(--green-text);cursor:pointer;white-space:nowrap"
+                      onclick="patchReminder('${r.id}','done')">Done</button>
+              <button style="font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--mu);cursor:pointer;white-space:nowrap"
+                      onclick="patchReminder('${r.id}','dismissed')">Dismiss</button>
+            </div>` : ''}
+        </div>
+      </div>`
+  }).join('')
+}
+
+async function loadReminders() {
+  if (!_clientId) return
+  try {
+    _reminders = await getClientReminders(_clientId)
+  } catch (err) {
+    console.error('[Reminders] load failed', err)
+  }
+  renderReminders()
+}
+
+async function saveReminder() {
+  const bodyEl  = document.getElementById('reminder-body')
+  const dueEl   = document.getElementById('reminder-due')
+  const body    = bodyEl?.value?.trim()
+  const dueRaw  = dueEl?.value
+  if (!body) { showToast('Please enter a reminder note', 'warn'); return }
+
+  try {
+    const created = await logActivity({
+      entity_type: 'client',
+      entity_id:   _clientId,
+      type:        'reminder',
+      body,
+      origin:      'user',
+      status:      'pending',
+      due_at:      dueRaw ? new Date(dueRaw).toISOString() : null,
+    })
+    _reminders = [created, ..._reminders].sort((a, b) => {
+      if (!a.due_at && !b.due_at) return 0
+      if (!a.due_at) return 1
+      if (!b.due_at) return -1
+      return new Date(a.due_at) - new Date(b.due_at)
+    })
+    toggleAddReminderForm()
+    renderReminders()
+    showToast('Reminder saved', 'success')
+  } catch (err) {
+    console.error('[Reminders] save failed', err)
+    showToast('Failed to save reminder', 'error')
+  }
+}
+
+async function patchReminder(id, newStatus) {
+  try {
+    await updateActivity(id, { status: newStatus })
+    _reminders = _reminders.map(r => r.id === id ? { ...r, status: newStatus } : r)
+    renderReminders()
+  } catch (err) {
+    console.error('[Reminders] patch failed', err)
+    showToast('Failed to update reminder', 'error')
+  }
+}
+
+window.toggleAddReminderForm = toggleAddReminderForm
+window.saveReminder           = saveReminder
+window.patchReminder          = patchReminder
