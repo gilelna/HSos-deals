@@ -63,7 +63,7 @@
 
       <div style="padding:0 24px 40px">
         <div class="act-filter-bar">
-          <input class="act-search" id="act-search" type="search" placeholder="Search body text…" oninput="renderActivityTable()">
+          <input class="act-search" id="act-search" type="search" placeholder="Search body text…" oninput="renderActivityTable()" onchange="renderActivityTable()">
           <select id="act-filter-type" onchange="renderActivityTable()">
             <option value="">All types</option>
             <option value="note">note</option>

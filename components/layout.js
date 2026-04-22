@@ -39,6 +39,7 @@ const NAV_HTML = {
       <a class="sb-link" id="nav-registry"        href="payments.html?tab=registry">Registry</a>
       <a class="sb-link" id="nav-balances"        href="payments.html?tab=balances">Balances</a>
       <a class="sb-link" id="nav-vendors"         href="payments.html?tab=vendors">Vendor Manager</a>
+      <a class="sb-link" id="nav-activity-log"    href="activity-log.html">Activity Log</a>
       <div class="sb-section-label" style="margin-top:8px">Tools</div>
       <a class="sb-link" href="import.html">Import</a>
     </div>`
