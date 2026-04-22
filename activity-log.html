@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Activity Log</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .act-filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 0; margin-bottom: 12px;
+    }
+    .act-filter-bar select {
+      height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: var(--surface); color: var(--ink); cursor: pointer; outline: none;
+    }
+    .act-filter-bar select:focus { border-color: var(--ink); }
+    .act-search {
+      width: 240px; height: 28px; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0 8px; font-family: var(--font-sans); font-size: 12px;
+      background: var(--surface); color: var(--ink); outline: none;
+    }
+    .act-search:focus { border-color: var(--ink); }
+    .act-body-cell { max-width: 360px; word-break: break-word; }
+    .act-type-badge {
+      display: inline-block; font-size: 10px; font-family: var(--font-mono);
+      padding: 2px 7px; border-radius: 10px; font-weight: 600; white-space: nowrap;
+    }
+    .act-type-note              { background: var(--blue-bg);   color: var(--blue-text); }
+    .act-type-reminder          { background: var(--amber-bg);  color: var(--amber-text); }
+    .act-type-system_log        { background: var(--bg);        color: var(--mu); border: 1px solid var(--border); }
+    .act-type-integration_event { background: var(--purple-bg); color: var(--purple-text); }
+    .act-status-badge {
+      display: inline-block; font-size: 10px; font-family: var(--font-mono);
+      padding: 2px 7px; border-radius: 10px; font-weight: 600;
+    }
+    .act-status-pending   { background: var(--amber-bg);  color: var(--amber-text); }
+    .act-status-done      { background: var(--green-bg);  color: var(--green-text); }
+    .act-status-dismissed { background: var(--bg);        color: var(--mu); border: 1px solid var(--border); }
+    .act-origin-badge { font-size: 10px; font-family: var(--font-mono); color: var(--mu); }
+    .act-empty { padding: 40px; text-align: center; color: var(--mu2); font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div id="layout-topbar"></div>
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+    <div class="app-content" style="position:relative">
+
+      <div class="space-cover">
+        <div class="space-cover__bg"></div>
+        <div class="space-cover__overlay" style="background:linear-gradient(135deg,var(--space-payments-from),var(--space-payments-to))"></div>
+        <div class="space-cover__content">
+          <div class="space-cover__title">Activity Log</div>
+          <div class="space-cover__sub">All notes, reminders, system events, and integrations</div>
+        </div>
+      </div>
+
+      <div style="padding:0 24px 40px">
+        <div class="act-filter-bar">
+          <input class="act-search" id="act-search" type="search" placeholder="Search body text…" oninput="renderActivityTable()">
+          <select id="act-filter-type" onchange="renderActivityTable()">
+            <option value="">All types</option>
+            <option value="note">note</option>
+            <option value="reminder">reminder</option>
+            <option value="system_log">system_log</option>
+            <option value="integration_event">integration_event</option>
+          </select>
+          <select id="act-filter-status" onchange="renderActivityTable()">
+            <option value="">All statuses</option>
+            <option value="pending">pending</option>
+            <option value="done">done</option>
+            <option value="dismissed">dismissed</option>
+          </select>
+        </div>
+
+        <div class="block" style="padding:0;overflow:hidden">
+          <table class="tbl" style="width:100%">
+            <thead>
+              <tr>
+                <th style="width:140px">Date</th>
+                <th style="width:120px">Entity</th>
+                <th style="width:110px">Type</th>
+                <th style="width:110px">Subtype</th>
+                <th>Body</th>
+                <th style="width:90px">Status</th>
+                <th style="width:70px">Origin</th>
+              </tr>
+            </thead>
+            <tbody id="act-tbody">
+              <tr><td colspan="7" class="act-empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script src="components/layout.js"></script>
+<script src="activity-log.js"></script>
+</body>
+</html>
