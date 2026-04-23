@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sales — HSos</title>
+  <link rel="stylesheet" href="../../shared.css">
+</head>
+<body>
+  <div id="layout-root"></div>
+
+  <!-- Vendor deps: Supabase SDK + gitignored keys -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="../../../env-keys.js"></script>
+
+  <!-- Core (load order: env → utils → auth → guard → audit → db → router) -->
+  <script src="../../core/env.js"></script>
+  <script src="../../core/utils.js"></script>
+  <script src="../../core/auth.js"></script>
+  <script src="../../core/guard.js"></script>
+  <script src="../../core/audit.js"></script>
+  <script src="../../core/db.js"></script>
+  <script src="../../core/router.js"></script>
+
+  <!-- Shared -->
+  <script src="../../shared/constants.js"></script>
+  <script src="../../shared/state.js"></script>
+
+  <!-- Components -->
+  <script src="../../components/badges.js"></script>
+  <script src="../../components/table.js"></script>
+  <script src="../../components/form.js"></script>
+  <script src="../../components/modal.js"></script>
+  <script src="../../components/panel.js"></script>
+  <script src="../../components/layout.js"></script>
+
+  <!-- Sales space -->
+  <script src="sales-deals.js"></script>
+  <script src="sales-deal-modal.js"></script>
+  <script src="sales-clients.js"></script>
+  <script src="sales-vendors.js"></script>
+  <script src="sales-products.js"></script>
+  <script src="sales-dashboard.js"></script>
+  <script src="sales-init.js"></script>
+</body>
+</html>
