@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — HSos</title>
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body class="v2-login-body">
+  <main class="v2-login">
+    <div class="v2-login-card">
+      <h1>HSos</h1>
+      <p class="v2-mu">Pick a role to continue. Full OAuth sign-in is coming in Phase 2.</p>
+
+      <div id="role-picker" class="v2-login-roles"></div>
+
+      <div id="vendor-picker" class="v2-login-vendor" style="display:none">
+        <label class="fl" for="vendor-select">Which vendor is this?</label>
+        <select id="vendor-select" class="fi">
+          <option value="">— choose vendor —</option>
+        </select>
+      </div>
+
+      <div class="v2-login-actions">
+        <button id="continue-btn" class="btn btn-primary" type="button" disabled>Continue</button>
+      </div>
+
+      <p class="v2-mu v2-login-foot">
+        Role is stored in this browser tab only (sessionStorage). Switching the role in the topbar later has the same effect.
+      </p>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="../env-keys.js"></script>
+
+  <script src="core/env.js"></script>
+  <script src="core/utils.js"></script>
+  <script src="core/auth.js"></script>
+  <script src="core/db.js"></script>
+
+  <script>
+    (function () {
+      let pickedRole = null
+      const picker = document.getElementById('role-picker')
+      const vendorWrap = document.getElementById('vendor-picker')
+      const vendorSel = document.getElementById('vendor-select')
+      const continueBtn = document.getElementById('continue-btn')
+
+      const ROLES = [
+        { key: 'admin', label: 'Admin', desc: 'Full access to all spaces and financial data.' },
+        { key: 'manager', label: 'Manager', desc: 'Sales + operations. No financial data.' },
+        { key: 'vendor', label: 'Vendor', desc: 'Log sessions, manage bills. Own data only.' }
+      ]
+
+      for (const r of ROLES) {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'v2-login-role'
+        btn.dataset.role = r.key
+        const h = document.createElement('h3')
+        h.textContent = r.label
+        const d = document.createElement('p')
+        d.textContent = r.desc
+        btn.append(h, d)
+        btn.addEventListener('click', async () => {
+          pickedRole = r.key
+          for (const b of picker.querySelectorAll('.v2-login-role')) {
+            b.classList.toggle('v2-selected', b.dataset.role === r.key)
+          }
+          if (r.key === 'vendor') {
+            await _loadVendors()
+            vendorWrap.style.display = ''
+            _recalcReady()
+          } else {
+            vendorWrap.style.display = 'none'
+            continueBtn.disabled = false
+          }
+        })
+        picker.appendChild(btn)
+      }
+
+      async function _loadVendors() {
+        if (vendorSel.options.length > 1) return
+        try {
+          const vendors = await DB.getVendors()
+          for (const v of vendors) {
+            const o = document.createElement('option')
+            o.value = v.id
+            o.textContent = v.name || v.full_name || v.id
+            vendorSel.appendChild(o)
+          }
+        } catch (err) {
+          Utils.showToast('Failed to load vendors: ' + (err.message || ''), 'error')
+        }
+      }
+
+      vendorSel.addEventListener('change', _recalcReady)
+      function _recalcReady() {
+        continueBtn.disabled = !(pickedRole && (pickedRole !== 'vendor' || vendorSel.value))
+      }
+
+      continueBtn.addEventListener('click', () => {
+        if (!pickedRole) return
+        Auth.setRole(pickedRole)
+        if (pickedRole === 'vendor') Auth.setVendorId(vendorSel.value)
+        window.location.href = 'index.html'
+      })
+    })()
+  </script>
+</body>
+</html>

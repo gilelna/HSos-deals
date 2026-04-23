@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HSos</title>
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <div id="layout-root"></div>
+  <main id="home-mount" class="v2-home"></main>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="../env-keys.js"></script>
+
+  <script src="core/env.js"></script>
+  <script src="core/utils.js"></script>
+  <script src="core/auth.js"></script>
+  <script src="core/guard.js"></script>
+  <script src="core/audit.js"></script>
+  <script src="core/db.js"></script>
+  <script src="core/router.js"></script>
+
+  <script src="shared/constants.js"></script>
+  <script src="shared/state.js"></script>
+
+  <script src="components/badges.js"></script>
+  <script src="components/table.js"></script>
+  <script src="components/form.js"></script>
+  <script src="components/modal.js"></script>
+  <script src="components/panel.js"></script>
+  <script src="components/layout.js"></script>
+
+  <script>
+    (function () {
+      function start() {
+        Auth.init()
+        Layout.init({ space: 'sales', pageTitle: 'HSos' })
+        const mount = document.getElementById('home-mount')
+
+        const hero = document.createElement('section')
+        hero.className = 'v2-home-hero'
+        const h = document.createElement('h1')
+        h.textContent = 'HSos'
+        const tag = document.createElement('p')
+        tag.className = 'v2-mu'
+        tag.textContent = 'Operations, sales, and payments for coaching-led businesses.'
+        hero.append(h, tag)
+        mount.appendChild(hero)
+
+        const spaces = [
+          { key: 'sales', title: 'Sales', desc: 'Deals, clients, vendors, products.', href: 'spaces/sales/sales.html' },
+          { key: 'operations', title: 'Operations', desc: 'Log sessions, manage bills, track packages.', href: 'spaces/operations/operations.html' },
+          { key: 'payments', title: 'Payments', desc: 'Transactions, bills, balances, registry.', href: 'spaces/payments/payments.html' }
+        ]
+
+        const grid = document.createElement('div')
+        grid.className = 'v2-home-grid'
+        for (const s of spaces) {
+          if (!Guard.canAccessSpace(s.key)) continue
+          const a = document.createElement('a')
+          a.className = 'v2-home-card'
+          a.href = s.href
+          const title = document.createElement('h2')
+          title.textContent = s.title
+          const desc = document.createElement('p')
+          desc.textContent = s.desc
+          a.append(title, desc)
+          grid.appendChild(a)
+        }
+        mount.appendChild(grid)
+      }
+      document.addEventListener('DOMContentLoaded', start)
+    })()
+  </script>
+</body>
+</html>
