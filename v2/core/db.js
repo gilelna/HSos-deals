@@ -457,6 +457,10 @@ const DB = (() => {
     let q = _sb().from('transactions').select('*')
     if (!filters?.includeDeleted) q = q.is('deleted_at', null)
     if (filters?.account_id) q = q.eq('account_id', filters.account_id)
+    if (filters?.category_id) q = q.eq('category_id', filters.category_id)
+    if (filters?.entity) q = q.eq('entity', filters.entity)
+    if (filters?.direction) q = q.eq('direction', filters.direction)
+    if (filters?.vendor_id) q = q.eq('vendor_id', filters.vendor_id)
     if (filters?.month) {
       const [y, m] = filters.month.split('-').map(Number)
       const from = `${y}-${String(m).padStart(2, '0')}-01`
@@ -468,13 +472,48 @@ const DB = (() => {
     return data || []
   }
 
+  async function getTransaction(id) {
+    const { data, error } = await _sb().from('transactions').select('*').eq('id', id).maybeSingle()
+    if (error) _throw(error, 'Failed to load transaction')
+    return data
+  }
+
   async function updateTransaction(id, fields) {
-    const before = await _sb().from('transactions').select('*').eq('id', id).maybeSingle()
+    const before = await getTransaction(id)
     const { data, error } = await _sb()
       .from('transactions').update(fields).eq('id', id).select().single()
     if (error) _throw(error, 'Failed to update transaction')
-    await Audit.log({ entity_type: 'transaction', entity_id: id, action: 'update', changes: Audit.diff(before.data, data) })
+    await Audit.log({ entity_type: 'transaction', entity_id: id, action: 'update', changes: Audit.diff(before, data) })
     return data
+  }
+
+  async function softDeleteTransaction(id) {
+    const before = await getTransaction(id)
+    const { data, error } = await _sb()
+      .from('transactions').update({ deleted_at: new Date().toISOString() }).eq('id', id).select().single()
+    if (error) _throw(error, 'Failed to soft-delete transaction')
+    await Audit.log({ entity_type: 'transaction', entity_id: id, action: 'delete', changes: Audit.diff(before, data) })
+    return data
+  }
+
+  async function restoreTransaction(id) {
+    const { data, error } = await _sb()
+      .from('transactions').update({ deleted_at: null }).eq('id', id).select().single()
+    if (error) _throw(error, 'Failed to restore transaction')
+    await Audit.log({ entity_type: 'transaction', entity_id: id, action: 'update', changes: { after: { deleted_at: null } } })
+    return data
+  }
+
+  // Bulk classify: apply the same patch to many transactions.
+  async function bulkUpdateTransactions(ids, fields) {
+    if (!Array.isArray(ids) || !ids.length) return []
+    const { data, error } = await _sb()
+      .from('transactions').update(fields).in('id', ids).select()
+    if (error) _throw(error, 'Failed to bulk-update transactions')
+    for (const row of data || []) {
+      await Audit.log({ entity_type: 'transaction', entity_id: row.id, action: 'update', changes: { after: fields } })
+    }
+    return data || []
   }
 
   async function getAccounts() {
@@ -483,24 +522,171 @@ const DB = (() => {
     return data || []
   }
 
+  async function getAllAccounts() {
+    const { data, error } = await _sb().from('accounts').select('*').order('name')
+    if (error) _throw(error, 'Failed to load accounts')
+    return data || []
+  }
+
+  async function createAccount(fields) {
+    const { data, error } = await _sb().from('accounts').insert(fields).select().single()
+    if (error) _throw(error, 'Failed to create account')
+    await Audit.log({ entity_type: 'account', entity_id: data.id, action: 'create', changes: { after: data } })
+    return data
+  }
+
+  async function updateAccount(id, fields) {
+    const before = await _sb().from('accounts').select('*').eq('id', id).maybeSingle()
+    const { data, error } = await _sb().from('accounts').update(fields).eq('id', id).select().single()
+    if (error) _throw(error, 'Failed to update account')
+    await Audit.log({ entity_type: 'account', entity_id: id, action: 'update', changes: Audit.diff(before.data, data) })
+    return data
+  }
+
+  async function deleteAccount(id) {
+    const before = await _sb().from('accounts').select('*').eq('id', id).maybeSingle()
+    const { error } = await _sb().from('accounts').delete().eq('id', id)
+    if (error) _throw(error, 'Failed to delete account')
+    await Audit.log({ entity_type: 'account', entity_id: id, action: 'delete', changes: { before: before.data } })
+  }
+
   async function getCompanies() {
     const { data, error } = await _sb().from('companies').select('*').order('name')
     if (error) _throw(error, 'Failed to load companies')
     return data || []
   }
 
-  async function getTransactionCategories() {
-    const { data, error } = await _sb()
-      .from('transaction_categories').select('*').eq('status', 'active').order('name')
+  async function createCompany(fields) {
+    const { data, error } = await _sb().from('companies').insert(fields).select().single()
+    if (error) _throw(error, 'Failed to create company')
+    await Audit.log({ entity_type: 'company', entity_id: data.id, action: 'create', changes: { after: data } })
+    return data
+  }
+
+  async function updateCompany(id, fields) {
+    const before = await _sb().from('companies').select('*').eq('id', id).maybeSingle()
+    const { data, error } = await _sb().from('companies').update(fields).eq('id', id).select().single()
+    if (error) _throw(error, 'Failed to update company')
+    await Audit.log({ entity_type: 'company', entity_id: id, action: 'update', changes: Audit.diff(before.data, data) })
+    return data
+  }
+
+  async function deleteCompany(id) {
+    const before = await _sb().from('companies').select('*').eq('id', id).maybeSingle()
+    const { error } = await _sb().from('companies').delete().eq('id', id)
+    if (error) _throw(error, 'Failed to delete company')
+    await Audit.log({ entity_type: 'company', entity_id: id, action: 'delete', changes: { before: before.data } })
+  }
+
+  async function getTransactionCategories(opts) {
+    let q = _sb().from('transaction_categories').select('*')
+    if (!opts?.includeInactive) q = q.eq('status', 'active')
+    const { data, error } = await q.order('name')
     if (error) _throw(error, 'Failed to load categories')
     return data || []
   }
 
-  async function getTransactionTags() {
-    const { data, error } = await _sb()
-      .from('transaction_tags').select('*').eq('active', true).order('name')
+  async function createTransactionCategory(fields) {
+    const { data, error } = await _sb().from('transaction_categories').insert(fields).select().single()
+    if (error) _throw(error, 'Failed to create category')
+    await Audit.log({ entity_type: 'transaction_category', entity_id: data.id, action: 'create', changes: { after: data } })
+    return data
+  }
+
+  async function updateTransactionCategory(id, fields) {
+    const before = await _sb().from('transaction_categories').select('*').eq('id', id).maybeSingle()
+    const { data, error } = await _sb().from('transaction_categories').update(fields).eq('id', id).select().single()
+    if (error) _throw(error, 'Failed to update category')
+    await Audit.log({ entity_type: 'transaction_category', entity_id: id, action: 'update', changes: Audit.diff(before.data, data) })
+    return data
+  }
+
+  async function deleteTransactionCategory(id) {
+    const before = await _sb().from('transaction_categories').select('*').eq('id', id).maybeSingle()
+    const { error } = await _sb().from('transaction_categories').delete().eq('id', id)
+    if (error) _throw(error, 'Failed to delete category')
+    await Audit.log({ entity_type: 'transaction_category', entity_id: id, action: 'delete', changes: { before: before.data } })
+  }
+
+  async function getTransactionTags(opts) {
+    let q = _sb().from('transaction_tags').select('*')
+    if (!opts?.includeInactive) q = q.eq('active', true)
+    const { data, error } = await q.order('name')
     if (error) _throw(error, 'Failed to load tags')
     return data || []
+  }
+
+  async function createTransactionTag(fields) {
+    const { data, error } = await _sb().from('transaction_tags').insert(fields).select().single()
+    if (error) _throw(error, 'Failed to create tag')
+    await Audit.log({ entity_type: 'transaction_tag', entity_id: data.id, action: 'create', changes: { after: data } })
+    return data
+  }
+
+  async function updateTransactionTag(id, fields) {
+    const before = await _sb().from('transaction_tags').select('*').eq('id', id).maybeSingle()
+    const { data, error } = await _sb().from('transaction_tags').update(fields).eq('id', id).select().single()
+    if (error) _throw(error, 'Failed to update tag')
+    await Audit.log({ entity_type: 'transaction_tag', entity_id: id, action: 'update', changes: Audit.diff(before.data, data) })
+    return data
+  }
+
+  async function deleteTransactionTag(id) {
+    const before = await _sb().from('transaction_tags').select('*').eq('id', id).maybeSingle()
+    const { error } = await _sb().from('transaction_tags').delete().eq('id', id)
+    if (error) _throw(error, 'Failed to delete tag')
+    await Audit.log({ entity_type: 'transaction_tag', entity_id: id, action: 'delete', changes: { before: before.data } })
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // EXCHANGE RATES + ACCOUNT BALANCES + SYSTEM SETTINGS
+  // ═════════════════════════════════════════════════════════════════
+
+  async function getExchangeRates() {
+    const { data, error } = await _sb().from('exchange_rates').select('*').order('effective_date', { ascending: false })
+    if (error) _throw(error, 'Failed to load exchange rates')
+    return data || []
+  }
+
+  async function upsertExchangeRate(fields) {
+    const { data, error } = await _sb().from('exchange_rates').upsert(fields).select().single()
+    if (error) _throw(error, 'Failed to save exchange rate')
+    await Audit.log({ entity_type: 'exchange_rate', entity_id: data.id, action: 'update', changes: { after: data } })
+    return data
+  }
+
+  async function getAccountBalances(filters) {
+    let q = _sb().from('account_balances').select('*')
+    if (filters?.account_id) q = q.eq('account_id', filters.account_id)
+    if (filters?.month) q = q.eq('month', filters.month)
+    const { data, error } = await q.order('month', { ascending: false })
+    if (error) _throw(error, 'Failed to load account balances')
+    return data || []
+  }
+
+  async function upsertAccountBalance(fields) {
+    const { data, error } = await _sb()
+      .from('account_balances')
+      .upsert(fields, { onConflict: 'account_id,month' })
+      .select().single()
+    if (error) _throw(error, 'Failed to save account balance')
+    await Audit.log({ entity_type: 'account_balance', entity_id: data.id, action: 'update', changes: { after: data } })
+    return data
+  }
+
+  async function getSystemSettings() {
+    const { data, error } = await _sb().from('system_settings').select('*').order('key')
+    if (error) _throw(error, 'Failed to load settings')
+    return data || []
+  }
+
+  async function upsertSystemSetting(key, value) {
+    const { data, error } = await _sb()
+      .from('system_settings').upsert({ key, value, updated_at: new Date().toISOString() })
+      .select().single()
+    if (error) _throw(error, 'Failed to save setting')
+    await Audit.log({ entity_type: 'system_setting', entity_id: key, action: 'update', changes: { after: { [key]: value } } })
+    return data
   }
 
   // ═════════════════════════════════════════════════════════════════
@@ -566,9 +752,21 @@ const DB = (() => {
     getBills, createBill, updateBill,
     // task types + rates
     getTaskTypes, getRates, upsertRate, deleteRate,
-    // transactions + registry
-    getTransactions, updateTransaction,
-    getAccounts, getCompanies, getTransactionCategories, getTransactionTags,
+    // transactions
+    getTransactions, getTransaction, updateTransaction,
+    softDeleteTransaction, restoreTransaction, bulkUpdateTransactions,
+    // registry: accounts
+    getAccounts, getAllAccounts, createAccount, updateAccount, deleteAccount,
+    // registry: companies
+    getCompanies, createCompany, updateCompany, deleteCompany,
+    // registry: categories
+    getTransactionCategories, createTransactionCategory, updateTransactionCategory, deleteTransactionCategory,
+    // registry: tags
+    getTransactionTags, createTransactionTag, updateTransactionTag, deleteTransactionTag,
+    // registry: exchange rates / balances / settings
+    getExchangeRates, upsertExchangeRate,
+    getAccountBalances, upsertAccountBalance,
+    getSystemSettings, upsertSystemSetting,
     // activities
     getActivities, logActivity, updateActivity, getNotifications
   }
