@@ -110,11 +110,12 @@ const PayIncome = (() => {
       row.append(name, amount)
 
       const pkg = pkgByDeal.get(d.id)
-      if (pkg && Number(pkg.sessions_total) > 0) {
+      const pkgTotal = Number(pkg?.sessions_total) || Number(pkg?.total_sessions) || 0
+      if (pkg && pkgTotal > 0) {
         const pkgRow = document.createElement('div')
         pkgRow.className = 'v2-pay-income-pkg'
         const used = Number(pkg.sessions_used) || 0
-        const total = Number(pkg.sessions_total) || 0
+        const total = pkgTotal
         const pct = Math.min(100, Math.round((used / total) * 100))
         const label = document.createElement('span')
         label.textContent = `Package ${used}/${total}`

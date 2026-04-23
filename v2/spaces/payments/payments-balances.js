@@ -52,7 +52,7 @@ const PayBalances = (() => {
       Table.create({
         container: body,
         columns: [
-          { key: 'month', label: 'Month' },
+          { key: 'month', label: 'Month', render: b => _monthLabel(b.month) },
           { key: '_account', label: 'Account' },
           { key: 'opening_balance', label: 'Opening', render: b => Utils.formatCurrency(b.opening_balance, b.currency) },
           { key: 'closing_balance', label: 'Closing', render: b => Utils.formatCurrency(b.closing_balance, b.currency) },
@@ -81,8 +81,9 @@ const PayBalances = (() => {
       options: accounts.map(a => ({ value: a.id, label: a.name })),
       value: existing?.account_id || (accounts[0]?.id || '')
     }))
+    // DB stores month as a DATE (first-of-month). Bind to an <input type=month>.
     form.insertAdjacentHTML('beforeend', Form.input({
-      id: 'month', label: 'Month (YYYY-MM)', required: true, value: existing?.month || ''
+      id: 'month', label: 'Month', type: 'month', required: true, value: _monthInputValue(existing?.month)
     }))
     form.insertAdjacentHTML('beforeend', Form.input({
       id: 'opening_balance', label: 'Opening balance', type: 'number', step: '0.01',
@@ -109,12 +110,12 @@ const PayBalances = (() => {
           const { valid, errors, values } = Form.validate(form)
           if (!valid) { Form.showErrors(form, errors); return }
           if (!/^\d{4}-\d{2}$/.test(values.month)) {
-            Form.showErrors(form, [{ id: 'month', label: 'Month', message: 'Use YYYY-MM format' }])
+            Form.showErrors(form, [{ id: 'month', label: 'Month', message: 'Pick a month' }])
             return
           }
           const payload = {
             account_id: values.account_id,
-            month: values.month,
+            month: `${values.month}-01`,  // DB column is DATE; store first-of-month
             opening_balance: values.opening_balance === '' ? null : Number(values.opening_balance),
             closing_balance: values.closing_balance === '' ? null : Number(values.closing_balance),
             currency: values.currency,
@@ -131,6 +132,17 @@ const PayBalances = (() => {
         } }
       ]
     })
+  }
+
+  // ─── Month helpers (DB stores month as DATE, UI uses YYYY-MM) ──
+  function _monthInputValue(dbValue) {
+    if (!dbValue) return ''
+    // dbValue is either '2026-04' (legacy text) or '2026-04-01' (date).
+    return String(dbValue).slice(0, 7)
+  }
+
+  function _monthLabel(dbValue) {
+    return Utils.formatMonth(_monthInputValue(dbValue))
   }
 
   return { render }

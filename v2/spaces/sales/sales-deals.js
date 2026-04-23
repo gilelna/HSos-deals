@@ -338,7 +338,8 @@ const SalesDeals = (() => {
       list.className = 'v2-panel-list'
       for (const p of forDeal) {
         const li = document.createElement('li')
-        li.textContent = `${p.sessions_used || 0}/${p.sessions_total || 0} sessions — ${p.status}`
+        const tot = p.sessions_total ?? p.total_sessions ?? 0
+        li.textContent = `${p.sessions_used || 0}/${tot} sessions — ${p.status}`
         list.appendChild(li)
       }
       wrap.appendChild(list)

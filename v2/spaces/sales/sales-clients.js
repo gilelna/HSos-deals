@@ -55,8 +55,8 @@ const SalesClients = (() => {
         { key: 'full_name',    label: 'Name' },
         { key: 'email',        label: 'Email' },
         { key: 'phone',        label: 'Phone' },
-        { key: 'kind',         label: 'Kind' },
-        { key: 'company_name', label: 'Company' },
+        { key: 'client_kind',  label: 'Kind' },
+        { key: 'company',      label: 'Company' },
         { key: '_deals',       label: 'Deals' }
       ],
       rows,
@@ -75,13 +75,12 @@ const SalesClients = (() => {
     form.insertAdjacentHTML('beforeend', Form.input({ id: 'email', label: 'Email', type: 'email' }))
     form.insertAdjacentHTML('beforeend', Form.input({ id: 'phone', label: 'Phone' }))
     form.insertAdjacentHTML('beforeend', Form.select({
-      id: 'kind', label: 'Kind',
+      id: 'client_kind', label: 'Kind',
       options: [{ value: 'private', label: 'Private' }, { value: 'corporate', label: 'Corporate' }],
       value: 'private'
     }))
-    form.insertAdjacentHTML('beforeend', Form.input({ id: 'company_name', label: 'Company (if corporate)' }))
+    form.insertAdjacentHTML('beforeend', Form.input({ id: 'company', label: 'Company (if corporate)' }))
     form.insertAdjacentHTML('beforeend', Form.input({ id: 'source', label: 'Source' }))
-    form.insertAdjacentHTML('beforeend', Form.input({ id: 'country', label: 'Country' }))
 
     const m = Modal.open({
       title: 'Add client',
@@ -181,7 +180,7 @@ const SalesClients = (() => {
       full_name: r.full_name || r.name || [r.first_name, r.last_name].filter(Boolean).join(' '),
       email: r.email || '',
       phone: r.phone || '',
-      kind: 'private',
+      client_kind: 'private',
       source: 'activecampaign',
       _selected: true
     }))
@@ -254,10 +253,9 @@ const SalesClients = (() => {
       ['full_name', 'Name'],
       ['email', 'Email'],
       ['phone', 'Phone'],
-      ['kind', 'Kind'],
-      ['company_name', 'Company'],
+      ['client_kind', 'Kind'],
+      ['company', 'Company'],
       ['source', 'Source'],
-      ['country', 'Country'],
       ['notes', 'Notes']
     ]
     for (const [key, label] of fields) {

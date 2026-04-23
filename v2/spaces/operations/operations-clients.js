@@ -78,7 +78,7 @@ const OpsClients = (() => {
     row.className = 'v2-ops-pkg-row'
 
     const used = Number(pkg.sessions_used) || 0
-    const total = Number(pkg.sessions_total) || 0
+    const total = Number(pkg.sessions_total) || Number(pkg.total_sessions) || 0
     const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
 
     const top = document.createElement('div')

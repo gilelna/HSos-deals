@@ -129,19 +129,18 @@ const OpsProfile = (() => {
     body.textContent = 'Loading rates…'
     section.appendChild(body)
 
-    Promise.all([DB.getRates(v.id), DB.getTaskTypes()]).then(([rates, tts]) => {
+    DB.getRates(v.id).then(rates => {
       body.textContent = ''
       if (!rates.length) {
-        body.textContent = 'No rates set. Ask an admin to configure rates for your task types.'
+        body.textContent = 'No rates set. Ask an admin to configure rates for your session types.'
         return
       }
-      const ttById = new Map(tts.map(t => [t.id, t]))
       const list = document.createElement('ul')
       list.className = 'v2-panel-list'
       for (const r of rates) {
         const li = document.createElement('li')
-        const tt = ttById.get(r.task_type_id)
-        li.textContent = `${tt?.name || r.task_type_id} — ${Utils.formatCurrency(r.rate, r.currency)}`
+        const label = r.name || r.session_type || '(unknown)'
+        li.textContent = `${label} — ${Utils.formatCurrency(r.rate, r.currency)}`
         list.appendChild(li)
       }
       body.appendChild(list)

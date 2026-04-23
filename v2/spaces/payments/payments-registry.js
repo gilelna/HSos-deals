@@ -53,21 +53,26 @@ const PayRegistry = (() => {
   }
 
   // ─── Companies ─────────────────────────────────────────────────
+  // Real DB columns: name, currency, entity_type, status, notes. No country,
+  // no vat_number, no active boolean.
   function _renderCompanies(mount) {
     _renderCrud(mount, {
       entity: 'Company',
       load: () => DB.getCompanies(),
       columns: [
         { key: 'name', label: 'Name' },
-        { key: 'country', label: 'Country' },
-        { key: 'vat_number', label: 'VAT #' },
-        { key: 'active', label: 'Active', render: r => r.active ? '✓' : '' }
+        { key: 'currency', label: 'Currency' },
+        { key: 'entity_type', label: 'Entity type' },
+        { key: 'status', label: 'Status' }
       ],
       fields: [
         { id: 'name', label: 'Name', type: 'text', required: true },
-        { id: 'country', label: 'Country', type: 'text' },
-        { id: 'vat_number', label: 'VAT number', type: 'text' },
-        { id: 'active', label: 'Active', type: 'checkbox' }
+        { id: 'currency', label: 'Currency', type: 'select', options: Const.CURRENCIES.map(c => ({ value: c, label: c })) },
+        { id: 'entity_type', label: 'Entity type', type: 'text' },
+        { id: 'status', label: 'Status', type: 'select', options: [
+          { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }
+        ] },
+        { id: 'notes', label: 'Notes', type: 'textarea', rows: 2 }
       ],
       create: DB.createCompany,
       update: DB.updateCompany,
@@ -77,23 +82,25 @@ const PayRegistry = (() => {
   }
 
   // ─── Accounts ──────────────────────────────────────────────────
+  // Real DB columns: name, provider, account_type, currency, company_id,
+  // is_active, notes. (Not: active/type/institution.)
   function _renderAccounts(mount) {
     _renderCrud(mount, {
       entity: 'Account',
       load: () => DB.getAllAccounts(),
       columns: [
         { key: 'name', label: 'Name' },
-        { key: 'type', label: 'Type' },
+        { key: 'account_type', label: 'Type' },
         { key: 'currency', label: 'Currency' },
-        { key: 'institution', label: 'Institution' },
-        { key: 'active', label: 'Active', render: r => r.active ? '✓' : '' }
+        { key: 'provider', label: 'Provider' },
+        { key: 'is_active', label: 'Active', render: r => r.is_active ? '✓' : '' }
       ],
       fields: [
         { id: 'name', label: 'Name', type: 'text', required: true },
-        { id: 'type', label: 'Type', type: 'text' },
+        { id: 'account_type', label: 'Type', type: 'text' },
         { id: 'currency', label: 'Currency', type: 'select', options: Const.CURRENCIES.map(c => ({ value: c, label: c })) },
-        { id: 'institution', label: 'Institution', type: 'text' },
-        { id: 'active', label: 'Active', type: 'checkbox' }
+        { id: 'provider', label: 'Provider', type: 'text' },
+        { id: 'is_active', label: 'Active', type: 'checkbox' }
       ],
       create: DB.createAccount,
       update: DB.updateAccount,
@@ -103,6 +110,7 @@ const PayRegistry = (() => {
   }
 
   // ─── Exchange rates ───────────────────────────────────────────
+  // Real DB columns: month (date), from_currency, to_currency, rate, source.
   function _renderFx(mount) {
     _renderCrud(mount, {
       entity: 'Exchange rate',
@@ -111,39 +119,38 @@ const PayRegistry = (() => {
         { key: 'from_currency', label: 'From' },
         { key: 'to_currency',   label: 'To' },
         { key: 'rate',          label: 'Rate' },
-        { key: 'effective_date', label: 'Effective', render: r => Utils.formatDate(r.effective_date) }
+        { key: 'month',         label: 'Month', render: r => Utils.formatDate(r.month) }
       ],
       fields: [
         { id: 'from_currency', label: 'From', type: 'select', required: true, options: Const.CURRENCIES.map(c => ({ value: c, label: c })) },
         { id: 'to_currency',   label: 'To',   type: 'select', required: true, options: Const.CURRENCIES.map(c => ({ value: c, label: c })) },
-        { id: 'rate',           label: 'Rate', type: 'number', required: true, step: '0.000001' },
-        { id: 'effective_date', label: 'Effective date', type: 'date', required: true }
+        { id: 'rate',          label: 'Rate', type: 'number', required: true, step: '0.000001' },
+        { id: 'month',         label: 'Month (any date in the month)', type: 'date', required: true }
       ],
       create: DB.upsertExchangeRate,
       update: (id, fields) => DB.upsertExchangeRate({ ...fields, id }),
-      // No delete in DB layer yet
       remove: null
     })
   }
 
   // ─── Categories ───────────────────────────────────────────────
+  // Real DB columns: id, name, match_patterns, hebrew, tax_category, status, notes.
+  // No `type` column; categories don't distinguish income/expense at this level.
   function _renderCategories(mount) {
     _renderCrud(mount, {
       entity: 'Category',
       load: () => DB.getTransactionCategories({ includeInactive: true }),
       columns: [
         { key: 'name', label: 'Name' },
-        { key: 'type', label: 'Type' },
-        { key: 'tax_treatment', label: 'Default tax', raw: true, render: r => Badges.taxTreatment(r.tax_treatment) },
+        { key: 'hebrew', label: 'Hebrew' },
+        { key: 'tax_category', label: 'Tax category' },
         { key: 'status', label: 'Status' }
       ],
       fields: [
         { id: 'id', label: 'ID (slug)', type: 'text', required: true, hint: 'e.g. ca_software' },
         { id: 'name', label: 'Name', type: 'text', required: true },
-        { id: 'type', label: 'Type', type: 'select', options: [
-          { value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }
-        ] },
-        { id: 'tax_treatment', label: 'Default tax treatment', type: 'select', options: [
+        { id: 'hebrew', label: 'Hebrew label', type: 'text' },
+        { id: 'tax_category', label: 'Default tax category', type: 'select', options: [
           { value: '', label: '— none —' }
         ].concat(Const.TAX_TREATMENTS.map(t => ({ value: t, label: Const.TAX_TREATMENT_LABELS[t] }))) },
         { id: 'status', label: 'Status', type: 'select', options: [
@@ -158,24 +165,24 @@ const PayRegistry = (() => {
   }
 
   // ─── Tags ─────────────────────────────────────────────────────
+  // Real DB columns: id, name, status, notes, created_at. No color, no
+  // active-boolean — status text drives visibility.
   function _renderTags(mount) {
     _renderCrud(mount, {
       entity: 'Tag',
       load: () => DB.getTransactionTags({ includeInactive: true }),
       columns: [
         { key: 'name', label: 'Name' },
-        { key: 'color', label: 'Color' },
-        { key: 'active', label: 'Active', render: r => r.active ? '✓' : '' }
+        { key: 'status', label: 'Status' },
+        { key: 'notes', label: 'Notes' }
       ],
       fields: [
         { id: 'id', label: 'ID (slug)', type: 'text', required: true },
         { id: 'name', label: 'Name', type: 'text', required: true },
-        { id: 'color', label: 'Color', type: 'select', options: [
-          { value: 'blue', label: 'Blue' }, { value: 'green', label: 'Green' },
-          { value: 'amber', label: 'Amber' }, { value: 'red', label: 'Red' },
-          { value: 'purple', label: 'Purple' }, { value: 'grey', label: 'Grey' }
+        { id: 'status', label: 'Status', type: 'select', options: [
+          { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }
         ] },
-        { id: 'active', label: 'Active', type: 'checkbox' }
+        { id: 'notes', label: 'Notes', type: 'textarea', rows: 2 }
       ],
       create: DB.createTransactionTag,
       update: DB.updateTransactionTag,

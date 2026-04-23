@@ -207,16 +207,15 @@ const SalesVendors = (() => {
   function _rates(v) {
     const wrap = document.createElement('div')
     wrap.textContent = 'Loading rates…'
-    Promise.all([DB.getRates(v.id), DB.getTaskTypes()]).then(([rates, tts]) => {
+    DB.getRates(v.id).then(rates => {
       wrap.textContent = ''
       if (!rates.length) { wrap.textContent = 'No rates configured for this vendor.'; return }
-      const ttById = new Map(tts.map(t => [t.id, t]))
       const list = document.createElement('ul')
       list.className = 'v2-panel-list'
       for (const r of rates) {
         const li = document.createElement('li')
-        const tt = ttById.get(r.task_type_id)
-        li.textContent = `${tt?.name || r.task_type_id} — ${Utils.formatCurrency(r.rate, r.currency)}`
+        const label = r.name || r.session_type || '(unknown)'
+        li.textContent = `${label} — ${Utils.formatCurrency(r.rate, r.currency)}`
         list.appendChild(li)
       }
       wrap.appendChild(list)

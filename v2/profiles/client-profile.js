@@ -70,8 +70,7 @@ const ClientProfile = (() => {
 
     const chips = document.createElement('div')
     chips.className = 'v2-profile-chips'
-    if (_client.kind) chips.insertAdjacentHTML('beforeend', Badges.make(_client.kind, { color: _client.kind === 'corporate' ? 'purple' : 'blue' }))
-    if (_client.country) chips.insertAdjacentHTML('beforeend', Badges.make(_client.country, { color: 'grey' }))
+    if (_client.client_kind) chips.insertAdjacentHTML('beforeend', Badges.make(_client.client_kind, { color: _client.client_kind === 'corporate' ? 'purple' : 'blue' }))
     if (_client.active === false) chips.insertAdjacentHTML('beforeend', Badges.make('Inactive', { color: 'grey' }))
     meta.appendChild(chips)
 
@@ -97,10 +96,9 @@ const ClientProfile = (() => {
       ['full_name', 'Full name'],
       ['email', 'Email'],
       ['phone', 'Phone'],
-      ['kind', 'Kind'],
-      ['company_name', 'Company'],
+      ['client_kind', 'Kind'],
+      ['company', 'Company'],
       ['source', 'Source'],
-      ['country', 'Country'],
       ['notes', 'Notes']
     ]
     const editable = _canEdit()
@@ -235,7 +233,7 @@ const ClientProfile = (() => {
     const card = document.createElement('article')
     card.className = 'v2-pkg-card'
     const used = Number(p.sessions_used) || 0
-    const total = Number(p.sessions_total) || 0
+    const total = Number(p.sessions_total) || Number(p.total_sessions) || 0
     const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
 
     const top = document.createElement('div')

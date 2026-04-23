@@ -178,20 +178,20 @@ const VendorProfile = (() => {
     body.textContent = 'Loading rates…'
     section.appendChild(body)
 
-    Promise.all([DB.getRates(_vendor.id), DB.getTaskTypes()]).then(([rates, tts]) => {
+    DB.getRates(_vendor.id).then(rates => {
       body.textContent = ''
       if (!rates.length) { body.textContent = 'No rates set.'; return }
-      const ttById = new Map(tts.map(t => [t.id, t]))
 
       Table.create({
         container: body,
         columns: [
-          { key: '_task',     label: 'Task type' },
-          { key: 'rate',      label: 'Rate', render: r => Utils.formatCurrency(r.rate, r.currency) },
-          { key: 'currency',  label: 'Currency' },
+          { key: 'session_type', label: 'Session type' },
+          { key: 'name',         label: 'Label' },
+          { key: 'rate',         label: 'Rate', render: r => Utils.formatCurrency(r.rate, r.currency) },
+          { key: 'currency',     label: 'Currency' },
           { key: 'effective_date', label: 'Effective', render: r => Utils.formatDate(r.effective_date) }
         ],
-        rows: rates.map(r => ({ ...r, _task: ttById.get(r.task_type_id)?.name || '(unknown)' })),
+        rows: rates,
         onRowClick: r => _canEdit() ? _openRateEditor(r) : null,
         exportFilename: `rates-${_vendor.id}.csv`,
         pageSize: 25
@@ -200,53 +200,60 @@ const VendorProfile = (() => {
     return section
   }
 
+  // Session-type enum values must match the DB enum (pg_type session_type).
+  const SESSION_TYPES = ['coaching', 'consulting', 'editing', 'design', 'admin', 'other']
+
   function _openRateEditor(existing) {
-    DB.getTaskTypes().then(tts => {
-      const isNew = !existing
-      const form = document.createElement('form')
-      form.noValidate = true
-      form.addEventListener('submit', e => e.preventDefault())
+    const isNew = !existing
+    const form = document.createElement('form')
+    form.noValidate = true
+    form.addEventListener('submit', e => e.preventDefault())
 
-      form.insertAdjacentHTML('beforeend', Form.select({
-        id: 'task_type_id', label: 'Task type', required: true,
-        options: tts.map(t => ({ value: t.id, label: t.name })),
-        value: existing?.task_type_id || tts[0]?.id || ''
-      }))
-      form.insertAdjacentHTML('beforeend', Form.input({
-        id: 'rate', label: 'Rate', type: 'number', required: true, step: '0.01',
-        value: existing?.rate ?? ''
-      }))
-      form.insertAdjacentHTML('beforeend', Form.select({
-        id: 'currency', label: 'Currency', required: true,
-        options: Const.CURRENCIES.map(c => ({ value: c, label: c })),
-        value: existing?.currency || _vendor.currency || 'USD'
-      }))
-      form.insertAdjacentHTML('beforeend', Form.input({
-        id: 'effective_date', label: 'Effective date', type: 'date',
-        value: existing?.effective_date || new Date().toISOString().slice(0, 10)
-      }))
+    form.insertAdjacentHTML('beforeend', Form.select({
+      id: 'session_type', label: 'Session type', required: true,
+      options: SESSION_TYPES.map(t => ({ value: t, label: t })),
+      value: existing?.session_type || SESSION_TYPES[0]
+    }))
+    form.insertAdjacentHTML('beforeend', Form.input({
+      id: 'name', label: 'Label (optional)',
+      value: existing?.name || ''
+    }))
+    form.insertAdjacentHTML('beforeend', Form.input({
+      id: 'rate', label: 'Rate', type: 'number', required: true, step: '0.01',
+      value: existing?.rate ?? ''
+    }))
+    form.insertAdjacentHTML('beforeend', Form.select({
+      id: 'currency', label: 'Currency', required: true,
+      options: Const.CURRENCIES.map(c => ({ value: c, label: c })),
+      value: existing?.currency || 'USD'
+    }))
+    form.insertAdjacentHTML('beforeend', Form.input({
+      id: 'effective_date', label: 'Effective date', type: 'date',
+      value: existing?.effective_date || new Date().toISOString().slice(0, 10)
+    }))
 
-      const actions = [
-        { label: 'Cancel', variant: 'ghost', onClick: () => m.close() },
-        { label: isNew ? 'Create rate' : 'Save rate', variant: 'primary', onClick: async () => {
-          const { valid, errors, values } = Form.validate(form)
-          if (!valid) { Form.showErrors(form, errors); return }
-          const payload = {
-            vendor_id: _vendor.id,
-            task_type_id: values.task_type_id,
-            rate: Number(values.rate),
-            currency: values.currency,
-            effective_date: values.effective_date || null
-          }
-          if (existing) payload.id = existing.id
-          try {
-            await DB.upsertRate(payload)
-            m.close()
-            Utils.showToast('Rate saved', 'success')
-            _paint()
-          } catch (err) { Utils.showToast(err.message || 'Save failed', 'error') }
-        } }
-      ]
+    const actions = [
+      { label: 'Cancel', variant: 'ghost', onClick: () => m.close() },
+      { label: isNew ? 'Create rate' : 'Save rate', variant: 'primary', onClick: async () => {
+        const { valid, errors, values } = Form.validate(form)
+        if (!valid) { Form.showErrors(form, errors); return }
+        const payload = {
+          vendor_id: _vendor.id,
+          session_type: values.session_type,
+          name: values.name || null,
+          rate: Number(values.rate),
+          currency: values.currency,
+          effective_date: values.effective_date || null
+        }
+        if (existing) payload.id = existing.id
+        try {
+          await DB.upsertRate(payload)
+          m.close()
+          Utils.showToast('Rate saved', 'success')
+          _paint()
+        } catch (err) { Utils.showToast(err.message || 'Save failed', 'error') }
+      } }
+    ]
       if (existing) {
         actions.splice(1, 0, {
           label: 'Delete', variant: 'ghost', onClick: () => {
@@ -262,13 +269,12 @@ const VendorProfile = (() => {
         })
       }
 
-      const m = Modal.open({
-        title: isNew ? 'Add rate' : 'Edit rate',
-        size: 'md',
-        body: form,
-        actions
-      })
-    }).catch(err => Utils.showToast(err.message || 'Failed to load task types', 'error'))
+    const m = Modal.open({
+      title: isNew ? 'Add rate' : 'Edit rate',
+      size: 'md',
+      body: form,
+      actions
+    })
   }
 
   // ─── Bills ─────────────────────────────────────────────────────

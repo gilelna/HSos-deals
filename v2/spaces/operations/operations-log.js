@@ -85,14 +85,14 @@ const OpsLog = (() => {
       Utils.showToast('Duration must be a positive number', 'warn'); return
     }
 
-    // Look up the vendor's rate for this task type (best-effort; session can
-    // still be logged without a rate — payments layer resolves it later).
+    // Rate comes from the chosen task_type (each task_type row carries its own
+    // rate_usd). The legacy `rates` table keys on session_type, not task_type,
+    // and is not consulted at log time.
     let rate_usd = null
-    try {
-      const rates = await DB.getRates(vendor.id)
-      const match = rates.find(r => r.task_type_id === values.task_type_id)
-      if (match) rate_usd = Number(match.rate) * (duration_min / 60) || null
-    } catch (err) { console.error('[OpsLog] rate lookup failed', err) }
+    const tt = taskTypes.find(t => t.id === values.task_type_id)
+    if (tt && Number.isFinite(Number(tt.rate_usd))) {
+      rate_usd = Number(tt.rate_usd) * (duration_min / 60) || null
+    }
 
     const payload = {
       vendor_id: vendor.id,

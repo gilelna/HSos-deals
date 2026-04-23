@@ -18,7 +18,7 @@ const SalesDealModal = (() => {
       fields: {
         price: '',
         currency: 'USD',
-        vat: 0,
+        vat_pct: 0,
         vat_mode: 'excl',
         payment_processor: 'stripe',
         payment_link: '',
@@ -137,7 +137,7 @@ const SalesDealModal = (() => {
       const email = quickForm.querySelector('#newClientEmail').value.trim()
       if (!name) { Utils.showToast('Name is required', 'warn'); return }
       try {
-        const client = await DB.createClient({ full_name: name, email: email || null, kind: 'private' })
+        const client = await DB.createClient({ full_name: name, email: email || null, client_kind: 'private' })
         const clients = State.get('sales.clients') || []
         State.set('sales.clients', [client, ...clients])
         _state.clientId = client.id
@@ -160,7 +160,7 @@ const SalesDealModal = (() => {
     const needle = (q || '').trim().toLowerCase()
     const matches = clients.filter(c => {
       if (!needle) return true
-      const hay = [c.full_name, c.email, c.company_name].filter(Boolean).join(' ').toLowerCase()
+      const hay = [c.full_name, c.email, c.company].filter(Boolean).join(' ').toLowerCase()
       return hay.includes(needle)
     }).slice(0, 20)
 
@@ -274,7 +274,7 @@ const SalesDealModal = (() => {
 
     form.insertAdjacentHTML('beforeend', Form.input({ id: 'price', label: 'Price', type: 'number', value: f.price, required: true, step: '0.01' }))
     form.insertAdjacentHTML('beforeend', Form.select({ id: 'currency', label: 'Currency', options: Const.CURRENCIES.map(c => ({ value: c, label: c })), value: f.currency }))
-    form.insertAdjacentHTML('beforeend', Form.input({ id: 'vat', label: 'VAT %', type: 'number', value: f.vat, step: '0.01' }))
+    form.insertAdjacentHTML('beforeend', Form.input({ id: 'vat_pct', label: 'VAT %', type: 'number', value: f.vat_pct, step: '0.01' }))
     form.insertAdjacentHTML('beforeend', Form.select({ id: 'vat_mode', label: 'VAT mode', options: Const.VAT_MODES.map(v => ({ value: v, label: v })), value: f.vat_mode }))
     form.insertAdjacentHTML('beforeend', Form.select({
       id: 'payment_processor', label: 'Payment processor',
@@ -317,7 +317,7 @@ const SalesDealModal = (() => {
       primary_vendor_id: _state.vendorId || null,
       price: Number(f.price),
       currency: f.currency,
-      vat: Number(f.vat) || 0,
+      vat_pct: Number(f.vat_pct) || 0,
       vat_mode: f.vat_mode,
       payment_processor: f.payment_processor,
       payment_link: f.payment_link || null,
@@ -331,13 +331,17 @@ const SalesDealModal = (() => {
       const deal = await DB.createDeal(fields)
       // Auto-create package if product.type=PACKAGE
       if (prod?.type === 'PACKAGE' && Number(prod.sessions_included) > 0) {
+        // Real DB has both total_sessions (legacy) and sessions_total (current).
+        // Writing both keeps compatibility with any downstream consumers still
+        // reading either column. No sessions_remaining column — it's computed.
         await DB.createPackage({
           deal_id: deal.id,
           client_id: deal.client_id,
           vendor_id: deal.primary_vendor_id,
+          product_id: deal.product_id,
+          total_sessions: Number(prod.sessions_included),
           sessions_total: Number(prod.sessions_included),
           sessions_used: 0,
-          sessions_remaining: Number(prod.sessions_included),
           status: 'active'
         }).catch(err => console.error('[DealModal] package create failed', err))
       }

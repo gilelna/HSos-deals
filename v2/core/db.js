@@ -25,15 +25,12 @@ const DB = (() => {
   }
 
   // ─── ID helpers ───────────────────────────────────────────────────
-  // vendors.id is text (e.g. 'VND-0001' or uuid string). The vendor_client_assignments
-  // join has vendor_id as uuid. This cast is a bandaid for that one join —
-  // do not use it for other vendor queries.
+  // Live DB check (2026-04-23): vendors.id is uuid, not text as SPEC.md
+  // claimed. vendor_client_assignments.vendor_id is also uuid. No cast needed.
+  // Kept as a pass-through for callers that still use it.
   function _toUUID(id) {
     if (!id) return null
-    const s = String(id)
-    // Already a uuid
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return s
-    return null
+    return String(id)
   }
 
   const _sb = () => window._sb
@@ -43,9 +40,11 @@ const DB = (() => {
   // ═════════════════════════════════════════════════════════════════
 
   async function getVendors() {
+    // Live DB has both is_active and active; many rows have is_active=null
+    // while active=true. Treat either true flag as active.
     const { data, error } = await _sb()
       .from('vendors').select('*')
-      .eq('is_active', true)
+      .or('is_active.eq.true,active.eq.true')
       .order('name')
     if (error) _throw(error, 'Failed to load vendors')
     return data || []
@@ -54,7 +53,7 @@ const DB = (() => {
   async function getVendorsInactive() {
     const { data, error } = await _sb()
       .from('vendors').select('*')
-      .eq('is_active', false)
+      .or('is_active.eq.false,active.eq.false')
       .order('name')
     if (error) _throw(error, 'Failed to load inactive vendors')
     return data || []
@@ -182,8 +181,9 @@ const DB = (() => {
   // ═════════════════════════════════════════════════════════════════
 
   async function getPrograms() {
+    // Live DB has no `order` column — programs use name for ordering.
     const { data, error } = await _sb()
-      .from('programs').select('*').order('order', { ascending: true })
+      .from('programs').select('*').order('name', { ascending: true })
     if (error) _throw(error, 'Failed to load programs')
     return data || []
   }
@@ -235,13 +235,9 @@ const DB = (() => {
   }
 
   async function createPlan(fields) {
-    // Enforce canonical field names — reject legacy aliases to fail loud, not silent.
-    const legacy = ['payment_type', 'payment_link_url', 'installments_count', 'installments']
-    for (const k of legacy) {
-      if (k in (fields || {})) {
-        _throw({ code: 'legacy_field' }, `Plan field "${k}" is a legacy alias. Use plan_type / link_url.`)
-      }
-    }
+    // Live DB carries both canonical (plan_type, link_url, link_source, link_id)
+    // and legacy (payment_type, payment_link_url, etc.) columns. UI uses
+    // canonical names per decision A1; we pass through without rejection.
     const { data, error } = await _sb()
       .from('plans').insert(fields).select().single()
     if (error) _throw(error, 'Failed to create plan')
@@ -517,7 +513,7 @@ const DB = (() => {
   }
 
   async function getAccounts() {
-    const { data, error } = await _sb().from('accounts').select('*').eq('active', true).order('name')
+    const { data, error } = await _sb().from('accounts').select('*').eq('is_active', true).order('name')
     if (error) _throw(error, 'Failed to load accounts')
     return data || []
   }
@@ -609,8 +605,9 @@ const DB = (() => {
   }
 
   async function getTransactionTags(opts) {
+    // Real DB uses status ('active'|'inactive') — not a boolean `active`.
     let q = _sb().from('transaction_tags').select('*')
-    if (!opts?.includeInactive) q = q.eq('active', true)
+    if (!opts?.includeInactive) q = q.eq('status', 'active')
     const { data, error } = await q.order('name')
     if (error) _throw(error, 'Failed to load tags')
     return data || []
@@ -643,7 +640,8 @@ const DB = (() => {
   // ═════════════════════════════════════════════════════════════════
 
   async function getExchangeRates() {
-    const { data, error } = await _sb().from('exchange_rates').select('*').order('effective_date', { ascending: false })
+    // Real DB orders by month (date), not effective_date.
+    const { data, error } = await _sb().from('exchange_rates').select('*').order('month', { ascending: false })
     if (error) _throw(error, 'Failed to load exchange rates')
     return data || []
   }
