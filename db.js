@@ -736,29 +736,35 @@ function _toUUID(val) {
   return (val && _UUID_RE.test(String(val))) ? val : null
 }
 
-// sessions.task_type_id is a soft ref to rates.id (FK to task_types was dropped).
-// PostgREST cannot embed rates via join — fetch separately and attach.
+// New: sessions.rate_id is the canonical FK to rates.id.
+// Legacy: older sessions used task_type_id as a soft ref to rates.id.
+// Read both, prefer rate_id, fall back to task_type_id for historical rows.
 async function _hydrateSessionRates(sessions) {
   const rows = sessions || []
-  const rateIds = [...new Set(rows.map(s => s.task_type_id).filter(Boolean))]
+  const rateIds = [...new Set(
+    rows.flatMap(s => [s.rate_id, s.task_type_id]).filter(Boolean)
+  )]
   let rateMap = {}
   if (rateIds.length) {
     const { data: rates } = await _sb.from('rates').select('id, name, rate').in('id', rateIds)
     ;(rates || []).forEach(r => { rateMap[r.id] = r })
   }
-  return rows.map(s => ({
-    ...s,
-    task_type_name: rateMap[s.task_type_id]?.name || null,
-    rate_usd:       s.rate_usd ?? rateMap[s.task_type_id]?.rate ?? 0,
-  }))
+  return rows.map(s => {
+    const r = rateMap[s.rate_id] || rateMap[s.task_type_id] || null
+    return {
+      ...s,
+      task_type_name: r?.name || null,
+      rate_usd:       s.rate_usd ?? r?.rate ?? 0,
+    }
+  })
 }
 
-async function updateSessionV2(sessionId, { sessionDate, hours, taskTypeId, rateUsd, notes, clientId }) {
+async function updateSessionV2(sessionId, { sessionDate, hours, rateId, rateUsd, notes, clientId }) {
   const fields = {
     session_date: sessionDate,
     hours,
     duration_min: Math.round(hours * 60),
-    task_type_id: _toUUID(taskTypeId),
+    rate_id:      _toUUID(rateId),
     rate_usd:     rateUsd,
     notes:        notes || null,
   }
@@ -804,7 +810,7 @@ async function deleteSessionV2(sessionId) {
   }
 }
 
-async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours, taskTypeId, rateUsd, notes }) {
+async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours, rateId, rateUsd, notes }) {
   // Find active package for this client+vendor with remaining sessions
   let pkg = null
   if (clientId) {
@@ -826,7 +832,7 @@ async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours,
     start_time:   startTime || null,
     hours,
     duration_min: Math.round(hours * 60),
-    task_type_id: _toUUID(taskTypeId),
+    rate_id:      _toUUID(rateId),
     rate_usd:     rateUsd,
     notes:        notes || null,
     status:       'done',

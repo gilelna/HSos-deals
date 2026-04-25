@@ -34,12 +34,16 @@ function formatDateShort(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
+// Look up by either rate_id (new) or task_type_id (legacy session rows).
 function getTaskTypeName(id) {
   return taskTypes.find(t => t.id === id)?.name || '—'
 }
 
+// taskTypes rows from getRates have `amount` (and `rate`); legacy synthetic rows had `rate_usd`.
 function getTaskTypeRate(id) {
-  return taskTypes.find(t => t.id === id)?.rate_usd || 0
+  const t = taskTypes.find(x => x.id === id)
+  if (!t) return 0
+  return Number(t.amount ?? t.rate ?? t.rate_usd) || 0
 }
 
 function getClientName(id) {
@@ -50,7 +54,7 @@ function sessionAmount(s) {
   return (s.hours || 0) * (s.rate_usd || getTaskTypeRate(s.task_type_id))
 }
 
-function dbTaskTypeId(id) {
+function dbRateId(id) {
   return (!id || id === 'general') ? null : id
 }
 
@@ -318,24 +322,19 @@ function selectClient(id, _unused) {
   renderClientPicker()
   updatePackageTracker()
   if (id) {
-    autoSelectTaskType(id)
+    autoSelectTaskType()
   }
 }
 window.selectClient = selectClient
 
-function autoSelectTaskType(clientId) {
-  const client = allClients.find(c => c.id === clientId)
-  if (!client) return
-  const serviceType = client.active_package?.service_type || client.active_package?.task_type_name
-  if (!serviceType) return
-  const match = taskTypes.find(t =>
-    t.name?.toLowerCase() === serviceType.toLowerCase() ||
-    t.service_type?.toLowerCase() === serviceType.toLowerCase()
-  )
-  if (!match) return
+// Default-select the vendor's is_default rate (if any). Called whenever the
+// log form is rendered or the client picker changes.
+function autoSelectTaskType() {
   const sel = document.getElementById('f-task-type')
-  if (sel && !sel.value) {
-    sel.value = match.id
+  if (!sel || sel.value) return
+  const def = taskTypes.find(t => t.is_default)
+  if (def) {
+    sel.value = def.id
     onTaskTypeChange()
   }
 }
@@ -357,9 +356,21 @@ function updatePackageTracker() {
 
 function renderTaskTypeDropdown() {
   const sel = document.getElementById('f-task-type')
-  sel.innerHTML = '<option value="">— No task type —</option>' +
-    taskTypes.filter(t => t.id && t.id !== 'general')
-      .map(t => `<option value="${t.id}">${t.name}</option>`).join('')
+  sel.options.length = 0
+  const placeholder = document.createElement('option')
+  placeholder.value = ''
+  placeholder.textContent = '— No rate —'
+  sel.appendChild(placeholder)
+  taskTypes.filter(t => t.id && t.id !== 'general').forEach(t => {
+    const opt = document.createElement('option')
+    opt.value = t.id
+    const amt = Number(t.amount ?? t.rate ?? t.rate_usd) || 0
+    const cur = t.currency || 'USD'
+    const sym = cur === 'USD' ? '$' : (cur === 'EUR' ? '€' : (cur === 'ILS' ? '₪' : ''))
+    opt.textContent = `${t.name || 'Rate'} — ${sym}${amt}/hr`
+    sel.appendChild(opt)
+  })
+  autoSelectTaskType()
 }
 
 function onTaskTypeChange() {
@@ -435,10 +446,11 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault()
     if (!currentVendor) { showToast('No vendor selected', 'warn'); return }
 
-    const taskTypeId = document.getElementById('f-task-type').value || null
-    const rateUsd    = taskTypeId ? getTaskTypeRate(taskTypeId) : 0
-    const dateVal    = document.getElementById('f-date').value || new Date().toISOString().slice(0, 10)
-    const hours      = parseFloat(document.getElementById('f-duration').value) || 1
+    const rateId  = document.getElementById('f-task-type').value || null
+    const dateVal = document.getElementById('f-date').value || new Date().toISOString().slice(0, 10)
+    const hours   = parseFloat(document.getElementById('f-duration').value) || 1
+    // (amount / 60) * duration_min  ==  amount * hours
+    const rateUsd = rateId ? (getTaskTypeRate(rateId) * hours) : null
 
     const btn = e.target.querySelector('[type=submit]')
     btn.disabled = true
@@ -451,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionDate: dateVal,
         startTime:   document.getElementById('f-time').value || null,
         hours,
-        taskTypeId:  dbTaskTypeId(taskTypeId),
+        rateId:      dbRateId(rateId),
         rateUsd,
         notes:       document.getElementById('f-notes').value || null,
       })
@@ -661,13 +673,17 @@ function openEditModal(sessionId) {
   sel.options.length = 0
   const placeholder = document.createElement('option')
   placeholder.value = ''
-  placeholder.textContent = '— No task type —'
+  placeholder.textContent = '— No rate —'
   sel.appendChild(placeholder)
+  const currentRateId = s.rate_id || s.task_type_id || null
   taskTypes.filter(t => t.id && t.id !== 'general').forEach(t => {
     const opt = document.createElement('option')
     opt.value = t.id
-    opt.textContent = t.name
-    if (t.id === s.task_type_id) opt.selected = true
+    const amt = Number(t.amount ?? t.rate ?? t.rate_usd) || 0
+    const cur = t.currency || 'USD'
+    const sym = cur === 'USD' ? '$' : (cur === 'EUR' ? '€' : (cur === 'ILS' ? '₪' : ''))
+    opt.textContent = `${t.name || 'Rate'} — ${sym}${amt}/hr`
+    if (t.id === currentRateId) opt.selected = true
     sel.appendChild(opt)
   })
 
@@ -717,11 +733,11 @@ window.onEditTaskTypeChange = onEditTaskTypeChange
 
 async function saveEditSession() {
   const id          = document.getElementById('edit-session-id').value
-  const taskTypeId  = document.getElementById('edit-task-type').value || null
+  const rateId      = document.getElementById('edit-task-type').value || null
   const hours       = parseFloat(document.getElementById('edit-duration').value) || 1
   const sessionDate = document.getElementById('edit-date').value || new Date().toISOString().slice(0, 10)
   const notes       = document.getElementById('edit-notes').value
-  const rateUsd     = taskTypeId ? getTaskTypeRate(taskTypeId) : 0
+  const rateUsd     = rateId ? (getTaskTypeRate(rateId) * hours) : null
 
   const role = (window.Role?.get?.() || sessionStorage.getItem('hsos_role') || '').toLowerCase()
   const clientWrap = document.getElementById('edit-client-wrap')
@@ -731,7 +747,7 @@ async function saveEditSession() {
   const saveBtn = document.querySelector('#edit-session-modal .btn-primary')
   saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
   try {
-    await updateSessionV2(id, { sessionDate, hours, taskTypeId: dbTaskTypeId(taskTypeId), rateUsd, notes, clientId })
+    await updateSessionV2(id, { sessionDate, hours, rateId: dbRateId(rateId), rateUsd, notes, clientId })
     closeEditModal()
     await loadVendorData()
     if (currentTab === 'log')  renderLogTab()
@@ -1033,7 +1049,7 @@ async function loadVendorData() {
     getRejectedBillV2(currentVendor.id),
     getPaidBillsV2(currentVendor.id),
     getVendorClientsWithPackages(currentVendor.id),
-    getVendorRatesAsTaskTypes(currentVendor.id),
+    getRates(currentVendor.id),
     getVendorClientAssignments({ vendor_id: currentVendor.id }).catch(() => []),
   ])
 

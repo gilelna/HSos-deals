@@ -109,13 +109,13 @@
               </div>
             </div>
             <div class="fg" style="margin-bottom:12px">
-              <label class="fl">Task type</label>
+              <label class="fl">Rate</label>
               <select id="f-task-type" class="fi fsel" onchange="onTaskTypeChange()">
-                <option value="">— No task type —</option>
+                <option value="">— No rate —</option>
               </select>
             </div>
             <div class="fg" style="margin-bottom:12px">
-              <label class="fl">Rate</label>
+              <label class="fl">Amount</label>
               <input type="text" id="f-rate" class="fi" readonly placeholder="Auto-filled" style="background:var(--bg);color:var(--mu)">
             </div>
             <div style="padding:8px 12px;background:var(--bg);border-radius:var(--r);margin-bottom:12px">
@@ -143,7 +143,7 @@
                 <tr>
                   <th>Date</th>
                   <th>Client</th>
-                  <th>Task type</th>
+                  <th>Rate</th>
                   <th>Hours</th>
                   <th>Amount</th>
                   <th>Notes</th>
@@ -175,8 +175,8 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th>Task type</th>
-                <th style="text-align:right">Rate</th>
+                <th>Rate</th>
+                <th style="text-align:right">Amount</th>
                 <th style="text-align:right">Hours</th>
                 <th style="text-align:right">Subtotal</th>
               </tr>
@@ -214,7 +214,7 @@
                 <th style="width:30px"></th>
                 <th>Date</th>
                 <th>Client</th>
-                <th>Task type</th>
+                <th>Rate</th>
                 <th>Hours</th>
                 <th style="text-align:right">Amount</th>
                 <th>Notes</th>
@@ -328,9 +328,9 @@
       </div>
     </div>
     <div class="fg" style="margin-bottom:12px">
-      <label class="fl">Task type</label>
+      <label class="fl">Rate</label>
       <select id="edit-task-type" class="fi fsel" onchange="onEditTaskTypeChange()">
-        <option value="">— No task type —</option>
+        <option value="">— No rate —</option>
       </select>
     </div>
     <div class="fg" style="margin-bottom:12px" id="edit-client-wrap">
