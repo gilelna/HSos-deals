@@ -805,20 +805,47 @@ async function deleteSessionV2(sessionId) {
   }
 }
 
-async function logSessionV2({ vendorId, clientId, sessionDate, hours, rateUsd, notes }) {
+async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours, rateUsd, notes }) {
+  // Auto-attach to the client's active package (if any with remaining sessions)
+  // and increment its sessions_used. Symmetric with deleteSessionV2's decrement.
+  let pkg = null
+  if (clientId) {
+    const { data: pkgs, error: e1 } = await _sb
+      .from('packages')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('vendor_id', vendorId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true })
+    if (e1) throw e1
+    pkg = (pkgs || []).find(p => p.sessions_used < p.total_sessions) || null
+  }
+
   const fields = {
     vendor_id:    _toUUID(vendorId),
     client_id:    _toUUID(clientId),
     session_date: sessionDate,
+    start_time:   startTime || null,
     duration_min: Math.round(hours * 60),
     hours,
     notes:        notes || null,
     status:       'done',
     billed:       false,
+    bill_id:      null,
+    package_id:   _toUUID(pkg?.id),
     rate_usd:     rateUsd,
   }
   const { data, error } = await _sb.from('sessions').insert(fields).select().single()
   if (error) throw error
+
+  if (pkg) {
+    const newUsed   = pkg.sessions_used + 1
+    const newStatus = newUsed >= pkg.total_sessions ? 'completed' : 'active'
+    await _sb.from('packages')
+      .update({ sessions_used: newUsed, status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', pkg.id)
+  }
+
   return data
 }
 

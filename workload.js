@@ -461,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         vendorId:    currentVendor.id,
         clientId:    selectedClientId,
         sessionDate: dateVal,
+        startTime:   document.getElementById('f-time').value || null,
         hours,
         rateUsd,
         notes:       document.getElementById('f-notes').value || null,
