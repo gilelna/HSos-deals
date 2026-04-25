@@ -424,26 +424,47 @@ const DB = (() => {
 
   // Rates: column in DB is `rate` but UI/docs call it "amount" — alias on read so
   // callers consistently see r.amount. Writes accept either { amount } or { rate }.
+  //
+  // Demo PostgREST cache is stuck on the old rates shape (missing is_default in
+  // its schema cache despite the column existing). To stay functional we try
+  // the full select first, then fall back to a shape that doesn't reference
+  // is_default and derive default client-side (highest rate wins).
   async function getRates(vendorId) {
     let q = _sb().from('rates').select('id, vendor_id, name, rate, currency, is_default')
     if (vendorId) q = q.eq('vendor_id', vendorId)
     q = q.order('is_default', { ascending: false }).order('name', { ascending: true })
-    const { data, error } = await q
-    if (error) _throw(error, 'Failed to load rates')
-    return (data || []).map(r => ({ ...r, amount: r.rate }))
+    const first = await q
+    if (!first.error) {
+      return (first.data || []).map(r => ({ ...r, amount: r.rate }))
+    }
+    if (first.error.code !== '42703') _throw(first.error, 'Failed to load rates')
+
+    // Fallback: stale schema cache — load without is_default, derive client-side.
+    let f = _sb().from('rates').select('id, vendor_id, name, rate, currency')
+    if (vendorId) f = f.eq('vendor_id', vendorId)
+    const second = await f.order('name', { ascending: true })
+    if (second.error) _throw(second.error, 'Failed to load rates')
+    return _deriveDefault(second.data || []).map(r => ({ ...r, amount: r.rate }))
   }
 
   async function getDefaultRate(vendorId) {
     if (!vendorId) return null
-    const { data, error } = await _sb()
-      .from('rates')
-      .select('id, vendor_id, name, rate, currency, is_default')
-      .eq('vendor_id', vendorId)
-      .eq('is_default', true)
-      .limit(1)
-      .maybeSingle()
-    if (error) _throw(error, 'Failed to load default rate')
-    return data ? { ...data, amount: data.rate } : null
+    // Reuse getRates so the same fallback applies
+    const rates = await getRates(vendorId)
+    return rates.find(r => r.is_default) || null
+  }
+
+  // When the schema cache lacks is_default, mark the highest-rate row default
+  // (matches the migration's backfill rule).
+  function _deriveDefault(rows) {
+    if (!rows.length) return rows
+    let bestIdx = 0
+    let bestVal = -Infinity
+    rows.forEach((r, i) => {
+      const v = Number(r.rate) || 0
+      if (v > bestVal) { bestVal = v; bestIdx = i }
+    })
+    return rows.map((r, i) => ({ ...r, is_default: i === bestIdx }))
   }
 
   async function upsertRate(fields) {
@@ -452,14 +473,23 @@ const DB = (() => {
     delete row.amount
     if (!row.vendor_id) _throw({ message: 'vendor_id required' }, 'Failed to save rate')
 
-    if (row.is_default === true) {
+    // If is_default is in the payload, try to enforce uniqueness; tolerate
+    // 42703 (column missing in cache) so writes work on stale-cache demo.
+    let hadDefault = row.is_default === true
+    if (hadDefault) {
       const clear = _sb().from('rates').update({ is_default: false }).eq('vendor_id', row.vendor_id)
       const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
-      if (clearErr) _throw(clearErr, 'Failed to clear existing default rate')
+      if (clearErr && clearErr.code !== '42703') _throw(clearErr, 'Failed to clear existing default rate')
     }
 
-    const { data, error } = await _sb()
-      .from('rates').upsert(row).select().single()
+    let { data, error } = await _sb().from('rates').upsert(row).select().single()
+    if (error && error.code === '42703') {
+      const fallback = { ...row }
+      delete fallback.is_default
+      const retry = await _sb().from('rates').upsert(fallback).select().single()
+      data = retry.data
+      error = retry.error
+    }
     if (error) _throw(error, 'Failed to save rate')
     await Audit.log({ entity_type: 'rate', entity_id: data.id, action: 'update', changes: { after: data } })
     return { ...data, amount: data.rate }

@@ -132,29 +132,44 @@ async function deleteVendor(id) {
 
 // ─── rates ───────────────────────────────────────────────────
 // DB column is `rate`; UI/docs call it "amount". Read aliases r.amount = r.rate.
+// Demo PostgREST schema cache is currently stuck without is_default — try the
+// canonical select, fall back to derived default if the cache rejects it.
 
 async function getRates(vendorId) {
-  const { data, error } = await _sb
+  const first = await _sb
     .from('rates')
     .select('id, vendor_id, name, rate, currency, is_default')
     .eq('vendor_id', vendorId)
     .order('is_default', { ascending: false })
     .order('name', { ascending: true })
-  if (error) throw error
-  return (data || []).map(r => ({ ...r, amount: r.rate }))
+  if (!first.error) return (first.data || []).map(r => ({ ...r, amount: r.rate }))
+  if (first.error.code !== '42703') throw first.error
+
+  // Fallback: stale schema cache — derive default client-side.
+  const second = await _sb
+    .from('rates')
+    .select('id, vendor_id, name, rate, currency')
+    .eq('vendor_id', vendorId)
+    .order('name', { ascending: true })
+  if (second.error) throw second.error
+  return _deriveDefaultRate(second.data || []).map(r => ({ ...r, amount: r.rate }))
+}
+
+function _deriveDefaultRate(rows) {
+  if (!rows.length) return rows
+  let bestIdx = 0
+  let bestVal = -Infinity
+  rows.forEach((r, i) => {
+    const v = Number(r.rate) || 0
+    if (v > bestVal) { bestVal = v; bestIdx = i }
+  })
+  return rows.map((r, i) => ({ ...r, is_default: i === bestIdx }))
 }
 
 async function getDefaultRate(vendorId) {
   if (!vendorId) return null
-  const { data, error } = await _sb
-    .from('rates')
-    .select('id, vendor_id, name, rate, currency, is_default')
-    .eq('vendor_id', vendorId)
-    .eq('is_default', true)
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  return data ? { ...data, amount: data.rate } : null
+  const rates = await getRates(vendorId)
+  return rates.find(r => r.is_default) || null
 }
 
 async function upsertRate(vendorId, rateData) {
@@ -162,13 +177,21 @@ async function upsertRate(vendorId, rateData) {
   if (row.amount != null && row.rate == null) { row.rate = row.amount }
   delete row.amount
 
-  if (row.is_default === true) {
+  const hadDefault = row.is_default === true
+  if (hadDefault) {
     const clear = _sb.from('rates').update({ is_default: false }).eq('vendor_id', vendorId)
     const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
-    if (clearErr) throw clearErr
+    if (clearErr && clearErr.code !== '42703') throw clearErr
   }
 
-  const { data, error } = await _sb.from('rates').upsert(row).select().single()
+  let { data, error } = await _sb.from('rates').upsert(row).select().single()
+  if (error && error.code === '42703') {
+    const fallback = { ...row }
+    delete fallback.is_default
+    const retry = await _sb.from('rates').upsert(fallback).select().single()
+    data = retry.data
+    error = retry.error
+  }
   if (error) throw error
   return { ...data, amount: data.rate }
 }
