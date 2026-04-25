@@ -461,9 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         vendorId:    currentVendor.id,
         clientId:    selectedClientId,
         sessionDate: dateVal,
-        startTime:   document.getElementById('f-time').value || null,
         hours,
-        rateId:      dbRateId(rateId),
         rateUsd,
         notes:       document.getElementById('f-notes').value || null,
       })
@@ -747,7 +745,7 @@ async function saveEditSession() {
   const saveBtn = document.querySelector('#edit-session-modal .btn-primary')
   saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
   try {
-    await updateSessionV2(id, { sessionDate, hours, rateId: dbRateId(rateId), rateUsd, notes, clientId })
+    await updateSessionV2(id, { sessionDate, hours, rateUsd, notes, clientId })
     closeEditModal()
     await loadVendorData()
     if (currentTab === 'log')  renderLogTab()

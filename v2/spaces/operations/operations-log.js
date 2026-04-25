@@ -95,7 +95,8 @@ const OpsLog = (() => {
     }
 
     // Rate: optional. If selected, rate_usd = (amount / 60) * duration_min.
-    // If "No rate" picked, rate_id and rate_usd are both null.
+    // The selected rate id is intentionally not persisted on the session — only
+    // the computed rate_usd is — while we wait for the demo schema cache.
     const rateId = values.rate_id || null
     let rate_usd = null
     if (rateId) {
@@ -110,11 +111,10 @@ const OpsLog = (() => {
       session_date: values.session_date,
       duration_min,
       hours: Number((duration_min / 60).toFixed(2)),
-      rate_id: rateId,
-      rate_usd,
       notes: values.notes || null,
       status: 'done',
-      billed: false
+      billed: false,
+      rate_usd
     }
 
     try {

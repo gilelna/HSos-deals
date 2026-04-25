@@ -459,7 +459,7 @@ const DB = (() => {
   }
 
   async function deleteRate(id) {
-    const before = await _sb().from('rates').select('*').eq('id', id).maybeSingle()
+    const before = await _sb().from('rates').select('id, vendor_id, name, rate, currency').eq('id', id).maybeSingle()
     const { error } = await _sb().from('rates').delete().eq('id', id)
     if (error) _throw(error, 'Failed to delete rate')
     await Audit.log({ entity_type: 'rate', entity_id: id, action: 'delete', changes: { before: before.data } })

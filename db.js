@@ -33,7 +33,7 @@ async function _hydrateVendors(vendors) {
   if (!vendorIds.length) return list.map(_mapVendor)
 
   const [ratesRes, assignmentsRes] = await Promise.all([
-    _sb.from('rates').select('*').in('vendor_id', vendorIds),
+    _sb.from('rates').select('id, vendor_id, name, rate, currency').in('vendor_id', vendorIds),
     _sb
       .from('vendor_clients')
       .select('vendor_id, client_id, clients(*)')
@@ -710,7 +710,7 @@ async function getVendorRatesAsTaskTypes(vendorId) {
 
   const { data, error } = await _sb
     .from('rates')
-    .select('*')
+    .select('id, vendor_id, name, rate, currency')
     .eq('vendor_id', vendorId)
     .order('created_at')
   if (error) throw error
@@ -755,12 +755,11 @@ async function _hydrateSessionRates(sessions) {
   })
 }
 
-async function updateSessionV2(sessionId, { sessionDate, hours, rateId, rateUsd, notes, clientId }) {
+async function updateSessionV2(sessionId, { sessionDate, hours, rateUsd, notes, clientId }) {
   const fields = {
     session_date: sessionDate,
     hours,
     duration_min: Math.round(hours * 60),
-    rate_id:      _toUUID(rateId),
     rate_usd:     rateUsd,
     notes:        notes || null,
   }
@@ -806,48 +805,20 @@ async function deleteSessionV2(sessionId) {
   }
 }
 
-async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours, rateId, rateUsd, notes }) {
-  // Find active package for this client+vendor with remaining sessions
-  let pkg = null
-  if (clientId) {
-    const { data: pkgs, error: e1 } = await _sb
-      .from('packages')
-      .select('*')
-      .eq('client_id', clientId)
-      .eq('vendor_id', vendorId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: true })
-    if (e1) throw e1
-    pkg = (pkgs || []).find(p => p.sessions_used < p.total_sessions) || null
-  }
-
+async function logSessionV2({ vendorId, clientId, sessionDate, hours, rateUsd, notes }) {
   const fields = {
     vendor_id:    _toUUID(vendorId),
     client_id:    _toUUID(clientId),
     session_date: sessionDate,
-    start_time:   startTime || null,
-    hours,
     duration_min: Math.round(hours * 60),
-    rate_id:      _toUUID(rateId),
-    rate_usd:     rateUsd,
+    hours,
     notes:        notes || null,
     status:       'done',
     billed:       false,
-    bill_id:      null,
-    package_id:   _toUUID(pkg?.id),
+    rate_usd:     rateUsd,
   }
   const { data, error } = await _sb.from('sessions').insert(fields).select().single()
   if (error) throw error
-
-  // Increment package sessions_used
-  if (pkg) {
-    const newUsed   = pkg.sessions_used + 1
-    const newStatus = newUsed >= pkg.total_sessions ? 'completed' : 'active'
-    await _sb.from('packages')
-      .update({ sessions_used: newUsed, status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', pkg.id)
-  }
-
   return data
 }
 
