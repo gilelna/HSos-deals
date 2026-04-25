@@ -284,7 +284,7 @@ function renderClientPicker() {
     const sel = selectedClientId === c.id
     const pkg = c.active_package
     const pkgLabel = pkg
-      ? `${pkg.sessions_used}/${pkg.total_sessions} sessions`
+      ? `${pkg.sessions_used}/${pkg.sessions_total} sessions`
       : 'No package'
 
     const card = document.createElement('div')
@@ -347,11 +347,11 @@ function updatePackageTracker() {
   if (!pkg) { tracker.style.display = 'none'; return }
 
   tracker.style.display = 'block'
-  document.getElementById('pkg-name').textContent = `${pkg.total_sessions}-Session Package`
-  const pct = Math.min(100, (pkg.sessions_used / pkg.total_sessions * 100)).toFixed(0)
+  document.getElementById('pkg-name').textContent = `${pkg.sessions_total}-Session Package`
+  const pct = Math.min(100, (pkg.sessions_used / pkg.sessions_total * 100)).toFixed(0)
   document.getElementById('pkg-bar').style.width = pct + '%'
   document.getElementById('pkg-progress').textContent =
-    `${pkg.sessions_used}/${pkg.total_sessions} used · ${pkg.sessions_remaining} remaining`
+    `${pkg.sessions_used}/${pkg.sessions_total} used · ${pkg.sessions_remaining} remaining`
 }
 
 function renderTaskTypeDropdown() {
@@ -912,7 +912,7 @@ function renderClientsTab() {
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:500">${c.full_name}</div>
-          <div style="font-size:10px;color:var(--mu)">${pkg ? `${pkg.total_sessions}-Session Package` : 'No active package'}</div>
+          <div style="font-size:10px;color:var(--mu)">${pkg ? `${pkg.sessions_total}-Session Package` : 'No active package'}</div>
         </div>
         ${pkg ? `<span class="pill" style="font-size:9px">${pkg.sessions_remaining} left</span>` : ''}
       </div>`
@@ -959,13 +959,13 @@ function _showClientDetailInline(id) {
         return `
         <div style="padding:12px;background:var(--green-bg);border-radius:var(--r);margin-top:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <div style="font-size:11px;color:var(--green-text)">📦 ${pkg.total_sessions}-Session Package</div>
+            <div style="font-size:11px;color:var(--green-text)">📦 ${pkg.sessions_total}-Session Package</div>
             ${statusBadge}
           </div>
           <div style="height:6px;background:rgba(0,0,0,0.1);border-radius:3px;overflow:hidden;margin-bottom:4px">
-            <div style="height:100%;width:${Math.min(100, pkg.sessions_used/pkg.total_sessions*100)}%;background:var(--green)"></div>
+            <div style="height:100%;width:${Math.min(100, pkg.sessions_used/pkg.sessions_total*100)}%;background:var(--green)"></div>
           </div>
-          <div style="font-size:10px;color:var(--mu)">${pkg.sessions_used}/${pkg.total_sessions} used · ${pkg.sessions_remaining} remaining</div>
+          <div style="font-size:10px;color:var(--mu)">${pkg.sessions_used}/${pkg.sessions_total} used · ${pkg.sessions_remaining} remaining</div>
           ${lastUpdated}
         </div>`
       })() : ''}

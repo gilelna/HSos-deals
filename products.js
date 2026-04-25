@@ -149,7 +149,7 @@ function renderPlansArea(product) {
 }
 
 function renderPlanCard(plan, product) {
-  const planType = plan.plan_type || plan.payment_type || '—'
+  const planType = plan.plan_type || '—'
   const amount   = plan.amount != null ? Number(plan.amount).toLocaleString() : '—'
   const currency = plan.currency || ''
   const planUid  = plan.plan_uid || ''
@@ -166,7 +166,7 @@ function renderPlanCard(plan, product) {
   // Payment link
   const linkSource = plan.link_source || plan.payment_rail || ''
   const linkSourceLabel = formatPlanSource(linkSource)
-  const linkUrl    = plan.link_url || plan.payment_link_url || ''
+  const linkUrl    = plan.link_url || ''
   const linkId     = plan.link_id || plan.external_id || ''
 
   const linkHtml = linkUrl
@@ -233,13 +233,6 @@ function normalizePlanSource(value) {
 function formatPlanSource(value) {
   const normalized = normalizePlanSource(value)
   return SOURCE_LABELS[normalized] || String(value || '')
-}
-
-function toLegacyPaymentFields(planTypeValue, installmentsCount) {
-  const raw = String(planTypeValue || '').trim().toLowerCase()
-  if (raw === 'subscription') return { payment_type: 'subscription', installments_count: null }
-  if (raw === 'installments') return { payment_type: 'installments', installments_count: installmentsCount ? parseInt(installmentsCount, 10) : null }
-  return { payment_type: 'one-payment', installments_count: null }
 }
 
 function getProductById(id) {
@@ -496,11 +489,12 @@ function openEditPlanModal(planId, productId) {
   _editingPlanProductId = productId
 
   document.getElementById('plm-title').textContent = 'Edit plan'
-  document.getElementById('plm-sub').textContent   = product.name + ' · ' + (plan.plan_type || plan.payment_type || '')
+  document.getElementById('plm-sub').textContent   = product.name + ' · ' + (plan.plan_type || '')
   document.getElementById('plm-uid-text').textContent = plan.plan_uid || plan.id
   document.getElementById('plm-delete-btn').style.display = ''
 
-  document.getElementById('plm-type').value        = plan.payment_type || 'one-payment'
+  const dbToFormType = (t) => t === 'one_time' ? 'one-payment' : t === 'installment' ? 'installments' : (t || 'one-payment')
+  document.getElementById('plm-type').value        = dbToFormType(plan.plan_type)
   document.getElementById('plm-status').value      = plan.status   || 'active'
   document.getElementById('plm-amount').value      = plan.amount   != null ? plan.amount : ''
   document.getElementById('plm-currency').value    = plan.currency || 'USD'
@@ -511,7 +505,7 @@ function openEditPlanModal(planId, productId) {
   const source = normalizePlanSource(plan.link_source || plan.payment_rail || '')
   plmSetSource(source, true)
   document.getElementById('plm-link-id').value  = plan.link_id || plan.external_id || ''
-  document.getElementById('plm-link-url').value = plan.link_url || plan.payment_link_url || ''
+  document.getElementById('plm-link-url').value = plan.link_url || ''
 
   document.getElementById('plan-modal-overlay').classList.add('open')
 }
@@ -567,12 +561,15 @@ async function plmSave() {
   const activePill = document.querySelector('.source-pill.active')
   const selectedPlanType = document.getElementById('plm-type').value || 'one-payment'
   const selectedInstallments = document.getElementById('plm-installments').value
-  const legacyPayment = toLegacyPaymentFields(selectedPlanType, selectedInstallments)
+  const formToDb = (t) => t === 'one-payment' ? 'one_time' : t === 'installments' ? 'installment' : t
+  const installmentsCount = selectedPlanType === 'installments'
+    ? (selectedInstallments ? parseInt(selectedInstallments, 10) : null)
+    : null
 
   const fields = {
     product_id:        _editingPlanProductId,
     name:              selectedPlanType || 'Plan',
-    plan_type:         selectedPlanType,
+    plan_type:         formToDb(selectedPlanType),
     status:            document.getElementById('plm-status').value   || 'active',
     amount,
     currency:          document.getElementById('plm-currency').value || 'USD',
@@ -580,10 +577,8 @@ async function plmSave() {
     link_source:       normalizePlanSource(activePill?.dataset.source) || null,
     link_id:           document.getElementById('plm-link-id').value.trim()  || null,
     link_url:          document.getElementById('plm-link-url').value.trim() || null,
-    payment_type:      legacyPayment.payment_type,
-    installments_count: legacyPayment.installments_count,
+    installments_count: installmentsCount,
     payment_rail:      normalizePlanSource(activePill?.dataset.source) || null,
-    payment_link_url:  document.getElementById('plm-link-url').value.trim() || null,
     external_id:       document.getElementById('plm-link-id').value.trim() || null,
   }
 
@@ -624,8 +619,7 @@ async function plmDelete() {
 async function plmDuplicate() {
   if (!_editingPlan) return
   const original = _editingPlan
-  const duplicatePlanType = original.payment_type || original.plan_type || 'one-payment'
-  const legacyPayment = toLegacyPaymentFields(duplicatePlanType, original.installments_count)
+  const duplicatePlanType = original.plan_type || 'one_time'
   const fields = {
     product_id:       original.product_id,
     name:             original.name || duplicatePlanType || 'Plan',
@@ -636,11 +630,9 @@ async function plmDuplicate() {
     description:      original.description ? original.description + ' (copy)' : null,
     link_source:      normalizePlanSource(original.link_source || original.payment_rail) || null,
     link_id:          original.link_id     || original.external_id  || null,
-    link_url:         original.link_url    || original.payment_link_url || null,
-    payment_type:     legacyPayment.payment_type,
-    installments_count: legacyPayment.installments_count,
+    link_url:         original.link_url    || null,
+    installments_count: original.installments_count,
     payment_rail:     normalizePlanSource(original.link_source || original.payment_rail) || null,
-    payment_link_url: original.link_url    || original.payment_link_url || null,
     external_id:      original.link_id     || original.external_id  || null,
   }
   try {

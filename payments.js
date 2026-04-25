@@ -3675,7 +3675,7 @@ async function loadExpectedIncome() {
     const { data, error } = await db
       .from('deals')
       .select(`
-        id, billing_status, price, currency, origin, notes, product_id,
+        id, billing_status, agreed_price, agreed_currency, origin, notes, product_id,
         clients ( id, full_name )
       `)
       .in('billing_status', ['pending', 'link_sent', 'invoiced', 'partial', 'overdue'])
@@ -3735,7 +3735,7 @@ function renderExpectedIncome() {
       : '<span style="font-size:11px;color:var(--mu2)">—</span>'
 
     const SYM = { USD: '$', ILS: '₪', EUR: '€' }
-    const sym = SYM[deal.currency] || '$'
+    const sym = SYM[deal.agreed_currency] || '$'
     const clientCell = deal.clients?.id
       ? `<button class="ep-link" onclick="event.stopPropagation();openClientPanel('${deal.clients.id}')">${escHtml(deal.clients?.full_name || '—')}</button>`
       : escHtml(deal.clients?.full_name || '—')
@@ -3748,7 +3748,7 @@ function renderExpectedIncome() {
       <td style="font-size:12px;color:var(--mu)">${dealCell}</td>
       <td style="font-size:12px;color:var(--mu)">${deal.origin || 'b2b'}</td>
       <td>${badgeHtml}</td>
-      <td style="text-align:right;font-family:var(--font-mono)">${sym}${Number(deal.price || 0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--font-mono)">${sym}${Number(deal.agreed_price || 0).toLocaleString()}</td>
       <td>${actionHtml}</td>
     </tr>`
   }).join('')
@@ -3758,7 +3758,7 @@ function updateEiMetrics() {
   const pending  = eiRows.filter(d => d.billing_status === 'pending')
   const linkSent = eiRows.filter(d => d.billing_status === 'link_sent')
   const invoiced = eiRows.filter(d => d.billing_status === 'invoiced')
-  const sum      = arr => arr.reduce((s, d) => s + (d.price || 0), 0)
+  const sum      = arr => arr.reduce((s, d) => s + (d.agreed_price || 0), 0)
   const el       = id => document.getElementById(id)
   if (el('ei-metric-pending'))       el('ei-metric-pending').textContent       = fmt(sum(pending))
   if (el('ei-metric-pending-count')) el('ei-metric-pending-count').textContent = `${pending.length} deal${pending.length !== 1 ? 's' : ''}`
@@ -3767,7 +3767,7 @@ function updateEiMetrics() {
 }
 
 function updateAlertBarEi() {
-  const total = eiRows.reduce((s, d) => s + (d.price || 0), 0)
+  const total = eiRows.reduce((s, d) => s + (d.agreed_price || 0), 0)
   const el = document.getElementById('alert-expected-income')
   if (el) el.textContent = eiRows.length ? fmt(total) : '—'
 }

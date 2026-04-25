@@ -290,7 +290,7 @@ function renderDealsList() {
 
     // Session count from packages belonging to this deal
     const pkgs = _packages.filter(p => p.deal_id === d.id)
-    const totalSess = pkgs.reduce((s, p) => s + (p.total_sessions || 0), 0)
+    const totalSess = pkgs.reduce((s, p) => s + (p.sessions_total || 0), 0)
     const sessStr = totalSess ? `${totalSess} sessions` : ''
 
     const sub = [vendor !== '—' ? `w/ ${vendor}` : null, dateRange, sessStr].filter(Boolean).join(' · ')

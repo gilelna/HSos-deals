@@ -50,7 +50,7 @@ function renderStandaloneDealBody(model) {
     ['Product', escDeal(deal.products?.name || '—')],
     ['Sales status', dealStatusBadge(deal.sales_status || '—')],
     ['Billing status', dealStatusBadge(deal.billing_status || '—')],
-    ['Price', escDeal(fmtDealMoney(deal.price, deal.currency))],
+    ['Price', escDeal(fmtDealMoney(deal.agreed_price, deal.agreed_currency))],
     ['VAT', deal.vat_pct != null ? `${escDeal(deal.vat_pct)}% (${escDeal(deal.vat_mode || '—')})` : '—'],
     ['Start', escDeal(fmtDealDate(deal.start_date || deal.created_at))],
     ['End', escDeal(fmtDealDate(deal.end_date))],
@@ -82,7 +82,7 @@ function renderStandaloneDealBody(model) {
         <table class="tbl ep-mini-table">
           <thead><tr><th>Sessions</th><th>Used</th><th>Status</th></tr></thead>
           <tbody>
-            ${packages.map(p => `<tr><td>${escDeal(String(p.total_sessions || 0))}</td><td>${escDeal(String(p.sessions_used || 0))}</td><td>${dealStatusBadge(p.status || 'active')}</td></tr>`).join('')}
+            ${packages.map(p => `<tr><td>${escDeal(String(p.sessions_total || 0))}</td><td>${escDeal(String(p.sessions_used || 0))}</td><td>${dealStatusBadge(p.status || 'active')}</td></tr>`).join('')}
           </tbody>
         </table>` : '<div class="ep-muted">No packages</div>'}
     </div>

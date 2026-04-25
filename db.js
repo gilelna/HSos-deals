@@ -549,7 +549,7 @@ async function getVendorClientsWithPackages(vendorId) {
     const pkg = pkgs.find(p => p.client_id === c.id) || null
     if (!pkg) return { ...c, active_package: null }
     const sessions_used = sessionCountByClient[c.id] || 0
-    const sessions_remaining = Math.max(0, (pkg.total_sessions || 0) - sessions_used)
+    const sessions_remaining = Math.max(0, (pkg.sessions_total || 0) - sessions_used)
     return {
       ...c,
       active_package: { ...pkg, sessions_used, sessions_remaining },
@@ -633,10 +633,10 @@ async function updatePackage(id, fields) {
 
 async function adjustPackageSessions(packageId, delta) {
   const { data: pkg, error: e1 } = await _sb
-    .from('packages').select('sessions_used, total_sessions').eq('id', packageId).single()
+    .from('packages').select('sessions_used, sessions_total').eq('id', packageId).single()
   if (e1) throw e1
   const newUsed   = Math.max(0, (pkg.sessions_used || 0) + delta)
-  const newStatus = newUsed >= pkg.total_sessions ? 'completed' : 'active'
+  const newStatus = newUsed >= pkg.sessions_total ? 'completed' : 'active'
   const { data, error } = await _sb
     .from('packages')
     .update({ sessions_used: newUsed, status: newStatus, updated_at: new Date().toISOString() })
@@ -647,7 +647,7 @@ async function adjustPackageSessions(packageId, delta) {
 
 function _mapPackage(p, liveSessionCount) {
   const sessions_used = liveSessionCount != null ? liveSessionCount : (p.sessions_used || 0)
-  const sessions_remaining = Math.max(0, (p.total_sessions || 0) - sessions_used)
+  const sessions_remaining = Math.max(0, (p.sessions_total || 0) - sessions_used)
   return {
     ...p,
     sessions_used,
@@ -794,10 +794,10 @@ async function deleteSessionV2(sessionId) {
   // Decrement package sessions_used if session had a package
   if (s?.package_id) {
     const { data: pkg } = await _sb
-      .from('packages').select('sessions_used, total_sessions, status').eq('id', s.package_id).single()
+      .from('packages').select('sessions_used, sessions_total, status').eq('id', s.package_id).single()
     if (pkg) {
       const newUsed   = Math.max(0, pkg.sessions_used - 1)
-      const newStatus = newUsed < pkg.total_sessions && pkg.status === 'completed' ? 'active' : pkg.status
+      const newStatus = newUsed < pkg.sessions_total && pkg.status === 'completed' ? 'active' : pkg.status
       await _sb.from('packages')
         .update({ sessions_used: newUsed, status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', s.package_id)
@@ -818,7 +818,7 @@ async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours,
       .eq('status', 'active')
       .order('created_at', { ascending: true })
     if (e1) throw e1
-    pkg = (pkgs || []).find(p => p.sessions_used < p.total_sessions) || null
+    pkg = (pkgs || []).find(p => p.sessions_used < p.sessions_total) || null
   }
 
   const fields = {
@@ -840,7 +840,7 @@ async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours,
 
   if (pkg) {
     const newUsed   = pkg.sessions_used + 1
-    const newStatus = newUsed >= pkg.total_sessions ? 'completed' : 'active'
+    const newStatus = newUsed >= pkg.sessions_total ? 'completed' : 'active'
     await _sb.from('packages')
       .update({ sessions_used: newUsed, status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', pkg.id)
@@ -1324,37 +1324,30 @@ async function updateCustomer(id, fields) {
   return data
 }
 
-// ─── product_plans ────────────────────────────────────────────
+// ─── plans (consolidated; was product_plans) ──────────────────
 
-/**
- * Get plans for a product, optionally filtered/sorted by customer country.
- * Returns plans in priority order — default plan first, then country-matching plans.
- * @param {string} productId
- * @param {string|null} customerCountry - ISO country code ('IL', 'US', 'EU') or null
- */
 async function getProductPlans(productId, customerCountry = null) {
   const { data, error } = await _sb
-    .from('product_plans')
+    .from('plans')
     .select('*')
     .eq('product_id', productId)
-    .eq('active', true)
+    .eq('status', 'active')
     .order('priority', { ascending: true })
   if (error) throw error
 
-  // Sort: exact country match first, then default (null), then other countries
   return (data || []).sort((a, b) => {
     const aMatch = a.target_customer_country === customerCountry ? 0
       : a.target_customer_country === null ? 1 : 2
     const bMatch = b.target_customer_country === customerCountry ? 0
       : b.target_customer_country === null ? 1 : 2
     if (aMatch !== bMatch) return aMatch - bMatch
-    return a.priority - b.priority
+    return (a.priority ?? 0) - (b.priority ?? 0)
   })
 }
 
 async function getAllProductPlans(productId) {
   const { data, error } = await _sb
-    .from('product_plans')
+    .from('plans')
     .select('*')
     .eq('product_id', productId)
     .order('priority', { ascending: true })
@@ -1364,8 +1357,8 @@ async function getAllProductPlans(productId) {
 
 async function getPlanById(planId) {
   const { data, error } = await _sb
-    .from('product_plans')
-    .select('*, vendors(id, full_name, payout_currency), products(id, name, type)')
+    .from('plans')
+    .select('*, products(id, name, type)')
     .eq('id', planId)
     .single()
   if (error) throw error
@@ -1374,7 +1367,7 @@ async function getPlanById(planId) {
 
 async function createProductPlan(fields) {
   const { data, error } = await _sb
-    .from('product_plans')
+    .from('plans')
     .insert(fields)
     .select()
     .single()
@@ -1384,7 +1377,7 @@ async function createProductPlan(fields) {
 
 async function updateProductPlan(id, fields) {
   const { data, error } = await _sb
-    .from('product_plans')
+    .from('plans')
     .update(fields)
     .eq('id', id)
     .select()
@@ -1394,13 +1387,11 @@ async function updateProductPlan(id, fields) {
 }
 
 async function deleteProductPlan(id) {
-  const { error } = await _sb.from('product_plans').delete().eq('id', id)
+  const { error } = await _sb.from('plans').delete().eq('id', id)
   if (error) throw error
 }
 
 // ─── createDealWithPlan ───────────────────────────────────────
-// Creates a deal linked to a product plan. Copies payment_link and
-// vendor from the plan as defaults (can be overridden).
 
 async function createDealWithPlan({ planId, clientId, overrides = {} }) {
   const plan = await getPlanById(planId)
@@ -1409,12 +1400,11 @@ async function createDealWithPlan({ planId, clientId, overrides = {} }) {
   const fields = {
     client_id:          clientId,
     product_id:         plan.product_id,
-    product_plan_id:    plan.id,
+    plan_id:            plan.id,
     primary_vendor_id:  plan.vendor_id || null,
-    price:              plan.price,
-    currency:           plan.currency,
-    payment_link:       plan.collection_gateway_link || null,
-    payment_status:     'pending',
+    agreed_price:       plan.amount,
+    agreed_currency:    plan.currency,
+    payment_link:       plan.link_url || null,
     sales_status:       'lead',
     billing_status:     'pending',
     origin:             'manual',

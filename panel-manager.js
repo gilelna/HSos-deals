@@ -770,18 +770,17 @@
       editableFkField('Product', 'product_id', 'product', deal.product_id, deal.products && deal.products.name, productOpts),
       editableField('Sales status', 'sales_status', deal.sales_status, 'select', SALES),
       editableField('Billing status', 'billing_status', deal.billing_status, 'select', BILLING),
-      editableField('Price', 'price', deal.price, 'number'),
-      editableField('Currency', 'currency', deal.currency, 'select', CURRENCIES),
+      editableField('Price', 'agreed_price', deal.agreed_price, 'number'),
+      editableField('Currency', 'agreed_currency', deal.agreed_currency, 'select', CURRENCIES),
       editableField('VAT %', 'vat_pct', deal.vat_pct, 'number'),
       editableField('VAT mode', 'vat_mode', deal.vat_mode, 'select', VAT_MODES),
-      editableField('Discount', 'discount', deal.discount, 'text'),
       editableField('Processor', 'payment_processor', deal.payment_processor, 'select', PROCESSORS),
       editableField('Payment link', 'payment_link', deal.payment_link, 'text'),
     ].join('')
 
     const packageRows = packages.length
       ? `<table class="tbl ep-mini-table"><thead><tr><th>Sessions</th><th>Used</th><th>Status</th></tr></thead><tbody>${
-          packages.map(p => `<tr><td>${esc(String(p.total_sessions || 0))}</td><td>${esc(String(p.sessions_used || 0))}</td><td>${statusBadge(p.status || 'active')}</td></tr>`).join('')
+          packages.map(p => `<tr><td>${esc(String(p.sessions_total || 0))}</td><td>${esc(String(p.sessions_used || 0))}</td><td>${statusBadge(p.status || 'active')}</td></tr>`).join('')
         }</tbody></table>`
       : '<div class="ep-muted">No packages</div>'
 
@@ -970,11 +969,11 @@
     const sessionsLeft = activePackage
       ? (activePackage.sessions_remaining != null
           ? activePackage.sessions_remaining
-          : Math.max(0, (activePackage.total_sessions || 0) - (activePackage.sessions_used || 0)))
+          : Math.max(0, (activePackage.sessions_total || 0) - (activePackage.sessions_used || 0)))
       : '—'
 
     const packageName = activePackage
-      ? (activePackage.plan_name || `${activePackage.total_sessions || 0}-session package`)
+      ? `${activePackage.sessions_total || 0}-session package`
       : '—'
 
     if (isVendor) {
@@ -1088,12 +1087,12 @@
   function renderPackageBody(model) {
     const pkg = model?.package || {}
     const deal = model?.deal || null
-    const total = Number(pkg.total_sessions || 0)
+    const total = Number(pkg.sessions_total || 0)
     const used = Number(pkg.sessions_used || 0)
     const left = pkg.sessions_remaining != null
       ? Number(pkg.sessions_remaining || 0)
       : Math.max(0, total - used)
-    const packageName = pkg.plan_name || `${total || 0}-session package`
+    const packageName = `${total || 0}-session package`
     const productName = deal?.products?.name || pkg.product_name || '—'
     const vendor = pkg.vendors || null
 
@@ -1603,7 +1602,7 @@
       } else if (entry.type === 'package') {
         model = await loadPackageModel(entry.id)
         const pkg = model?.package || {}
-        entry.label = pkg.plan_name || `${pkg.total_sessions || 0}-session package`
+        entry.label = `${pkg.sessions_total || 0}-session package`
       } else if (entry.type === 'product') {
         model = await loadProductModel(entry.id)
         entry.label = (model.product && model.product.name) || fallbackLabel(entry.type, entry.id)
