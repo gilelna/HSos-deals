@@ -132,44 +132,29 @@ async function deleteVendor(id) {
 
 // ─── rates ───────────────────────────────────────────────────
 // DB column is `rate`; UI/docs call it "amount". Read aliases r.amount = r.rate.
-// Demo PostgREST schema cache is currently stuck without is_default — try the
-// canonical select, fall back to derived default if the cache rejects it.
 
 async function getRates(vendorId) {
-  const first = await _sb
+  const { data, error } = await _sb
     .from('rates')
     .select('id, vendor_id, name, rate, currency, is_default')
     .eq('vendor_id', vendorId)
     .order('is_default', { ascending: false })
     .order('name', { ascending: true })
-  if (!first.error) return (first.data || []).map(r => ({ ...r, amount: r.rate }))
-  if (!_isStaleCache(first.error)) throw first.error
-
-  // Fallback: stale schema cache — derive default client-side.
-  const second = await _sb
-    .from('rates')
-    .select('id, vendor_id, name, rate, currency')
-    .eq('vendor_id', vendorId)
-    .order('name', { ascending: true })
-  if (second.error) throw second.error
-  return _deriveDefaultRate(second.data || []).map(r => ({ ...r, amount: r.rate }))
-}
-
-function _deriveDefaultRate(rows) {
-  if (!rows.length) return rows
-  let bestIdx = 0
-  let bestVal = -Infinity
-  rows.forEach((r, i) => {
-    const v = Number(r.rate) || 0
-    if (v > bestVal) { bestVal = v; bestIdx = i }
-  })
-  return rows.map((r, i) => ({ ...r, is_default: i === bestIdx }))
+  if (error) throw error
+  return (data || []).map(r => ({ ...r, amount: r.rate }))
 }
 
 async function getDefaultRate(vendorId) {
   if (!vendorId) return null
-  const rates = await getRates(vendorId)
-  return rates.find(r => r.is_default) || null
+  const { data, error } = await _sb
+    .from('rates')
+    .select('id, vendor_id, name, rate, currency, is_default')
+    .eq('vendor_id', vendorId)
+    .eq('is_default', true)
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data ? { ...data, amount: data.rate } : null
 }
 
 async function upsertRate(vendorId, rateData) {
@@ -177,21 +162,13 @@ async function upsertRate(vendorId, rateData) {
   if (row.amount != null && row.rate == null) { row.rate = row.amount }
   delete row.amount
 
-  const hadDefault = row.is_default === true
-  if (hadDefault) {
+  if (row.is_default === true) {
     const clear = _sb.from('rates').update({ is_default: false }).eq('vendor_id', vendorId)
     const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
-    if (clearErr && !_isStaleCache(clearErr)) throw clearErr
+    if (clearErr) throw clearErr
   }
 
-  let { data, error } = await _sb.from('rates').upsert(row).select().single()
-  if (error && _isStaleCache(error)) {
-    const fallback = { ...row }
-    delete fallback.is_default
-    const retry = await _sb.from('rates').upsert(fallback).select().single()
-    data = retry.data
-    error = retry.error
-  }
+  const { data, error } = await _sb.from('rates').upsert(row).select().single()
   if (error) throw error
   return { ...data, amount: data.rate }
 }
@@ -792,33 +769,16 @@ async function updateSessionV2(sessionId, { sessionDate, hours, rateId, rateUsd,
     notes:        notes || null,
   }
   if (clientId !== undefined) fields.client_id = _toUUID(clientId)
-  let { data, error } = await _sb
+  const { data, error } = await _sb
     .from('sessions')
     .update(fields)
     .eq('id', sessionId)
     .select('*, clients(full_name)')
     .single()
-  if (error && _isStaleCacheRateId(error)) {
-    const fallback = { ...fields }
-    fallback.task_type_id = fields.rate_id
-    delete fallback.rate_id
-    const retry = await _sb.from('sessions').update(fallback).eq('id', sessionId)
-      .select('*, clients(full_name)').single()
-    data = retry.data; error = retry.error
-  }
   if (error) throw error
   const [hydrated] = await _hydrateSessionRates([{ ...data, client_name: data.clients?.full_name || null }])
   return hydrated
 }
-
-// PostgREST schema cache on demo currently lacks sessions.rate_id and
-// rates.is_default even though both columns exist. Detect those errors so
-// reads/writes can route through legacy paths until the cache catches up.
-function _isStaleCache(err) {
-  if (!err) return false
-  return err.code === 'PGRST204' || err.code === '42703'
-}
-const _isStaleCacheRateId = _isStaleCache
 
 async function deleteSessionV2(sessionId) {
   // Block if session is in a non-draft/submitted bill
@@ -880,14 +840,7 @@ async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours,
     bill_id:      null,
     package_id:   _toUUID(pkg?.id),
   }
-  let { data, error } = await _sb.from('sessions').insert(fields).select().single()
-  if (error && _isStaleCacheRateId(error)) {
-    const fallback = { ...fields }
-    fallback.task_type_id = fields.rate_id
-    delete fallback.rate_id
-    const retry = await _sb.from('sessions').insert(fallback).select().single()
-    data = retry.data; error = retry.error
-  }
+  const { data, error } = await _sb.from('sessions').insert(fields).select().single()
   if (error) throw error
 
   // Increment package sessions_used
