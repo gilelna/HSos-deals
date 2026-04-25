@@ -143,7 +143,7 @@ async function getRates(vendorId) {
     .order('is_default', { ascending: false })
     .order('name', { ascending: true })
   if (!first.error) return (first.data || []).map(r => ({ ...r, amount: r.rate }))
-  if (first.error.code !== '42703') throw first.error
+  if (!_isStaleCache(first.error)) throw first.error
 
   // Fallback: stale schema cache — derive default client-side.
   const second = await _sb
@@ -181,11 +181,11 @@ async function upsertRate(vendorId, rateData) {
   if (hadDefault) {
     const clear = _sb.from('rates').update({ is_default: false }).eq('vendor_id', vendorId)
     const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
-    if (clearErr && clearErr.code !== '42703') throw clearErr
+    if (clearErr && !_isStaleCache(clearErr)) throw clearErr
   }
 
   let { data, error } = await _sb.from('rates').upsert(row).select().single()
-  if (error && error.code === '42703') {
+  if (error && _isStaleCache(error)) {
     const fallback = { ...row }
     delete fallback.is_default
     const retry = await _sb.from('rates').upsert(fallback).select().single()
@@ -792,16 +792,33 @@ async function updateSessionV2(sessionId, { sessionDate, hours, rateId, rateUsd,
     notes:        notes || null,
   }
   if (clientId !== undefined) fields.client_id = _toUUID(clientId)
-  const { data, error } = await _sb
+  let { data, error } = await _sb
     .from('sessions')
     .update(fields)
     .eq('id', sessionId)
     .select('*, clients(full_name)')
     .single()
+  if (error && _isStaleCacheRateId(error)) {
+    const fallback = { ...fields }
+    fallback.task_type_id = fields.rate_id
+    delete fallback.rate_id
+    const retry = await _sb.from('sessions').update(fallback).eq('id', sessionId)
+      .select('*, clients(full_name)').single()
+    data = retry.data; error = retry.error
+  }
   if (error) throw error
   const [hydrated] = await _hydrateSessionRates([{ ...data, client_name: data.clients?.full_name || null }])
   return hydrated
 }
+
+// PostgREST schema cache on demo currently lacks sessions.rate_id and
+// rates.is_default even though both columns exist. Detect those errors so
+// reads/writes can route through legacy paths until the cache catches up.
+function _isStaleCache(err) {
+  if (!err) return false
+  return err.code === 'PGRST204' || err.code === '42703'
+}
+const _isStaleCacheRateId = _isStaleCache
 
 async function deleteSessionV2(sessionId) {
   // Block if session is in a non-draft/submitted bill
@@ -863,7 +880,14 @@ async function logSessionV2({ vendorId, clientId, sessionDate, startTime, hours,
     bill_id:      null,
     package_id:   _toUUID(pkg?.id),
   }
-  const { data, error } = await _sb.from('sessions').insert(fields).select().single()
+  let { data, error } = await _sb.from('sessions').insert(fields).select().single()
+  if (error && _isStaleCacheRateId(error)) {
+    const fallback = { ...fields }
+    fallback.task_type_id = fields.rate_id
+    delete fallback.rate_id
+    const retry = await _sb.from('sessions').insert(fallback).select().single()
+    data = retry.data; error = retry.error
+  }
   if (error) throw error
 
   // Increment package sessions_used

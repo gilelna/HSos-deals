@@ -353,8 +353,12 @@ const DB = (() => {
   }
 
   async function createSession(fields) {
-    const { data, error } = await _sb()
-      .from('sessions').insert(fields).select().single()
+    let { data, error } = await _sb().from('sessions').insert(fields).select().single()
+    if (error && _isStaleCacheRateId(error) && fields.rate_id !== undefined) {
+      const fb = { ...fields }; fb.task_type_id = fields.rate_id; delete fb.rate_id
+      const retry = await _sb().from('sessions').insert(fb).select().single()
+      data = retry.data; error = retry.error
+    }
     if (error) _throw(error, 'Failed to create session')
     await Audit.log({ entity_type: 'session', entity_id: data.id, action: 'create', changes: { after: data } })
     return data
@@ -362,11 +366,22 @@ const DB = (() => {
 
   async function updateSession(id, fields) {
     const before = await _sb().from('sessions').select('*').eq('id', id).maybeSingle()
-    const { data, error } = await _sb()
-      .from('sessions').update(fields).eq('id', id).select().single()
+    let { data, error } = await _sb().from('sessions').update(fields).eq('id', id).select().single()
+    if (error && _isStaleCacheRateId(error) && fields.rate_id !== undefined) {
+      const fb = { ...fields }; fb.task_type_id = fields.rate_id; delete fb.rate_id
+      const retry = await _sb().from('sessions').update(fb).eq('id', id).select().single()
+      data = retry.data; error = retry.error
+    }
     if (error) _throw(error, 'Failed to update session')
     await Audit.log({ entity_type: 'session', entity_id: id, action: 'update', changes: Audit.diff(before.data, data) })
     return data
+  }
+
+  // PostgREST schema cache on demo currently lacks sessions.rate_id and
+  // rates.is_default. Detect those errors and fall back to legacy paths.
+  function _isStaleCacheRateId(err) {
+    if (!err) return false
+    return err.code === 'PGRST204' || err.code === '42703'
   }
 
   async function deleteSession(id) {
@@ -437,7 +452,7 @@ const DB = (() => {
     if (!first.error) {
       return (first.data || []).map(r => ({ ...r, amount: r.rate }))
     }
-    if (first.error.code !== '42703') _throw(first.error, 'Failed to load rates')
+    if (!_isStaleCacheRateId(first.error)) _throw(first.error, 'Failed to load rates')
 
     // Fallback: stale schema cache — load without is_default, derive client-side.
     let f = _sb().from('rates').select('id, vendor_id, name, rate, currency')
@@ -479,11 +494,11 @@ const DB = (() => {
     if (hadDefault) {
       const clear = _sb().from('rates').update({ is_default: false }).eq('vendor_id', row.vendor_id)
       const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
-      if (clearErr && clearErr.code !== '42703') _throw(clearErr, 'Failed to clear existing default rate')
+      if (clearErr && !_isStaleCacheRateId(clearErr)) _throw(clearErr, 'Failed to clear existing default rate')
     }
 
     let { data, error } = await _sb().from('rates').upsert(row).select().single()
-    if (error && error.code === '42703') {
+    if (error && _isStaleCacheRateId(error)) {
       const fallback = { ...row }
       delete fallback.is_default
       const retry = await _sb().from('rates').upsert(fallback).select().single()
