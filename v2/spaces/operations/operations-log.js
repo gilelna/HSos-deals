@@ -1,12 +1,12 @@
 // v2/spaces/operations/operations-log.js — Log session tab.
-// Client picker (vendor's assigned clients) + form (date, duration, task type, notes).
+// Client picker (vendor's assigned clients) + form (date, duration, rate, notes).
 // Recent sessions list below.
 
 const OpsLog = (() => {
   function render(mount) {
     const vendor = State.get('ops.vendor')
     const clients = State.get('ops.clients') || []
-    const taskTypes = State.get('ops.taskTypes') || []
+    const rates = State.get('ops.rates') || []
 
     if (!clients.length) {
       const empty = document.createElement('div')
@@ -51,17 +51,26 @@ const OpsLog = (() => {
     const today = new Date().toISOString().slice(0, 10)
     form.insertAdjacentHTML('beforeend', Form.input({ id: 'session_date', label: 'Date', type: 'date', value: today, required: true }))
     form.insertAdjacentHTML('beforeend', Form.input({ id: 'duration_min', label: 'Duration (minutes)', type: 'number', value: '60', required: true, min: '1', step: '1' }))
+
+    const defaultRate = rates.find(r => r.is_default) || null
+    const rateOptions = [
+      { value: '', label: 'No rate' },
+      ...rates.map(r => ({ value: r.id, label: _rateLabel(r) }))
+    ]
     form.insertAdjacentHTML('beforeend', Form.select({
-      id: 'task_type_id', label: 'Task type', required: true,
-      options: taskTypes.map(t => ({ value: t.id, label: t.name }))
+      id: 'rate_id',
+      label: 'Rate',
+      options: rateOptions,
+      value: defaultRate ? defaultRate.id : ''
     }))
+
     form.insertAdjacentHTML('beforeend', Form.textarea({ id: 'notes', label: 'Notes', rows: 3 }))
 
     const submit = document.createElement('button')
     submit.type = 'button'
     submit.className = 'btn btn-primary'
     submit.textContent = 'Log session'
-    submit.addEventListener('click', () => _submit(form, selectedClientId, vendor, taskTypes, mount))
+    submit.addEventListener('click', () => _submit(form, selectedClientId, vendor, rates, mount))
     form.appendChild(submit)
     formWrap.appendChild(form)
 
@@ -76,7 +85,7 @@ const OpsLog = (() => {
     mount.appendChild(wrap)
   }
 
-  async function _submit(form, clientId, vendor, taskTypes, mount) {
+  async function _submit(form, clientId, vendor, rates, mount) {
     const { valid, errors, values } = Form.validate(form)
     if (!valid) { Form.showErrors(form, errors); return }
     if (!clientId) { Utils.showToast('Pick a client', 'warn'); return }
@@ -85,13 +94,14 @@ const OpsLog = (() => {
       Utils.showToast('Duration must be a positive number', 'warn'); return
     }
 
-    // Rate comes from the chosen task_type (each task_type row carries its own
-    // rate_usd). The legacy `rates` table keys on session_type, not task_type,
-    // and is not consulted at log time.
+    // Rate: optional. If selected, rate_usd = (amount / 60) * duration_min.
+    // If "No rate" picked, rate_id and rate_usd are both null.
+    const rateId = values.rate_id || null
     let rate_usd = null
-    const tt = taskTypes.find(t => t.id === values.task_type_id)
-    if (tt && Number.isFinite(Number(tt.rate_usd))) {
-      rate_usd = Number(tt.rate_usd) * (duration_min / 60) || null
+    if (rateId) {
+      const r = rates.find(x => x.id === rateId)
+      const amt = r ? Number(r.amount ?? r.rate) : NaN
+      if (Number.isFinite(amt)) rate_usd = (amt / 60) * duration_min
     }
 
     const payload = {
@@ -100,11 +110,11 @@ const OpsLog = (() => {
       session_date: values.session_date,
       duration_min,
       hours: Number((duration_min / 60).toFixed(2)),
-      task_type_id: values.task_type_id,
+      rate_id: rateId,
+      rate_usd,
       notes: values.notes || null,
       status: 'done',
-      billed: false,
-      rate_usd
+      billed: false
     }
 
     try {
@@ -122,8 +132,10 @@ const OpsLog = (() => {
   function _paintRecent(container) {
     const sessions = (State.get('ops.sessions') || []).slice().sort(_byDateDesc).slice(0, 10)
     const clients = State.get('ops.clients') || []
+    const rates = State.get('ops.rates') || []
     const taskTypes = State.get('ops.taskTypes') || []
     const clientById = new Map(clients.map(c => [c.id, c]))
+    const rateById = new Map(rates.map(r => [r.id, r]))
     const ttById = new Map(taskTypes.map(t => [t.id, t]))
 
     const h = document.createElement('h2')
@@ -146,14 +158,16 @@ const OpsLog = (() => {
       columns: [
         { key: 'session_date', label: 'Date', render: s => Utils.formatDate(s.session_date) },
         { key: '_client',      label: 'Client' },
-        { key: '_task',        label: 'Task' },
+        { key: '_rate',        label: 'Rate' },
         { key: 'duration_min', label: 'Minutes' },
         { key: 'billed',       label: 'Billed', raw: true, render: s => s.billed ? Badges.make('Billed', { color: 'green' }) : Badges.make('Unbilled', { color: 'amber' }) }
       ],
+      // Display: prefer the new rate_id (rates table) name; fall back to legacy
+      // task_type_id name for historical rows logged before the refactor.
       rows: sessions.map(s => ({
         ...s,
         _client: clientById.get(s.client_id)?.full_name || '(unknown)',
-        _task: ttById.get(s.task_type_id)?.name || '(unknown)'
+        _rate: rateById.get(s.rate_id)?.name || ttById.get(s.task_type_id)?.name || '—'
       })),
       exportFilename: 'recent-sessions.csv',
       pageSize: 25
@@ -164,6 +178,14 @@ const OpsLog = (() => {
     const ad = new Date(a.session_date).getTime()
     const bd = new Date(b.session_date).getTime()
     return bd - ad
+  }
+
+  function _rateLabel(r) {
+    const amt = Number(r.amount ?? r.rate)
+    const cur = r.currency || 'USD'
+    const sym = cur === 'USD' ? '$' : (cur === 'EUR' ? '€' : (cur === 'ILS' ? '₪' : ''))
+    const amtTxt = Number.isFinite(amt) ? `${sym}${amt}/hr` : ''
+    return `${r.name || 'Rate'}${amtTxt ? ` — ${amtTxt}` : ''}`
   }
 
   function _labeled(label, control) {

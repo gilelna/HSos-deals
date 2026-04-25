@@ -7,7 +7,8 @@
 //   ops.clients         → clients assigned to the active vendor
 //   ops.sessions        → vendor's sessions (current + history)
 //   ops.bills           → vendor's bills
-//   ops.taskTypes       → lookup
+//   ops.taskTypes       → lookup (legacy; kept for old session display)
+//   ops.rates           → vendor's rates (powers Log session rate selector)
 //   ops.packages        → packages where vendor is assigned
 
 const OpsInit = (() => {
@@ -52,7 +53,11 @@ const OpsInit = (() => {
   }
 
   async function _loadVendorData(vendorId) {
-    const [vendor, taskTypes] = await Promise.all([DB.getVendor(vendorId), DB.getTaskTypes()])
+    const [vendor, taskTypes, rates] = await Promise.all([
+      DB.getVendor(vendorId),
+      DB.getTaskTypes(),
+      DB.getRates(vendorId)
+    ])
     if (!vendor) {
       Utils.showToast(`Vendor ${vendorId} not found`, 'error')
       sessionStorage.removeItem(PICKER_KEY)
@@ -60,6 +65,7 @@ const OpsInit = (() => {
     }
     State.set('ops.vendor', vendor)
     State.set('ops.taskTypes', taskTypes)
+    State.set('ops.rates', rates)
     await _refreshVendorScopedData(vendorId)
   }
 
@@ -157,7 +163,24 @@ const OpsInit = (() => {
 
   // ─── Admin/manager vendor picker ──────────────────────────────
   async function _showVendorPicker() {
-    const vendors = await DB.getVendors()
+    const [vendors, assignments] = await Promise.all([
+      DB.getVendors(),
+      DB.getVendorClientAssignments()
+    ])
+    // Count active (valid_to IS NULL) clients per vendor
+    const clientCount = new Map()
+    for (const a of assignments) {
+      if (a.valid_to) continue
+      clientCount.set(a.vendor_id, (clientCount.get(a.vendor_id) || 0) + 1)
+    }
+    // Vendors with clients first, then alphabetical
+    const sorted = vendors.slice().sort((a, b) => {
+      const ca = clientCount.get(a.id) || 0
+      const cb = clientCount.get(b.id) || 0
+      if (ca !== cb) return cb - ca
+      return (a.name || '').localeCompare(b.name || '')
+    })
+
     const body = document.createElement('div')
 
     const search = document.createElement('input')
@@ -172,7 +195,7 @@ const OpsInit = (() => {
 
     function repaint(q) {
       const needle = (q || '').toLowerCase()
-      const filtered = vendors.filter(v => {
+      const filtered = sorted.filter(v => {
         if (!needle) return true
         const hay = [v.name, v.full_name, v.email, v.id].filter(Boolean).join(' ').toLowerCase()
         return hay.includes(needle)
@@ -182,7 +205,11 @@ const OpsInit = (() => {
         const row = document.createElement('button')
         row.type = 'button'
         row.className = 'v2-vendor-picker-row'
-        row.textContent = `${v.name || v.id} — ${Const.VENDOR_TYPE_LABELS[v.vendor_type] || v.vendor_type || ''}`
+        const cnt = clientCount.get(v.id) || 0
+        const clientLabel = cnt === 0 ? 'no clients'
+                          : cnt === 1 ? '1 client'
+                          : `${cnt} clients`
+        row.textContent = `${v.name || v.id} — ${clientLabel}`
         row.addEventListener('click', async () => {
           sessionStorage.setItem(PICKER_KEY, v.id)
           m.close()
