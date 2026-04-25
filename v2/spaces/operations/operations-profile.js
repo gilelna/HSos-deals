@@ -121,32 +121,134 @@ const OpsProfile = (() => {
   function _rates(v) {
     const section = document.createElement('section')
     section.className = 'v2-ops-profile-rates'
+
+    const head = document.createElement('div')
+    head.className = 'v2-section-head'
     const h = document.createElement('h3')
     h.textContent = 'Rates'
-    section.appendChild(h)
+    head.appendChild(h)
+
+    const canEdit = Guard.action('vendor.edit')
+    if (canEdit) {
+      const addBtn = document.createElement('button')
+      addBtn.type = 'button'
+      addBtn.className = 'btn btn-sm'
+      addBtn.textContent = '+ Add rate'
+      addBtn.addEventListener('click', () => _openRateModal(v.id, null))
+      head.appendChild(addBtn)
+    }
+    section.appendChild(head)
 
     const body = document.createElement('div')
+    body.className = 'v2-ops-profile-rates-body'
     body.textContent = 'Loading rates…'
     section.appendChild(body)
 
-    DB.getRates(v.id).then(rates => {
+    _paintRates(body, v.id, canEdit)
+    return section
+  }
+
+  function _paintRates(body, vendorId, canEdit) {
+    while (body.firstChild) body.removeChild(body.firstChild)
+    body.textContent = 'Loading rates…'
+    DB.getRates(vendorId).then(rates => {
       body.textContent = ''
       if (!rates.length) {
-        body.textContent = 'No rates set. Ask an admin to configure rates for your session types.'
+        body.textContent = 'No rates configured.'
         return
       }
-      const list = document.createElement('ul')
-      list.className = 'v2-panel-list'
-      for (const r of rates) {
-        const li = document.createElement('li')
-        const label = r.name || r.session_type || '(unknown)'
-        li.textContent = `${label} — ${Utils.formatCurrency(r.rate, r.currency)}`
-        list.appendChild(li)
-      }
-      body.appendChild(list)
+      const tblMount = document.createElement('div')
+      body.appendChild(tblMount)
+      Table.create({
+        container: tblMount,
+        columns: [
+          { key: 'name', label: 'Name', render: r => r.name || '(unnamed)' },
+          { key: 'amount', label: 'Amount', render: r => Utils.formatCurrency(r.amount ?? r.rate, r.currency) },
+          { key: 'currency', label: 'Currency' },
+          { key: '_default', label: 'Default', raw: true,
+            render: r => r.is_default ? Badges.make('Default', { color: 'green' }) : '' },
+          ...(canEdit ? [{ key: '_actions', label: '', raw: true, render: r => _rowActions(r) }] : [])
+        ],
+        rows: rates,
+        pageSize: 25
+      })
+      if (canEdit) _wireRowActions(tblMount, vendorId, body, rates)
     }).catch(err => { body.textContent = err.message || 'Failed to load rates' })
+  }
 
-    return section
+  function _rowActions(r) {
+    return `<button type="button" class="btn btn-xs" data-act="edit" data-id="${r.id}">Edit</button>` +
+           `<button type="button" class="btn btn-xs" data-act="del" data-id="${r.id}">Delete</button>`
+  }
+
+  function _wireRowActions(mount, vendorId, body, rates) {
+    mount.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-act]')
+      if (!btn) return
+      const id = btn.dataset.id
+      const rate = rates.find(r => r.id === id)
+      if (!rate) return
+      if (btn.dataset.act === 'edit') _openRateModal(vendorId, rate, () => _paintRates(body, vendorId, true))
+      else if (btn.dataset.act === 'del') _confirmDeleteRate(rate, () => _paintRates(body, vendorId, true))
+    })
+  }
+
+  function _openRateModal(vendorId, existing, onSaved) {
+    const form = document.createElement('form')
+    form.noValidate = true
+    form.addEventListener('submit', e => e.preventDefault())
+    form.insertAdjacentHTML('beforeend', Form.input({ id: 'rate_name', label: 'Name', value: existing?.name || '', required: true }))
+    form.insertAdjacentHTML('beforeend', Form.input({ id: 'rate_amount', label: 'Amount (per hour)', type: 'number', value: existing?.amount ?? existing?.rate ?? '', required: true, min: '0', step: '0.01' }))
+    form.insertAdjacentHTML('beforeend', Form.select({
+      id: 'rate_currency', label: 'Currency', required: true,
+      value: existing?.currency || 'USD',
+      options: [
+        { value: 'USD', label: 'USD' },
+        { value: 'EUR', label: 'EUR' },
+        { value: 'ILS', label: 'ILS' },
+        { value: 'GBP', label: 'GBP' }
+      ]
+    }))
+
+    const m = Modal.open({
+      title: existing ? 'Edit rate' : 'Add rate',
+      size: 'sm',
+      body: form,
+      actions: [
+        { label: 'Cancel', variant: 'ghost', onClick: () => m.close() },
+        { label: 'Save', variant: 'primary', onClick: async () => {
+          const { valid, errors, values } = Form.validate(form)
+          if (!valid) { Form.showErrors(form, errors); return }
+          const amount = Number(values.rate_amount)
+          if (!Number.isFinite(amount) || amount < 0) {
+            Utils.showToast('Amount must be a non-negative number', 'warn'); return
+          }
+          const fields = {
+            vendor_id: vendorId,
+            name: values.rate_name.trim(),
+            amount,
+            currency: values.rate_currency
+          }
+          if (existing) fields.id = existing.id
+          try {
+            await DB.upsertRate(fields)
+            m.close()
+            Utils.showToast('Rate saved', 'success')
+            onSaved && onSaved()
+          } catch (err) { Utils.showToast(err.message || 'Failed to save rate', 'error') }
+        } }
+      ]
+    })
+  }
+
+  function _confirmDeleteRate(rate, onDone) {
+    Utils.showConfirm(`Delete rate "${rate.name || rate.id}"?`, async () => {
+      try {
+        await DB.deleteRate(rate.id)
+        Utils.showToast('Rate deleted', 'success')
+        onDone && onDone()
+      } catch (err) { Utils.showToast(err.message || 'Failed to delete rate', 'error') }
+    }, { danger: true, confirmLabel: 'Delete' })
   }
 
   function _recentBills(v) {

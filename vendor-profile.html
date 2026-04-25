@@ -158,12 +158,12 @@
     <input type="hidden" id="re-id">
     <div style="font-size:16px;font-weight:600;margin-bottom:16px" id="re-title">Add Rate</div>
     <div class="fg" style="margin-bottom:10px">
-      <label class="fl">Task type</label>
-      <input type="text" id="re-type" class="fi" placeholder="coaching / admin / design…">
+      <label class="fl">Name</label>
+      <input type="text" id="re-type" class="fi" placeholder="Standard, Coaching 1:1, …">
     </div>
-    <div class="form-row" style="gap:10px;margin-bottom:10px">
+    <div class="form-row" style="gap:10px;margin-bottom:16px">
       <div class="fg" style="flex:1">
-        <label class="fl">Rate</label>
+        <label class="fl">Amount (per hour)</label>
         <input type="number" id="re-rate" class="fi" step="0.01" min="0">
       </div>
       <div class="fg" style="width:130px">
@@ -175,10 +175,6 @@
           <option value="GBP">GBP</option>
         </select>
       </div>
-    </div>
-    <div class="fg" style="margin-bottom:16px">
-      <label class="fl">Effective date</label>
-      <input type="date" id="re-date" class="fi">
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center">
       <button class="btn btn-ghost" id="re-delete-btn" style="display:none" onclick="deleteRateFromModal()">Delete</button>

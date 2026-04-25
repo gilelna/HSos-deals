@@ -148,9 +148,9 @@ function renderBadges() {
   const cnt     = _clients.length
   const cntTxt  = `${cnt} client${cnt !== 1 ? 's' : ''}`
 
-  // Primary rate
-  const pRate = _rates[0] || null
-  const rateStr = pRate ? `${curr} ${pRate.rate} / session` : null
+  // Primary rate (default if marked, else first by name)
+  const pRate = _rates.find(r => r.is_default) || _rates[0] || null
+  const rateStr = pRate ? `${pRate.currency || curr} ${Number(pRate.amount ?? pRate.rate ?? 0)} / hour` : null
 
   const badges = [
     { label: status,  cls: status === 'active' ? 'active' : '' },
@@ -544,38 +544,75 @@ window.toggleRatesCard = toggleRatesCard
 
 function renderRatesCard() {
   const card = document.getElementById('rates-card')
+  while (card.firstChild) card.removeChild(card.firstChild)
+
+  const head = document.createElement('div')
+  head.className = 'prof-rates-head'
+  const title = document.createElement('div')
+  title.className = 'prof-rates-title'
+  title.textContent = _rates.length ? 'Rate Sheet' : 'Rates'
+  const closeBtn = document.createElement('button')
+  closeBtn.className = 'prof-rates-close'
+  closeBtn.textContent = '✕'
+  closeBtn.addEventListener('click', toggleRatesCard)
+  head.append(title, closeBtn)
+  card.appendChild(head)
+
   if (!_rates.length) {
-    card.innerHTML = `
-      <div class="prof-rates-head">
-        <div class="prof-rates-title">Rates</div>
-        <button class="prof-rates-close" onclick="toggleRatesCard()">✕</button>
-      </div>
-      <div class="prof-rates-row" style="color:var(--mu2)">No rates configured.</div>
-      ${_readOnly ? '' : `<div style="padding:10px 12px"><button class="btn btn-sm btn-primary" onclick="openRateModal()">+ Add rate</button></div>`}
-    `
-    return
+    const empty = document.createElement('div')
+    empty.className = 'prof-rates-row'
+    empty.style.color = 'var(--mu2)'
+    empty.textContent = 'No rates configured.'
+    card.appendChild(empty)
+  } else {
+    const body = document.createElement('div')
+    body.className = 'prof-rates-body'
+    for (const r of _rates) {
+      const row = document.createElement('div')
+      row.className = 'prof-rates-row'
+
+      const left = document.createElement('div')
+      const nameEl = document.createElement('div')
+      nameEl.className = 'prof-rates-type'
+      nameEl.textContent = r.name || 'Standard'
+      left.appendChild(nameEl)
+      if (r.is_default) {
+        const def = document.createElement('div')
+        def.className = 'prof-rates-date'
+        def.textContent = 'Default'
+        left.appendChild(def)
+      }
+
+      const right = document.createElement('div')
+      right.style.cssText = 'display:flex;align-items:center;gap:8px'
+      const amt = document.createElement('div')
+      amt.className = 'prof-rates-amt'
+      amt.textContent = `${r.currency || 'USD'} ${Number(r.amount ?? r.rate ?? 0).toLocaleString()}`
+      right.appendChild(amt)
+      if (!_readOnly) {
+        const editBtn = document.createElement('button')
+        editBtn.className = 'btn btn-sm'
+        editBtn.textContent = 'Edit'
+        editBtn.addEventListener('click', () => openRateModal(r.id))
+        right.appendChild(editBtn)
+      }
+
+      row.append(left, right)
+      body.appendChild(row)
+    }
+    card.appendChild(body)
   }
-  card.innerHTML = `
-    <div class="prof-rates-head">
-      <div class="prof-rates-title">Rate Sheet</div>
-      <button class="prof-rates-close" onclick="toggleRatesCard()">✕</button>
-    </div>
-    <div class="prof-rates-body">
-      ${_rates.map(r => `
-        <div class="prof-rates-row">
-          <div>
-            <div class="prof-rates-type">${escHtml(r.name || r.rate_type || r.session_type || 'Standard')}</div>
-            ${r.effective_date ? `<div class="prof-rates-date">From ${formatDate(r.effective_date)}</div>` : ''}
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="prof-rates-amt">${escHtml(r.currency || 'USD')} ${Number(r.rate||0).toLocaleString()}</div>
-            ${_readOnly ? '' : `<button class="btn btn-sm" onclick="openRateModal('${r.id}')">Edit</button>`}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    ${_readOnly ? '' : `<div style="padding:10px 12px;border-top:1px solid var(--border2)"><button class="btn btn-sm btn-primary" onclick="openRateModal()">+ Add rate</button></div>`}
-  `
+
+  if (!_readOnly) {
+    const footer = document.createElement('div')
+    footer.style.cssText = 'padding:10px 12px;border-top:1px solid var(--border2)'
+    const addBtn = document.createElement('button')
+    addBtn.className = 'btn btn-sm btn-primary'
+    addBtn.textContent = '+ Add rate'
+    addBtn.addEventListener('click', () => openRateModal())
+    footer.appendChild(addBtn)
+    card.appendChild(footer)
+  }
 }
 
 function openRateEdit(e) {
@@ -585,37 +622,14 @@ function openRateEdit(e) {
 }
 window.openRateEdit = openRateEdit
 
-function _mapRateTypeToSessionType(rateType) {
-  const t = String(rateType || '').toLowerCase()
-  if (['coaching', 'consulting', 'editing', 'design', 'admin'].includes(t)) return t
-  return 'other'
-}
-
-async function _upsertRateWithSchemaFallback(rateData) {
-  const payload = { ...(rateData || {}) }
-  let retries = 0
-  while (true) {
-    try {
-      return await upsertRate(_vendorId, payload)
-    } catch (err) {
-      const missing = _extractMissingColumn(err)
-      if (!missing || !(missing in payload) || retries > 8) throw err
-      delete payload[missing]
-      retries += 1
-      console.warn(`[vendor-profile] dropped missing rate column "${missing}"`)
-    }
-  }
-}
-
 function openRateModal(rateId = null) {
   if (_readOnly) return
   const existing = rateId ? _rates.find(r => r.id === rateId) : null
   document.getElementById('re-id').value = existing?.id || ''
   document.getElementById('re-title').textContent = existing ? 'Edit Rate' : 'Add Rate'
-  document.getElementById('re-type').value = existing?.name || existing?.rate_type || existing?.session_type || ''
-  document.getElementById('re-rate').value = existing?.rate != null ? existing.rate : ''
+  document.getElementById('re-type').value = existing?.name || ''
+  document.getElementById('re-rate').value = existing?.amount ?? existing?.rate ?? ''
   document.getElementById('re-currency').value = existing?.currency || (_vendor?.preferred_currency || _vendor?.payout_currency || 'USD')
-  document.getElementById('re-date').value = existing?.effective_date || ''
   document.getElementById('re-delete-btn').style.display = existing ? '' : 'none'
   document.getElementById('rate-edit-overlay').classList.add('open')
 }
@@ -628,25 +642,16 @@ window.closeRateModal = closeRateModal
 
 async function saveRateModal() {
   const id = document.getElementById('re-id').value || undefined
-  const rateType = document.getElementById('re-type').value.trim()
-  const rate = parseFloat(document.getElementById('re-rate').value)
+  const name = document.getElementById('re-type').value.trim()
+  const amount = parseFloat(document.getElementById('re-rate').value)
   const currency = document.getElementById('re-currency').value || 'USD'
-  const effectiveDate = document.getElementById('re-date').value || null
 
-  if (!rateType) { showToast('Task type is required', 'warn'); return }
-  if (isNaN(rate) || rate < 0) { showToast('Rate must be a valid number', 'warn'); return }
+  if (!name) { showToast('Name is required', 'warn'); return }
+  if (isNaN(amount) || amount < 0) { showToast('Amount must be a non-negative number', 'warn'); return }
 
-  const payload = {
-    id,
-    name: rateType,
-    session_type: _mapRateTypeToSessionType(rateType),
-    rate,
-    currency,
-    effective_date: effectiveDate,
-  }
-
+  const payload = { id, name, amount, currency }
   try {
-    await _upsertRateWithSchemaFallback(payload)
+    await upsertRate(_vendorId, payload)
     _rates = await getRates(_vendorId)
     renderRatesCard()
     closeRateModal()
