@@ -422,20 +422,47 @@ const DB = (() => {
     return data || []
   }
 
+  // Rates: column in DB is `rate` but UI/docs call it "amount" — alias on read so
+  // callers consistently see r.amount. Writes accept either { amount } or { rate }.
   async function getRates(vendorId) {
-    let q = _sb().from('rates').select('*')
+    let q = _sb().from('rates').select('id, vendor_id, name, rate, currency, is_default')
     if (vendorId) q = q.eq('vendor_id', vendorId)
+    q = q.order('is_default', { ascending: false }).order('name', { ascending: true })
     const { data, error } = await q
     if (error) _throw(error, 'Failed to load rates')
-    return data || []
+    return (data || []).map(r => ({ ...r, amount: r.rate }))
+  }
+
+  async function getDefaultRate(vendorId) {
+    if (!vendorId) return null
+    const { data, error } = await _sb()
+      .from('rates')
+      .select('id, vendor_id, name, rate, currency, is_default')
+      .eq('vendor_id', vendorId)
+      .eq('is_default', true)
+      .limit(1)
+      .maybeSingle()
+    if (error) _throw(error, 'Failed to load default rate')
+    return data ? { ...data, amount: data.rate } : null
   }
 
   async function upsertRate(fields) {
+    const row = { ...fields }
+    if (row.amount != null && row.rate == null) { row.rate = row.amount }
+    delete row.amount
+    if (!row.vendor_id) _throw({ message: 'vendor_id required' }, 'Failed to save rate')
+
+    if (row.is_default === true) {
+      const clear = _sb().from('rates').update({ is_default: false }).eq('vendor_id', row.vendor_id)
+      const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
+      if (clearErr) _throw(clearErr, 'Failed to clear existing default rate')
+    }
+
     const { data, error } = await _sb()
-      .from('rates').upsert(fields).select().single()
+      .from('rates').upsert(row).select().single()
     if (error) _throw(error, 'Failed to save rate')
     await Audit.log({ entity_type: 'rate', entity_id: data.id, action: 'update', changes: { after: data } })
-    return data
+    return { ...data, amount: data.rate }
   }
 
   async function deleteRate(id) {
@@ -749,7 +776,7 @@ const DB = (() => {
     // bills
     getBills, createBill, updateBill,
     // task types + rates
-    getTaskTypes, getRates, upsertRate, deleteRate,
+    getTaskTypes, getRates, getDefaultRate, upsertRate, deleteRate,
     // transactions
     getTransactions, getTransaction, updateTransaction,
     softDeleteTransaction, restoreTransaction, bulkUpdateTransactions,

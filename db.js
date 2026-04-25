@@ -131,20 +131,46 @@ async function deleteVendor(id) {
 }
 
 // ─── rates ───────────────────────────────────────────────────
+// DB column is `rate`; UI/docs call it "amount". Read aliases r.amount = r.rate.
 
 async function getRates(vendorId) {
-  const { data, error } = await _sb.from('rates').select('*').eq('vendor_id', vendorId)
+  const { data, error } = await _sb
+    .from('rates')
+    .select('id, vendor_id, name, rate, currency, is_default')
+    .eq('vendor_id', vendorId)
+    .order('is_default', { ascending: false })
+    .order('name', { ascending: true })
   if (error) throw error
-  return data
+  return (data || []).map(r => ({ ...r, amount: r.rate }))
+}
+
+async function getDefaultRate(vendorId) {
+  if (!vendorId) return null
+  const { data, error } = await _sb
+    .from('rates')
+    .select('id, vendor_id, name, rate, currency, is_default')
+    .eq('vendor_id', vendorId)
+    .eq('is_default', true)
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data ? { ...data, amount: data.rate } : null
 }
 
 async function upsertRate(vendorId, rateData) {
-  const { data, error } = await _sb
-    .from('rates')
-    .upsert({ ...rateData, vendor_id: vendorId })
-    .select().single()
+  const row = { ...rateData, vendor_id: vendorId }
+  if (row.amount != null && row.rate == null) { row.rate = row.amount }
+  delete row.amount
+
+  if (row.is_default === true) {
+    const clear = _sb.from('rates').update({ is_default: false }).eq('vendor_id', vendorId)
+    const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
+    if (clearErr) throw clearErr
+  }
+
+  const { data, error } = await _sb.from('rates').upsert(row).select().single()
   if (error) throw error
-  return data
+  return { ...data, amount: data.rate }
 }
 
 async function deleteRate(id) {
@@ -695,7 +721,7 @@ async function getVendorRatesAsTaskTypes(vendorId) {
 
   const fromRates = (data || []).map(r => ({
     id:        r.id,
-    name:      r.name || r.session_type || 'Session',
+    name:      r.name || 'Session',
     rate_usd:  parseFloat(r.rate) || 0,
     vendor_id: vendorId,
   }))
@@ -1309,7 +1335,7 @@ async function updateCustomer(id, fields) {
 async function getProductPlans(productId, customerCountry = null) {
   const { data, error } = await _sb
     .from('product_plans')
-    .select('*, vendors(id, full_name, payout_currency)')
+    .select('*')
     .eq('product_id', productId)
     .eq('active', true)
     .order('priority', { ascending: true })
@@ -1329,7 +1355,7 @@ async function getProductPlans(productId, customerCountry = null) {
 async function getAllProductPlans(productId) {
   const { data, error } = await _sb
     .from('product_plans')
-    .select('*, vendors(id, full_name, payout_currency)')
+    .select('*')
     .eq('product_id', productId)
     .order('priority', { ascending: true })
   if (error) throw error
