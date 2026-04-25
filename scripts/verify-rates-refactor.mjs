@@ -29,6 +29,7 @@ const args = Object.fromEntries(
 
 const BASE = args.base || 'http://127.0.0.1:5500'
 const VENDOR_ID = args.vendor || null
+const ROLE = args.role || 'admin'
 const HEADED = !!args.headed
 
 const PAGES = [
@@ -46,7 +47,7 @@ const PAGES = [
   { label: 'v2 operations (profile)',     url: `${BASE}/v2/spaces/operations/operations.html?tab=profile` },
 ]
 
-async function checkPage(browser, { label, url }) {
+async function checkPage(browser, { label, url }, { vendorId, role }) {
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
   const consoleErrors = []
@@ -57,10 +58,29 @@ async function checkPage(browser, { label, url }) {
     if (msg.type() === 'error') consoleErrors.push(msg.text())
   })
   page.on('pageerror', err => pageErrors.push(err.message))
+  const apiHits = []
   page.on('response', resp => {
     const status = resp.status()
-    if (status >= 400) httpErrors.push(`${status} ${resp.request().method()} ${resp.url()}`)
+    const url = resp.url()
+    if (status >= 400) httpErrors.push(`${status} ${resp.request().method()} ${url}`)
+    if (url.includes('/rest/v1/')) {
+      const path = url.replace(/^https?:\/\/[^/]+/, '').split('?')[0]
+      apiHits.push(`${status} ${path}`)
+    }
   })
+
+  // Seed auth so pages skip their vendor pickers and actually exercise getRates / sessions / etc.
+  // Must happen at the page's origin — addInitScript runs before any page script on every navigation.
+  await page.addInitScript(({ vendorId, role }) => {
+    if (vendorId) {
+      sessionStorage.setItem('hsos_v2_ops_vendor_id', vendorId)
+      sessionStorage.setItem('hsos_vendor_id', vendorId)
+      // v1 expects a full vendor object under hsos_vendor; minimal stub is enough
+      // to skip the picker — workload.js immediately re-fetches the rest.
+      sessionStorage.setItem('hsos_vendor', JSON.stringify({ id: vendorId, full_name: 'Verifier Vendor' }))
+    }
+    sessionStorage.setItem('hsos_role', role || 'admin')
+  }, { vendorId, role })
 
   let navError = null
   try {
@@ -70,7 +90,7 @@ async function checkPage(browser, { label, url }) {
   }
 
   await ctx.close()
-  return { label, url, navError, consoleErrors, pageErrors, httpErrors }
+  return { label, url, navError, consoleErrors, pageErrors, httpErrors, apiHits }
 }
 
 function summarize(results) {
@@ -85,6 +105,12 @@ function summarize(results) {
     for (const e of r.consoleErrors) console.log(`     console: ${e}`)
     for (const e of r.pageErrors)    console.log(`     pageerror: ${e}`)
     for (const e of r.httpErrors)    console.log(`     http: ${e}`)
+    if (r.apiHits.length === 0) {
+      console.log(`     (no /rest/v1 calls — page may not have loaded past auth)`)
+    } else {
+      const distinct = [...new Set(r.apiHits)].slice(0, 8)
+      console.log(`     api: ${distinct.join(', ')}${r.apiHits.length > distinct.length ? ` …(+${r.apiHits.length - distinct.length} more)` : ''}`)
+    }
   }
   console.log(`\n${results.length} pages checked. ${totalIssues} issue(s).`)
   return totalIssues
@@ -97,7 +123,7 @@ function summarize(results) {
   const results = []
   for (const p of PAGES) {
     process.stdout.write(`Checking ${p.label}... `)
-    const r = await checkPage(browser, p)
+    const r = await checkPage(browser, p, { vendorId: VENDOR_ID, role: ROLE })
     process.stdout.write('done\n')
     results.push(r)
   }

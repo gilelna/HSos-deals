@@ -1,0 +1,13 @@
+{
+  "name": "hsos-dev-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HSos dev tooling — Playwright verification scripts",
+  "type": "module",
+  "scripts": {
+    "verify:rates": "node scripts/verify-rates-refactor.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
