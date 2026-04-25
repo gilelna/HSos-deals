@@ -132,13 +132,15 @@ async function deleteVendor(id) {
 
 // ─── rates ───────────────────────────────────────────────────
 // DB column is `rate`; UI/docs call it "amount". Read aliases r.amount = r.rate.
+// is_default temporarily omitted from SELECT/ORDER/payload while demo
+// PostgREST cache catches up. Restore once /rest/v1/rates?select=is_default
+// returns 200.
 
 async function getRates(vendorId) {
   const { data, error } = await _sb
     .from('rates')
-    .select('id, vendor_id, name, rate, currency, is_default')
+    .select('id, vendor_id, name, rate, currency')
     .eq('vendor_id', vendorId)
-    .order('is_default', { ascending: false })
     .order('name', { ascending: true })
   if (error) throw error
   return (data || []).map(r => ({ ...r, amount: r.rate }))
@@ -148,9 +150,8 @@ async function getDefaultRate(vendorId) {
   if (!vendorId) return null
   const { data, error } = await _sb
     .from('rates')
-    .select('id, vendor_id, name, rate, currency, is_default')
+    .select('id, vendor_id, name, rate, currency')
     .eq('vendor_id', vendorId)
-    .eq('is_default', true)
     .limit(1)
     .maybeSingle()
   if (error) throw error
@@ -161,12 +162,7 @@ async function upsertRate(vendorId, rateData) {
   const row = { ...rateData, vendor_id: vendorId }
   if (row.amount != null && row.rate == null) { row.rate = row.amount }
   delete row.amount
-
-  if (row.is_default === true) {
-    const clear = _sb.from('rates').update({ is_default: false }).eq('vendor_id', vendorId)
-    const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
-    if (clearErr) throw clearErr
-  }
+  delete row.is_default
 
   const { data, error } = await _sb.from('rates').upsert(row).select().single()
   if (error) throw error

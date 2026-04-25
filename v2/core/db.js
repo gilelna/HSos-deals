@@ -422,10 +422,12 @@ const DB = (() => {
 
   // Rates: column in DB is `rate` but UI/docs call it "amount" — alias on read so
   // callers consistently see r.amount. Writes accept either { amount } or { rate }.
+  // is_default temporarily omitted from SELECT/ORDER while demo PostgREST cache
+  // catches up. Restore once /rest/v1/rates?select=is_default returns 200.
   async function getRates(vendorId) {
-    let q = _sb().from('rates').select('id, vendor_id, name, rate, currency, is_default')
+    let q = _sb().from('rates').select('id, vendor_id, name, rate, currency')
     if (vendorId) q = q.eq('vendor_id', vendorId)
-    q = q.order('is_default', { ascending: false }).order('name', { ascending: true })
+    q = q.order('name', { ascending: true })
     const { data, error } = await q
     if (error) _throw(error, 'Failed to load rates')
     return (data || []).map(r => ({ ...r, amount: r.rate }))
@@ -435,9 +437,8 @@ const DB = (() => {
     if (!vendorId) return null
     const { data, error } = await _sb()
       .from('rates')
-      .select('id, vendor_id, name, rate, currency, is_default')
+      .select('id, vendor_id, name, rate, currency')
       .eq('vendor_id', vendorId)
-      .eq('is_default', true)
       .limit(1)
       .maybeSingle()
     if (error) _throw(error, 'Failed to load default rate')
@@ -448,13 +449,8 @@ const DB = (() => {
     const row = { ...fields }
     if (row.amount != null && row.rate == null) { row.rate = row.amount }
     delete row.amount
+    delete row.is_default // temporary: omit while demo PostgREST cache catches up
     if (!row.vendor_id) _throw({ message: 'vendor_id required' }, 'Failed to save rate')
-
-    if (row.is_default === true) {
-      const clear = _sb().from('rates').update({ is_default: false }).eq('vendor_id', row.vendor_id)
-      const { error: clearErr } = row.id ? await clear.neq('id', row.id) : await clear
-      if (clearErr) _throw(clearErr, 'Failed to clear existing default rate')
-    }
 
     const { data, error } = await _sb().from('rates').upsert(row).select().single()
     if (error) _throw(error, 'Failed to save rate')
