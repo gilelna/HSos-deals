@@ -1,6 +1,6 @@
 # HSos — STATUS.md
 _Living handoff file. Update at end of every session._
-Last updated: 2026-04-22 (Activities foundation + UI — migration 016, activity log, bell, reminders)
+Last updated: 2026-04-26 (Products page rebuild — expandable cards + plan grid + right panel)
 
 ---
 
@@ -28,12 +28,19 @@ No framework. No build step. Files served directly.
 | Payments — Balances tab | payments.html + payments.js | ✅ New — monthly opening/closing snapshots per account, delta reconciliation |
 | Vendor profile | vendor-profile.html + vendor-profile.js | ✅ New — hero with overlay, stats, assigned clients, bills, docs |
 | Client profile | client-profile.html + client-profile.js | ✅ Rebuilt — hero with overlay, stats, deals/packages, payments, tags, docs, details panel |
-| Products | products.html + products.js | ✅ New — hero bands, floating plan cards, product + plan modals, deep linking |
+| Products | products.html + products.js | ✅ Rebuilt 2026-04-26 — expandable product cards, auto-fill plan grid, unified right panel (Details + Deals tabs), soft-archive with active-deal guard |
 | Activity Log | activity-log.html + activity-log.js | ✅ New — full activity table, type/status filters, inline Markdown |
 | Import | import.html + import.js | 🟡 Exists |
 
 ### Known broken right now (2026-04-22 — post UI fixes)
 - Demo DB: migration 016 (activities + profiles patch) not yet run — must be run manually at https://pqkzffgpkpovternesmt.supabase.co
+
+### Products rebuild 2026-04-26 — known gaps & manual QA needed
+- **Schema drift discovered:** migration 011 was marked ✅ in SCHEMA.md but had not been applied to demo. The new products page columns (`category`, `status`, `type`, `logo_url`, `price_min/max`, `currency`, `links`, `prd_uid` on products; `plan_uid`, `plan_type`, `status`, `description`, `link_source`, `link_id` on plans) were missing. **Demo:** re-applied via `migrations/017_products_type_column_and_011_reapply.sql` (idempotent). Backfilled `prd_uid` for the 18 existing products. **Production:** still needs `017` run (column drift unknown — verify before applying).
+- **Production schema:** unknown if 011 columns exist. Run 017 on prod (idempotent) before deploying products page there.
+- **Manual QA TODO:** create new product → create plan of each type (one-time, installments, subscription, package) → confirm plan card border colors + badges + grid wrap → edit plan → switch to Deals tab on a plan that has deals → click a deal row → archive a plan that has no active deals → try archiving a plan that does have active deals (should show error).
+- **Dropped from old page (intentional, full rebuild):** hero bands per category, logo upload, deep-linking via `?plan=PLN-xxxx`, duplicate-as-draft, links jsonb editor, price-range computed display, product modal logo upload. If any of these are still needed, file follow-ups.
+- **Archive vs delete:** delete buttons now soft-archive (status='archived') and refuse if any deal with sales_status not in ('closed','lost') references the entity. There is no UI to view or unarchive archived items yet — they are filtered out of `getAllProductsWithPlans()`.
 
 ### Fixed 2026-04-22 (UI bug fixes)
 - `workload.html`: Sessions tab (`#tab-work`) had `overflow-y:auto` creating an inner scroll trap — removed, page now scrolls as one unit

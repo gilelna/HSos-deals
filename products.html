@@ -19,312 +19,49 @@
 
     <div class="app-content">
 
-      <!-- Space cover -->
-      <div class="space-cover operations">
-        <div class="space-cover__bg" style="background-image:url('files/class.png')"></div>
-        <div class="space-cover__overlay"></div>
-        <div class="space-cover-eyebrow">Operations · Products</div>
-        <div class="space-cover-title">Products</div>
-      </div>
-
       <!-- Page body -->
-      <div class="prd-scroll main scroll" id="prd-scroll">
+      <div class="products-scroll main scroll" id="products-scroll">
 
         <!-- Page header -->
-        <div class="prd-page-head">
-          <div class="prd-page-title">Products</div>
-          <button class="btn btn-primary" onclick="openNewProductModal()">+ New product</button>
+        <div class="products-page-head">
+          <div class="products-page-title">Products</div>
+          <button class="btn btn-primary" onclick="PRODUCTS.openNewProduct()">+ New product</button>
         </div>
 
-        <!-- Product stack -->
-        <div class="prd-stack" id="prd-stack">
+        <!-- Products list -->
+        <div class="products-list" id="products-list">
           <div style="padding:32px;text-align:center;color:var(--mu2);font-size:13px">Loading…</div>
         </div>
 
-      </div><!-- /.prd-scroll -->
-    </div><!-- /.app-content -->
-  </div><!-- /.app-body -->
-</div><!-- /.app -->
-
-<!-- ═══════════════════════════════════════════════════════════
-     PRODUCT EDIT MODAL
-     ═══════════════════════════════════════════════════════════ -->
-<div class="overlay" id="product-modal-overlay">
-  <div class="modal-box" id="product-modal-box">
-
-    <!-- Header -->
-    <div class="modal-head">
-      <div>
-        <div class="modal-title" id="pm-title">Edit product</div>
-        <div class="modal-sub"  id="pm-sub">—</div>
-        <div class="modal-id-badge" id="pm-id-badge">PRD-0000</div>
-      </div>
-      <button class="modal-close" onclick="closeProductModal()">✕</button>
-    </div>
-
-    <!-- Body -->
-    <div class="modal-body">
-
-      <!-- Logo -->
-      <div>
-        <div class="modal-section-label">Logo</div>
-        <div class="logo-upload-row">
-          <div class="logo-preview" id="pm-logo-preview">🖼</div>
-          <div>
-            <div class="logo-actions">
-              <button class="btn btn-sm" onclick="pmUploadLogo()">Upload image</button>
-              <button class="btn btn-sm" onclick="pmPasteLogoUrl()">Paste URL</button>
-            </div>
-            <div class="logo-hint">PNG or JPG · shown on product card</div>
-          </div>
-        </div>
-        <input type="file" id="pm-logo-file" accept="image/*" style="display:none" onchange="pmHandleLogoFile(this)">
-      </div>
-
-      <hr class="modal-divider">
-      <div class="modal-section-label">Product details</div>
-
-      <div class="fg">
-        <label class="fl">Product name</label>
-        <input type="text" id="pm-name" class="fi" placeholder="e.g. English Accent Mastery">
-      </div>
-
-      <div class="form-row">
-        <div class="fg" style="flex:1">
-          <label class="fl">Category</label>
-          <select id="pm-category" class="fi fsel">
-            <option value="">— select —</option>
-            <option value="Coaching program">Coaching program</option>
-            <option value="Online course">Online course</option>
-            <option value="Group coaching">Group coaching</option>
-            <option value="Workshop">Workshop</option>
-            <option value="Custom">Custom</option>
-          </select>
-        </div>
-        <div class="fg" style="flex:1">
-          <label class="fl">Status</label>
-          <select id="pm-status" class="fi fsel">
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="fg" style="flex:1">
-          <label class="fl">Type</label>
-          <select id="pm-type" class="fi fsel" onchange="pmUpdateTypeFields()">
-            <option value="">— select —</option>
-            <option value="session">session</option>
-            <option value="package">package</option>
-            <option value="workshop">workshop</option>
-            <option value="custom">custom</option>
-          </select>
-        </div>
-        <div class="fg" style="flex:1" id="pm-sessions-wrap" style="display:none">
-          <label class="fl">Sessions included</label>
-          <input type="number" id="pm-sessions-included" class="fi" placeholder="e.g. 10" min="1">
-        </div>
-      </div>
-
-      <div class="fg">
-        <label class="fl">Description</label>
-        <textarea id="pm-description" class="fi" rows="2" placeholder="Internal description — not customer facing"></textarea>
-      </div>
-
-      <hr class="modal-divider">
-      <div class="modal-section-label">Price range</div>
-
-      <div class="form-row">
-        <div class="fg" style="flex:0 0 110px">
-          <label class="fl">Currency</label>
-          <select id="pm-currency" class="fi fsel">
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="ILS">ILS</option>
-          </select>
-        </div>
-        <div class="fg" style="flex:1">
-          <label class="fl">Range (min → max)</label>
-          <div style="display:flex;align-items:center;gap:6px">
-            <input type="number" id="pm-price-min" class="fi" placeholder="min" style="flex:1">
-            <span style="color:var(--mu);font-size:13px">→</span>
-            <input type="number" id="pm-price-max" class="fi" placeholder="max" style="flex:1">
-          </div>
-        </div>
-      </div>
-      <div class="price-computed" id="pm-price-computed">Computed from active plans</div>
-
-      <hr class="modal-divider">
-      <div class="modal-section-label">Links</div>
-
-      <div class="links-list" id="pm-links-list"></div>
-      <button class="btn btn-sm" style="align-self:flex-start;margin-top:2px" onclick="pmAddLink()">+ Add link</button>
-
-    </div><!-- /.modal-body -->
-
-    <!-- Footer -->
-    <div class="modal-foot">
-      <div class="modal-foot-left">
-        <button class="btn btn-danger btn-sm" id="pm-delete-btn" onclick="pmDeleteProduct()">Delete product</button>
-      </div>
-      <div class="modal-foot-right">
-        <button class="btn" onclick="closeProductModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="pmSave()">Save product</button>
       </div>
     </div>
+  </div>
+</div>
 
-  </div><!-- /.modal-box -->
-</div><!-- /#product-modal-overlay -->
-
-
-<!-- ═══════════════════════════════════════════════════════════
-     PLAN EDIT MODAL
-     ═══════════════════════════════════════════════════════════ -->
-<div class="overlay" id="plan-modal-overlay">
-  <div class="modal-box" id="plan-modal-box">
-
-    <!-- Header -->
-    <div class="modal-head">
-      <div>
-        <div class="modal-title" id="plm-title">Edit plan</div>
-        <div class="modal-sub"  id="plm-sub">—</div>
-        <div class="modal-id-badge" id="plm-id-badge" style="cursor:default">
-          <span id="plm-uid-text">PLN-0000</span>
-          <button class="copy-link-btn" title="Copy deep link" onclick="plmCopyLink()">⎘</button>
-        </div>
-      </div>
-      <button class="modal-close" onclick="closePlanModal()">✕</button>
+<!-- Right panel -->
+<div class="products-panel-overlay" id="products-panel-overlay" onclick="PRODUCTS.closePanel()"></div>
+<aside class="products-panel" id="products-panel" aria-hidden="true">
+  <div class="products-panel-head">
+    <div>
+      <div class="products-panel-title" id="pp-title">—</div>
+      <div class="products-panel-sub" id="pp-sub"></div>
     </div>
-
-    <!-- Body -->
-    <div class="modal-body">
-
-      <div class="form-row">
-        <div class="fg" style="flex:1">
-          <label class="fl">Type</label>
-          <select id="plm-type" class="fi fsel" onchange="plmUpdateTypeLabel()">
-            <option value="one-payment">one-payment</option>
-            <option value="installments">installments</option>
-            <option value="subscription">subscription</option>
-          </select>
-        </div>
-        <div class="fg" style="flex:1" id="plm-installments-wrap" style="display:none">
-          <label class="fl">Installments</label>
-          <select id="plm-installments" class="fi fsel">
-            <option value="">— # —</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-            <option value="11">11</option>
-            <option value="12">12</option>
-            <option value="13">13</option>
-            <option value="14">14</option>
-            <option value="15">15</option>
-            <option value="16">16</option>
-            <option value="17">17</option>
-            <option value="18">18</option>
-            <option value="19">19</option>
-            <option value="20">20</option>
-            <option value="21">21</option>
-            <option value="22">22</option>
-            <option value="23">23</option>
-            <option value="24">24</option>
-            <option value="25">25</option>
-            <option value="26">26</option>
-            <option value="27">27</option>
-            <option value="28">28</option>
-            <option value="29">29</option>
-            <option value="30">30</option>
-            <option value="31">31</option>
-            <option value="32">32</option>
-            <option value="33">33</option>
-            <option value="34">34</option>
-            <option value="35">35</option>
-            <option value="36">36</option>
-          </select>
-        </div>
-        <div class="fg" style="flex:1">
-          <label class="fl">Status</label>
-          <select id="plm-status" class="fi fsel">
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="fg" style="flex:1">
-          <label class="fl">Amount</label>
-          <input type="number" id="plm-amount" class="fi" placeholder="0">
-        </div>
-        <div class="fg" style="flex:0 0 110px">
-          <label class="fl">Currency</label>
-          <select id="plm-currency" class="fi fsel">
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="ILS">ILS</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="fg">
-        <label class="fl">Description / note</label>
-        <textarea id="plm-description" class="fi" rows="2" placeholder="Internal note — e.g. 'Full access, lifetime, no refund'"></textarea>
-      </div>
-
-      <hr class="modal-divider">
-      <div class="modal-section-label">Payment link</div>
-
-      <!-- Source pill selector -->
-      <div class="source-pills">
-        <button class="source-pill" data-source="thrivecart"    onclick="plmSetSource('thrivecart')">ThriveCart</button>
-        <button class="source-pill" data-source="green_invoice" onclick="plmSetSource('green_invoice')">Green Invoice</button>
-        <button class="source-pill" data-source="wise"          onclick="plmSetSource('wise')">Wise</button>
-        <button class="source-pill" data-source="bank_transfer" onclick="plmSetSource('bank_transfer')">Bank Transfer</button>
-        <button class="source-pill" data-source="manual"        onclick="plmSetSource('manual')">Manual URL</button>
-      </div>
-
-      <!-- ID + URL -->
-      <div class="plan-link-row">
-        <div class="fg" style="width:80px;flex-shrink:0">
-          <label class="fl" id="plm-link-id-label">ID</label>
-          <input type="text" id="plm-link-id" class="fi plan-link-id" placeholder="ID">
-        </div>
-        <span class="plan-link-arrow">→</span>
-        <div class="fg plan-link-url">
-          <label class="fl">URL</label>
-          <input type="url" id="plm-link-url" class="fi" placeholder="https://…">
-        </div>
-      </div>
-
-    </div><!-- /.modal-body -->
-
-    <!-- Footer -->
-    <div class="modal-foot">
-      <div class="modal-foot-left">
-        <button class="btn btn-danger btn-sm" id="plm-delete-btn" onclick="plmDelete()">Delete</button>
-        <div class="modal-foot-divider"></div>
-        <button class="btn btn-sm btn-ghost" onclick="plmDuplicate()" title="Duplicate this plan as draft">⎘ Duplicate plan</button>
-      </div>
-      <div class="modal-foot-right">
-        <button class="btn" onclick="closePlanModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="plmSave()">Save plan</button>
-      </div>
-    </div>
-
-  </div><!-- /.modal-box -->
-</div><!-- /#plan-modal-overlay -->
-
+    <button class="products-panel-close" onclick="PRODUCTS.closePanel()" aria-label="Close">✕</button>
+  </div>
+  <div class="products-panel-tabs" id="pp-tabs">
+    <button class="products-panel-tab is-active" data-tab="details" onclick="PRODUCTS.switchTab('details')">Details</button>
+    <button class="products-panel-tab" data-tab="deals" onclick="PRODUCTS.switchTab('deals')">Deals</button>
+  </div>
+  <div class="products-panel-body" id="pp-body">
+    <!-- Details / Deals tab content rendered by products.js -->
+  </div>
+  <div class="products-panel-actions">
+    <button class="btn btn-danger btn-sm" id="pp-delete" onclick="PRODUCTS.delete()">Delete</button>
+    <div class="spacer"></div>
+    <button class="btn" onclick="PRODUCTS.closePanel()">Cancel</button>
+    <button class="btn btn-primary" onclick="PRODUCTS.save()">Save</button>
+  </div>
+</aside>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="env-keys.js"></script>
@@ -338,7 +75,7 @@
   document.addEventListener('DOMContentLoaded', async () => {
     if (!guardSpace('operations', 'workload.html')) return
     await LAYOUT.init('Products', 'operations')
-    await initProducts()
+    await PRODUCTS.init()
   })
 </script>
 </body>

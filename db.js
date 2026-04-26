@@ -294,8 +294,8 @@ async function getProductsWithPlans() {
 
 async function getAllProductsWithPlans() {
   const [productsRes, plansRes] = await Promise.all([
-    _sb.from('products').select('*').order('name'),
-    _sb.from('plans').select('*').order('created_at', { ascending: true }),
+    _sb.from('products').select('*').neq('status', 'archived').order('name'),
+    _sb.from('plans').select('*').neq('status', 'archived').order('created_at', { ascending: true }),
   ])
   if (productsRes.error) throw productsRes.error
   if (plansRes.error) throw plansRes.error
@@ -351,17 +351,60 @@ async function updatePlanFull(id, fields) {
   return data
 }
 
+// Soft-archive: refuse if any active deal references this plan; otherwise set status='archived'.
+// "Active" = sales_status not in ('closed','lost').
 async function deletePlanFull(id) {
-  const { error } = await _sb.from('plans').delete().eq('id', id)
+  const { count, error: cErr } = await _sb
+    .from('deals')
+    .select('id', { count: 'exact', head: true })
+    .eq('plan_id', id)
+    .not('sales_status', 'in', '(closed,lost)')
+  if (cErr) throw cErr
+  if (count && count > 0) throw new Error(`Plan has ${count} active deal${count === 1 ? '' : 's'}`)
+  const { error } = await _sb.from('plans').update({ status: 'archived' }).eq('id', id)
   if (error) throw error
 }
 
+// Soft-archive: refuse if any active deal references this product; otherwise set status='archived'
+// on the product and on all of its plans.
 async function deleteProductFull(id) {
-  // Delete all plans first, then the product
-  const { error: e1 } = await _sb.from('plans').delete().eq('product_id', id)
+  const { count, error: cErr } = await _sb
+    .from('deals')
+    .select('id', { count: 'exact', head: true })
+    .eq('product_id', id)
+    .not('sales_status', 'in', '(closed,lost)')
+  if (cErr) throw cErr
+  if (count && count > 0) throw new Error(`Product has ${count} active deal${count === 1 ? '' : 's'}`)
+  const { error: e1 } = await _sb.from('plans').update({ status: 'archived' }).eq('product_id', id)
   if (e1) throw e1
-  const { error: e2 } = await _sb.from('products').delete().eq('id', id)
+  const { error: e2 } = await _sb.from('products').update({ status: 'archived' }).eq('id', id)
   if (e2) throw e2
+}
+
+// Deals that reference a given plan, with client name + (optional) package usage.
+async function getDealsForPlan(planId) {
+  const { data: deals, error } = await _sb
+    .from('deals')
+    .select('*, clients(full_name)')
+    .eq('plan_id', planId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  const dealIds = (deals || []).map(d => d.id)
+  let pkgByDeal = new Map()
+  if (dealIds.length) {
+    const { data: pkgs, error: pErr } = await _sb
+      .from('packages')
+      .select('deal_id, sessions_used, sessions_total')
+      .in('deal_id', dealIds)
+    if (pErr) throw pErr
+    pkgByDeal = new Map((pkgs || []).map(p => [p.deal_id, p]))
+  }
+  return (deals || []).map(d => ({
+    ...d,
+    client_name:    d.clients?.full_name || null,
+    sessions_used:  pkgByDeal.get(d.id)?.sessions_used  ?? null,
+    sessions_total: pkgByDeal.get(d.id)?.sessions_total ?? null,
+  }))
 }
 
 async function createProduct(fields) {
