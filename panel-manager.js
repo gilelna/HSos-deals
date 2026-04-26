@@ -739,6 +739,167 @@
       '<div class="ep-card"><div class="ep-section-title">Product</div><div class="ep-v">' + productEl + '</div></div>'
   }
 
+  // Renders the deal-panel package section. Two states: no-package (Add button)
+  // and has-package (editable sessions_total + read-only used/remaining + status).
+  function renderDealPackageSection(deal, pkg) {
+    if (!pkg) {
+      return `
+        <div class="pm-pkg pm-pkg-empty">
+          <div class="ep-muted" style="margin-bottom:8px">No package on this deal.</div>
+          <button class="btn btn-sm" data-pm-pkg-action="add">+ Add package</button>
+          <div class="pm-pkg-add-form" style="display:none;margin-top:10px">
+            <label class="fl">Sessions total</label>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+              <input class="fi pm-pkg-add-input" type="number" min="1" placeholder="e.g. 10" style="flex:1;max-width:160px">
+              <button class="btn btn-primary btn-sm" data-pm-pkg-action="save-add">Save</button>
+              <button class="btn btn-sm" data-pm-pkg-action="cancel-add">Cancel</button>
+            </div>
+            <div class="pm-pkg-error" style="display:none;color:var(--red-text);font-size:11px;margin-top:6px"></div>
+          </div>
+        </div>`
+    }
+    const total = Number(pkg.sessions_total || 0)
+    const used  = Number(pkg.sessions_used  || 0)
+    const remaining = Math.max(0, total - used)
+    const status = pkg.status || 'active'
+    return `
+      <div class="pm-pkg pm-pkg-edit"
+           data-pkg-id="${esc(pkg.id || '')}"
+           data-pkg-used="${used}"
+           data-pkg-current-total="${total}">
+        <div class="pm-pkg-grid">
+          <label class="fl">Sessions total</label>
+          <div>
+            <input class="fi pm-pkg-total-input" type="number" min="0" value="${total}" style="max-width:120px">
+          </div>
+          <label class="fl">Sessions used</label>
+          <div class="pm-pkg-readonly">${used}</div>
+          <label class="fl">Remaining</label>
+          <div class="pm-pkg-readonly pm-pkg-remaining">${remaining}</div>
+          <label class="fl">Status</label>
+          <div>
+            <select class="fi pm-pkg-status">
+              <option value="active"    ${status === 'active'    ? 'selected' : ''}>Active</option>
+              <option value="completed" ${status === 'completed' ? 'selected' : ''}>Completed</option>
+              <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+          </div>
+        </div>
+        <div class="pm-pkg-error" style="display:none;color:var(--red-text);font-size:11px;margin-top:6px"></div>
+        <div class="pm-pkg-actions" style="display:none;margin-top:8px">
+          <button class="btn btn-primary btn-sm" data-pm-pkg-action="save-edit">Save</button>
+          <button class="btn btn-sm" data-pm-pkg-action="cancel-edit">Cancel</button>
+        </div>
+      </div>`
+  }
+
+  // Wire delegated click + input handlers for the package section. Idempotent
+  // when called from renderCurrent — uses a one-shot delegated listener bound
+  // to els.body, attached once.
+  function wireDealPackageSection() {
+    if (els.body._pmPkgWired) return
+    els.body._pmPkgWired = true
+
+    els.body.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-pm-pkg-action]')
+      if (!btn) return
+      const action = btn.getAttribute('data-pm-pkg-action')
+      const card = els.body.querySelector('#deal-package-card')
+      if (!card) return
+      const dealId   = card.getAttribute('data-deal-id')
+      const clientId = card.getAttribute('data-client-id')
+      const vendorId = card.getAttribute('data-vendor-id')
+
+      if (action === 'add') {
+        card.querySelector('.pm-pkg-add-form').style.display = ''
+        card.querySelector('.pm-pkg-add-input')?.focus()
+        return
+      }
+      if (action === 'cancel-add') {
+        card.querySelector('.pm-pkg-add-form').style.display = 'none'
+        card.querySelector('.pm-pkg-error').style.display = 'none'
+        return
+      }
+      if (action === 'save-add') {
+        const input = card.querySelector('.pm-pkg-add-input')
+        const errEl = card.querySelector('.pm-pkg-error')
+        const total = parseInt(input.value, 10)
+        if (!total || total < 1) {
+          errEl.textContent = 'Sessions total must be at least 1.'
+          errEl.style.display = ''
+          return
+        }
+        if (!clientId || !vendorId) {
+          errEl.textContent = 'Deal needs a client and vendor before a package can be created.'
+          errEl.style.display = ''
+          return
+        }
+        try {
+          await global.createPackage({
+            deal_id: dealId, client_id: clientId, vendor_id: vendorId,
+            sessions_total: total, sessions_used: 0, status: 'active',
+          })
+          if (typeof global.showToast === 'function') global.showToast('Package created')
+          await renderCurrent()
+        } catch (err) {
+          errEl.textContent = err.message || 'Failed to create package'
+          errEl.style.display = ''
+        }
+        return
+      }
+      if (action === 'cancel-edit') { await renderCurrent(); return }
+      if (action === 'save-edit') {
+        const wrap   = card.querySelector('.pm-pkg-edit')
+        const id     = wrap.getAttribute('data-pkg-id')
+        const used   = Number(wrap.getAttribute('data-pkg-used') || 0)
+        const errEl  = card.querySelector('.pm-pkg-error')
+        const total  = parseInt(wrap.querySelector('.pm-pkg-total-input').value, 10)
+        const status = wrap.querySelector('.pm-pkg-status').value
+        if (!total || total < 1) {
+          errEl.textContent = 'Sessions total must be at least 1.'
+          errEl.style.display = ''
+          return
+        }
+        if (status !== 'cancelled' && total < used) {
+          errEl.textContent = `Cannot set below sessions already used (${used}).`
+          errEl.style.display = ''
+          return
+        }
+        try {
+          await global.updatePackage(id, { sessions_total: total, status })
+          if (typeof global.showToast === 'function') global.showToast('Package saved')
+          await renderCurrent()
+        } catch (err) {
+          errEl.textContent = err.message || 'Failed to save package'
+          errEl.style.display = ''
+        }
+      }
+    })
+
+    // Show the [Save / Cancel] action row whenever the user dirties the form.
+    els.body.addEventListener('input', (e) => {
+      const wrap = e.target.closest('.pm-pkg-edit')
+      if (!wrap) return
+      const total = parseInt(wrap.querySelector('.pm-pkg-total-input').value, 10) || 0
+      const used  = Number(wrap.getAttribute('data-pkg-used') || 0)
+      const remEl = wrap.querySelector('.pm-pkg-remaining')
+      if (remEl) remEl.textContent = String(Math.max(0, total - used))
+      const orig  = Number(wrap.getAttribute('data-pkg-current-total') || 0)
+      const status = wrap.querySelector('.pm-pkg-status').value
+      const dirty = (total !== orig) || (status !== (wrap.dataset.pkgInitialStatus || ''))
+      const actions = wrap.parentElement.querySelector('.pm-pkg-actions')
+      if (actions) actions.style.display = ''
+      const errEl = wrap.parentElement.querySelector('.pm-pkg-error')
+      if (errEl) errEl.style.display = 'none'
+    })
+    els.body.addEventListener('change', (e) => {
+      const wrap = e.target.closest('.pm-pkg-edit')
+      if (!wrap) return
+      const actions = wrap.parentElement.querySelector('.pm-pkg-actions')
+      if (actions) actions.style.display = ''
+    })
+  }
+
   function renderDealBody(model) {
     const deal = model?.deal || {}
     const packages = model?.packages || []
@@ -778,11 +939,7 @@
       editableField('Payment link', 'payment_link', deal.payment_link, 'text'),
     ].join('')
 
-    const packageRows = packages.length
-      ? `<table class="tbl ep-mini-table"><thead><tr><th>Sessions</th><th>Used</th><th>Status</th></tr></thead><tbody>${
-          packages.map(p => `<tr><td>${esc(String(p.sessions_total || 0))}</td><td>${esc(String(p.sessions_used || 0))}</td><td>${statusBadge(p.status || 'active')}</td></tr>`).join('')
-        }</tbody></table>`
-      : '<div class="ep-muted">No packages</div>'
+    const packageSection = renderDealPackageSection(deal, packages[0] || null)
 
     const reminderRows = reminders.length
       ? `<ul class="ep-list">${reminders.map(r => `<li>${statusBadge(r.done ? 'done' : 'pending')} ${esc(r.text || 'Reminder')}</li>`).join('')}</ul>`
@@ -809,9 +966,9 @@
           <span class="ep-field-value editable">${deal.notes ? esc(deal.notes) : '<span class="ep-muted">No notes</span>'}</span>
         </div>
       </div>
-      <div class="ep-card">
-        <div class="ep-section-title">Packages</div>
-        ${packageRows}
+      <div class="ep-card" id="deal-package-card" data-deal-id="${esc(deal.id || '')}" data-client-id="${esc(deal.client_id || '')}" data-vendor-id="${esc(deal.primary_vendor_id || '')}">
+        <div class="ep-section-title">Package</div>
+        ${packageSection}
       </div>
       <div class="ep-card">
         <div class="ep-section-title">Reminders</div>
@@ -1629,6 +1786,7 @@
         vendorClassificationLookup.categories = []
         vendorClassificationLookup.tags = []
         els.body.innerHTML = renderDealBody(model)
+        wireDealPackageSection()
         return
       }
 

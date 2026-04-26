@@ -10,21 +10,22 @@ function openEditDeal(id, e) {
 }
 window.openEditDeal = openEditDeal
 
-async function _autoCreatePackage(dealId, clientId, vendorId, product) {
+async function _autoCreatePackage(dealId, clientId, vendorId, totalSessions) {
+  const total = Number(totalSessions) || 0
+  if (total < 1) return
   const { data: existing } = await _sb
     .from('packages').select('id').eq('deal_id', dealId).maybeSingle()
-  if (existing) return  // already exists
+  if (existing) return
 
-  const totalSessions = product.sessions_included || 10
   await createPackage({
-    deal_id:       dealId,
-    client_id:     clientId,
-    vendor_id:     vendorId,
-    sessions_total: totalSessions,
+    deal_id:        dealId,
+    client_id:      clientId,
+    vendor_id:      vendorId,
+    sessions_total: total,
     sessions_used:  0,
     status:         'active',
   })
-  showToast(`Package created: ${totalSessions} sessions`)
+  showToast(`Package created: ${total} sessions`)
 }
 
 async function _autoAssignVendorClient(vendorId, clientId) {
@@ -42,6 +43,81 @@ async function _autoAssignVendorClient(vendorId, clientId) {
   if (v && c) {
     if (!v.clients) v.clients = []
     if (!v.clients.find(x => x.id === clientId)) v.clients.push(c)
+  }
+}
+
+// ─── package row in step 3 (injected at runtime) ──────────────
+
+function _ndEnsurePackageRow() {
+  if (document.getElementById('nd-package-row')) return
+  const step3 = document.getElementById('nd-step-3')
+  if (!step3) return
+  const grid = step3.querySelector('div[style*="grid-template-columns:1fr 1fr"]')
+  const container = document.createElement('div')
+  container.id = 'nd-package-row'
+  container.className = 'nd-package-row'
+  const cb       = document.createElement('label')
+  cb.className   = 'cb-row'
+  cb.style.gridColumn = '1/-1'
+  const cbInput  = document.createElement('input')
+  cbInput.type   = 'checkbox'
+  cbInput.id     = 'nd-package-checkbox'
+  const cbLabel  = document.createElement('span')
+  cbLabel.textContent = 'This deal includes a session package'
+  cb.appendChild(cbInput); cb.appendChild(cbLabel)
+
+  const sessionsRow = document.createElement('div')
+  sessionsRow.id   = 'nd-package-sessions-row'
+  sessionsRow.className = 'fg'
+  sessionsRow.style.gridColumn = '1/-1'
+  sessionsRow.style.display = 'none'
+  const sLabel = document.createElement('label')
+  sLabel.className = 'fl'
+  sLabel.textContent = 'Sessions total'
+  const sInput = document.createElement('input')
+  sInput.className = 'fi'
+  sInput.type = 'number'
+  sInput.id   = 'nd-package-sessions'
+  sInput.min  = '1'
+  sInput.placeholder = 'e.g. 10'
+  sessionsRow.appendChild(sLabel); sessionsRow.appendChild(sInput)
+
+  const sectionTitle = document.createElement('div')
+  sectionTitle.className = 'nd-package-title'
+  sectionTitle.style.gridColumn = '1/-1'
+  sectionTitle.textContent = 'Package (optional)'
+
+  // Insert at end of the existing 1fr-1fr grid so it spans full width.
+  grid.appendChild(sectionTitle)
+  grid.appendChild(cb)
+  grid.appendChild(sessionsRow)
+
+  cbInput.addEventListener('change', () => {
+    sessionsRow.style.display = cbInput.checked ? '' : 'none'
+    if (cbInput.checked && !sInput.value) sInput.focus()
+  })
+}
+
+function _ndApplyPackageFromPlan(plan) {
+  const cb     = document.getElementById('nd-package-checkbox')
+  const sInput = document.getElementById('nd-package-sessions')
+  const sRow   = document.getElementById('nd-package-sessions-row')
+  if (!cb || !sInput || !sRow) return
+  // The plan's product may carry sessions_included as its package size hint.
+  // Fall back to plan.sessions_included for forward-compat if a column is added later.
+  let auto = Number(plan?.sessions_included) || 0
+  if (!auto && plan?.product_id) {
+    const prod = (window._products || []).find(p => p.id === plan.product_id)
+    auto = Number(prod?.sessions_included) || 0
+  }
+  if (auto > 0) {
+    cb.checked = true
+    sInput.value = auto
+    sRow.style.display = ''
+  } else {
+    cb.checked = false
+    sInput.value = ''
+    sRow.style.display = 'none'
   }
 }
 
@@ -184,6 +260,8 @@ function _prefillStep3FromPlan(plan) {
     if (priceEl) priceEl.value = plan.amount || ''
     if (curEl)   curEl.value   = plan.currency || 'EUR'
   }
+  _ndEnsurePackageRow()
+  _ndApplyPackageFromPlan(plan)
   calcNdVat()
   requestAnimationFrame(() => _initNdNotesQuill())
 
@@ -255,6 +333,10 @@ function openNewDeal() {
 
   document.getElementById('nd-product').innerHTML = `<option value="">— Product (optional) —</option>` +
     _products.map(p => `<option value="${p.id}">${p.name}</option>`).join('')
+
+  // Reset package row (in case it was left checked from a prior open)
+  _ndEnsurePackageRow()
+  _ndApplyPackageFromPlan(null)
 
   const hint = document.getElementById('nd-customer-hint')
   const emailEl = document.getElementById('nd-customer-email')
@@ -460,9 +542,10 @@ async function submitNewDeal() {
     closeNewDeal()
     showToast('Deal created')
 
-    const product = _products.find(p => p.id === productId)
-    if (product?.type === 'package' && vendorId && clientId) {
-      await _autoCreatePackage(newDeal.id, clientId, vendorId, product)
+    const pkgChecked = document.getElementById('nd-package-checkbox')?.checked
+    const pkgSessions = parseInt(document.getElementById('nd-package-sessions')?.value, 10) || 0
+    if (pkgChecked && pkgSessions >= 1 && vendorId && clientId) {
+      await _autoCreatePackage(newDeal.id, clientId, vendorId, pkgSessions)
     }
 
     if (vendorId && clientId) {

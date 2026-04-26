@@ -249,24 +249,11 @@ const PRODUCTS = (() => {
     <label class="fl">Name</label>
     <input type="text" id="pf-name" class="fi" value="${esc(p.name || '')}" placeholder="e.g. English Accent Mastery">
   </div>
-  <div class="form-row">
-    <div class="fg" style="flex:1">
-      <label class="fl">Category</label>
-      <select id="pf-category" class="fi fsel">
-        ${CATEGORY_OPTS.map(o => `<option value="${esc(o.value)}" ${p.category === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="fg" style="flex:1">
-      <label class="fl">Type</label>
-      <select id="pf-type" class="fi fsel">
-        ${PRODUCT_TYPE_OPTS.map(o => `<option value="${esc(o.value)}" ${p.type === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
-      </select>
-    </div>
-  </div>
-  <div class="fg" id="pf-sessions-wrap" style="${p.type === 'package' ? '' : 'display:none'}">
-    <label class="fl">Sessions included</label>
-    <input type="number" id="pf-sessions" class="fi" min="1" value="${p.sessions_included != null ? p.sessions_included : ''}" placeholder="e.g. 10">
-    <div class="products-panel-note">Used by package-type plans to set the package size at deal time.</div>
+  <div class="fg">
+    <label class="fl">Category</label>
+    <select id="pf-category" class="fi fsel">
+      ${CATEGORY_OPTS.map(o => `<option value="${esc(o.value)}" ${p.category === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+    </select>
   </div>
   <div class="fg">
     <label class="fl">Description</label>
@@ -281,13 +268,7 @@ const PRODUCTS = (() => {
 </div>`
   }
 
-  function hookProductForm() {
-    const typeSel = document.getElementById('pf-type')
-    if (!typeSel) return
-    typeSel.addEventListener('change', () => {
-      document.getElementById('pf-sessions-wrap').style.display = typeSel.value === 'package' ? '' : 'none'
-    })
-  }
+  function hookProductForm() { /* nothing to hook now that type/sessions are removed */ }
 
   function renderPlanForm() {
     const product = _products.find(x => x.id === _panel.productId) || {}
@@ -331,7 +312,7 @@ const PRODUCTS = (() => {
   <div class="fg" id="plf-package-sessions-wrap" style="${isPackage ? '' : 'display:none'}">
     <label class="fl">Sessions included</label>
     <input type="number" class="fi" value="${sessions != null ? sessions : ''}" disabled>
-    <div class="products-panel-note">Sessions come from the product (<strong>${esc(product.name || 'this product')}</strong>). Edit the product to change.</div>
+    <div class="products-panel-note">Pre-fills the package size when this plan is selected in a deal. Leave empty for non-session plans.</div>
   </div>
   <div class="form-row">
     <div class="fg" style="flex:2">
@@ -425,15 +406,9 @@ const PRODUCTS = (() => {
   async function saveProduct() {
     const name = document.getElementById('pf-name').value.trim()
     if (!name) { showToast('Product name is required', 'warn'); return }
-    const type = document.getElementById('pf-type').value || null
-    const sessions = type === 'package'
-      ? (parseInt(document.getElementById('pf-sessions').value, 10) || null)
-      : null
     const fields = {
       name,
       category:    document.getElementById('pf-category').value || null,
-      type,
-      sessions_included: sessions,
       description: document.getElementById('pf-description').value.trim() || null,
       status:      document.getElementById('pf-status').value || 'active',
     }

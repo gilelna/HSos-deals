@@ -35,6 +35,15 @@ No framework. No build step. Files served directly.
 ### Known broken right now (2026-04-22 — post UI fixes)
 - Demo DB: migration 016 (activities + profiles patch) not yet run — must be run manually at https://pqkzffgpkpovternesmt.supabase.co
 
+### Package lives in deal 2026-04-26 — known gaps & manual QA needed
+- **Where package is created and edited:** package is now a deal-time artifact, not a product/plan one. New-deal modal step 3 has a "Package (optional)" section with a checkbox + sessions-total input. When the user picks a plan in step 2, if `plan.sessions_included > 0` (or the plan's product has `sessions_included > 0`) the checkbox auto-checks and the sessions value pre-fills.
+- **Deal panel:** the old read-only Packages table is gone. The Package card shows either "+ Add package" (with inline sessions input) when none exists, or an editable `sessions_total` + read-only `sessions_used` + computed `remaining` + status select when one exists. Validation: `sessions_total >= sessions_used` (unless status = cancelled). Status auto-updates: used >= total → completed, else active. Manual override to "cancelled" always allowed.
+- **Product form:** `type` and `sessions_included` removed from the product edit panel. Columns remain in the DB. Product fields are now name / category / description / status only.
+- **Plan form:** sessions display still shows `product.sessions_included` (read-only). Hint text updated per spec.
+- **db.js:** `createPackage` insert is now field-scoped (no extra columns). `updatePackage` only accepts `sessions_total` + `status` and auto-derives status from `sessions_used` vs new `sessions_total` when only total is changed. New: `getPackagesForDeal(dealId)` returning at most one row.
+- **Note:** spec asked to write to both `total_sessions` and `sessions_total` for legacy compat — only `sessions_total` exists on demo (verified via `information_schema`); skipped the legacy write to avoid an insert error.
+- **Manual QA TODO:** create deal with plan-that-has-sessions → confirm package auto-created; create deal without plan → check package box manually → confirm package row appears; open existing deal → edit `sessions_total`; try setting it below `sessions_used` → confirm error; flip status to "completed" / "cancelled"; confirm products page doesn't show sessions/type fields anymore.
+
 ### Products rebuild 2026-04-26 — known gaps & manual QA needed
 - **Schema drift discovered:** migration 011 was marked ✅ in SCHEMA.md but had not been applied to demo. The new products page columns (`category`, `status`, `type`, `logo_url`, `price_min/max`, `currency`, `links`, `prd_uid` on products; `plan_uid`, `plan_type`, `status`, `description`, `link_source`, `link_id` on plans) were missing. **Demo:** re-applied via `migrations/017_products_type_column_and_011_reapply.sql` (idempotent). Backfilled `prd_uid` for the 18 existing products. **Production:** still needs `017` run (column drift unknown — verify before applying).
 - **Production schema:** unknown if 011 columns exist. Run 017 on prod (idempotent) before deploying products page there.

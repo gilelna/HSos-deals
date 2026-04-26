@@ -660,18 +660,49 @@ async function getPackage(id) {
 }
 
 async function createPackage(fields) {
-  const { data, error } = await _sb.from('packages').insert(fields).select().single()
+  const allowed = {
+    deal_id:        fields.deal_id || null,
+    client_id:      fields.client_id || null,
+    vendor_id:      fields.vendor_id || null,
+    product_id:     fields.product_id || null,
+    sessions_total: Number(fields.sessions_total) || 0,
+    sessions_used:  Number(fields.sessions_used) || 0,
+    status:         fields.status || 'active',
+  }
+  const { data, error } = await _sb.from('packages').insert(allowed).select().single()
   if (error) throw error
   return data
 }
 
+// Allow only sessions_total + status. Auto-update status when sessions_total
+// crosses the live sessions_used count.
 async function updatePackage(id, fields) {
+  const patch = { updated_at: new Date().toISOString() }
+  if (fields.sessions_total != null) patch.sessions_total = Number(fields.sessions_total)
+  if (fields.status != null)         patch.status = fields.status
+
+  if (patch.sessions_total != null && fields.status == null) {
+    const { data: row, error: rErr } = await _sb
+      .from('packages').select('sessions_used').eq('id', id).single()
+    if (rErr) throw rErr
+    const used = Number(row?.sessions_used || 0)
+    if (used >= patch.sessions_total) patch.status = 'completed'
+    else                              patch.status = 'active'
+  }
+
   const { data, error } = await _sb
     .from('packages')
-    .update({ ...fields, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq('id', id).select().single()
   if (error) throw error
   return data
+}
+
+async function getPackagesForDeal(dealId) {
+  const { data, error } = await _sb
+    .from('packages').select('*').eq('deal_id', dealId).limit(1)
+  if (error) throw error
+  return data || []
 }
 
 async function adjustPackageSessions(packageId, delta) {

@@ -3438,3 +3438,38 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   accent-color: var(--green);
   flex-shrink: 0;
 }
+
+/* ── new-deal modal package row ───────────────────────────── */
+.nd-package-title {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--mu2);
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border2);
+}
+
+/* ── deal panel package section (panel-manager) ───────────── */
+.pm-pkg { font-size: 12px; }
+.pm-pkg-empty .ep-muted { font-size: 12px; }
+.pm-pkg-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  row-gap: 8px;
+  column-gap: 12px;
+  align-items: center;
+}
+.pm-pkg-grid .fl {
+  font-size: 11px;
+  color: var(--mu);
+  margin: 0;
+}
+.pm-pkg-readonly {
+  font-size: 13px;
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+.pm-pkg-actions { display: flex; gap: 6px; }
+.pm-pkg-add-form .fl { font-size: 11px; color: var(--mu); }
