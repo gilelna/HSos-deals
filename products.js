@@ -9,6 +9,7 @@ const PRODUCTS = (() => {
     { db: 'package',      label: 'package' },
   ]
   const PLAN_TYPE_DB_TO_LABEL = Object.fromEntries(PLAN_TYPE_OPTS.map(o => [o.db, o.label]))
+  const PAYMENT_TYPE_OPTS = PLAN_TYPE_OPTS.filter(o => o.db !== 'package')
 
   const PRODUCT_TYPE_OPTS = [
     { value: '',         label: '— select —' },
@@ -114,20 +115,20 @@ const PRODUCTS = (() => {
     if (!plans.length) {
       return '<div class="products-plans-empty">No plans yet — click <strong>+ Add plan</strong> above.</div>'
     }
-    return '<div class="products-plans-grid">' + plans.map(pl => renderPlanCard(pl, product)).join('') + '</div>'
+    return '<div class="plans-row">' + plans.map(pl => renderPlanCard(pl, product)).join('') + '</div>'
   }
 
   function renderPlanCard(plan, product) {
     const dbType = plan.plan_type || 'one_time'
+    const isPackage = dbType === 'package'
     const typeLabel = PLAN_TYPE_DB_TO_LABEL[dbType] || dbType
     const status = plan.status || 'active'
     const amount = plan.amount != null ? Number(plan.amount).toLocaleString() : '—'
     const currency = plan.currency || ''
     const rail = formatRail(plan.payment_rail)
-    const isPackage = dbType === 'package'
     const sessions = product.sessions_included
     return `
-<div class="plan-card type-${esc(dbType)} ${status === 'archived' ? 'is-archived' : status === 'draft' ? 'is-draft' : ''}"
+<div class="plan-card-float type-${esc(dbType)} ${status === 'archived' ? 'is-archived' : status === 'draft' ? 'is-draft' : ''}"
      id="plan-card-${esc(plan.id)}"
      onclick="PRODUCTS.openEditPlan('${esc(product.id)}','${esc(plan.id)}')">
   <div class="plan-card-name">${esc(plan.name || typeLabel)}</div>
@@ -136,8 +137,9 @@ const PRODUCTS = (() => {
     <span class="plan-card-currency">${esc(currency)}</span>
   </div>
   <div class="plan-card-meta">
-    <span class="plan-type-badge ${esc(dbType)}">${esc(typeLabel)}</span>
-    ${isPackage && sessions ? `<span class="plan-package-badge">📦 ${sessions} session${sessions === 1 ? '' : 's'}</span>` : ''}
+    ${isPackage
+      ? (sessions ? `<span class="plan-package-badge">📦 ${sessions} session${sessions === 1 ? '' : 's'}</span>` : `<span class="plan-package-badge">📦 package</span>`)
+      : `<span class="plan-type-badge ${esc(dbType)}">${esc(typeLabel)}</span>`}
   </div>
   ${rail ? `<div class="plan-card-rail">${esc(rail)}</div>` : ''}
 </div>`
@@ -293,9 +295,12 @@ const PRODUCTS = (() => {
       ? ((product.plans || []).find(x => x.id === _panel.planId) || {})
       : {}
     const dbType = pl.plan_type || 'one_time'
-    const isInstall = dbType === 'installment'
     const isPackage = dbType === 'package'
-    const isPackageProduct = product.type === 'package'
+    // Payment-type dropdown reflects only one_time/installment/subscription.
+    // When the row's plan_type is 'package', fall back to one_time as the latent payment type.
+    const paymentType = isPackage ? 'one_time' : dbType
+    const isInstall = paymentType === 'installment'
+    const sessions = product.sessions_included
     return `
 <div class="products-panel-section">
   <div class="fg">
@@ -304,9 +309,9 @@ const PRODUCTS = (() => {
   </div>
   <div class="form-row">
     <div class="fg" style="flex:1">
-      <label class="fl">Type</label>
-      <select id="plf-type" class="fi fsel">
-        ${PLAN_TYPE_OPTS.map(o => `<option value="${esc(o.db)}" ${dbType === o.db ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+      <label class="fl">Payment type</label>
+      <select id="plf-payment-type" class="fi fsel" ${isPackage ? 'disabled' : ''}>
+        ${PAYMENT_TYPE_OPTS.map(o => `<option value="${esc(o.db)}" ${paymentType === o.db ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
       </select>
     </div>
     <div class="fg" style="flex:1">
@@ -315,6 +320,18 @@ const PRODUCTS = (() => {
         ${STATUS_OPTS.map(o => `<option value="${esc(o.value)}" ${(pl.status || 'active') === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
       </select>
     </div>
+  </div>
+  <div class="fg" style="margin-top:6px">
+    <label class="cb-row">
+      <input type="checkbox" id="plf-is-package" ${isPackage ? 'checked' : ''}>
+      <span>This plan includes a session package</span>
+    </label>
+    <div class="products-panel-note">When checked, the plan is treated as a package and the payment type is ignored.</div>
+  </div>
+  <div class="fg" id="plf-package-sessions-wrap" style="${isPackage ? '' : 'display:none'}">
+    <label class="fl">Sessions included</label>
+    <input type="number" class="fi" value="${sessions != null ? sessions : ''}" disabled>
+    <div class="products-panel-note">Sessions come from the product (<strong>${esc(product.name || 'this product')}</strong>). Edit the product to change.</div>
   </div>
   <div class="form-row">
     <div class="fg" style="flex:2">
@@ -338,7 +355,7 @@ const PRODUCTS = (() => {
     <label class="fl">Payment link URL</label>
     <input type="url" id="plf-link-url" class="fi" value="${esc(pl.link_url || '')}" placeholder="https://…">
   </div>
-  <div class="fg" id="plf-installments-wrap" style="${isInstall ? '' : 'display:none'}">
+  <div class="fg" id="plf-installments-wrap" style="${isInstall && !isPackage ? '' : 'display:none'}">
     <label class="fl">Installments count</label>
     <input type="number" id="plf-installments" class="fi" min="2" max="36" value="${pl.installments_count != null ? pl.installments_count : ''}" placeholder="e.g. 3">
   </div>
@@ -346,30 +363,22 @@ const PRODUCTS = (() => {
     <label class="fl">Target country <span style="color:var(--mu2);font-weight:400">(optional)</span></label>
     <input type="text" id="plf-country" class="fi" value="${esc(pl.target_customer_country || '')}" placeholder="e.g. IL, US, EU">
   </div>
-</div>
-
-<div class="products-panel-section" id="plf-package-section" style="${isPackage ? '' : 'display:none'}">
-  <div class="products-panel-section-title">Package</div>
-  <div class="fg">
-    <label class="fl">Sessions included</label>
-    <input type="number" class="fi" value="${product.sessions_included != null ? product.sessions_included : ''}" disabled>
-    <div class="products-panel-note">
-      ${isPackageProduct
-        ? 'Sessions are set on the product. Edit the product to change.'
-        : 'Set sessions on the product (Type = package). Package auto-creates when deal is made.'}
-    </div>
-  </div>
 </div>`
   }
 
   function hookPlanForm() {
-    const typeSel = document.getElementById('plf-type')
-    if (!typeSel) return
-    typeSel.addEventListener('change', () => {
-      const v = typeSel.value
-      document.getElementById('plf-installments-wrap').style.display = v === 'installment' ? '' : 'none'
-      document.getElementById('plf-package-section').style.display    = v === 'package' ? '' : 'none'
-    })
+    const ptSel = document.getElementById('plf-payment-type')
+    const cb    = document.getElementById('plf-is-package')
+    if (!ptSel || !cb) return
+    const sync = () => {
+      const checked = cb.checked
+      ptSel.disabled = checked
+      document.getElementById('plf-package-sessions-wrap').style.display = checked ? '' : 'none'
+      document.getElementById('plf-installments-wrap').style.display =
+        (!checked && ptSel.value === 'installment') ? '' : 'none'
+    }
+    cb.addEventListener('change', sync)
+    ptSel.addEventListener('change', sync)
   }
 
   async function renderDealsTab(body) {
@@ -446,8 +455,10 @@ const PRODUCTS = (() => {
   async function savePlan() {
     const amount = parseFloat(document.getElementById('plf-amount').value)
     if (isNaN(amount) || amount < 0) { showToast('Amount is required', 'warn'); return }
-    const planType = document.getElementById('plf-type').value || 'one_time'
-    const installments = planType === 'installment'
+    const isPackage   = document.getElementById('plf-is-package').checked
+    const paymentType = document.getElementById('plf-payment-type').value || 'one_time'
+    const planType    = isPackage ? 'package' : paymentType
+    const installments = (!isPackage && paymentType === 'installment')
       ? (parseInt(document.getElementById('plf-installments').value, 10) || null)
       : null
     const railVal = document.getElementById('plf-rail').value || null

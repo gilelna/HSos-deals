@@ -2955,8 +2955,7 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1100px;
-  margin: 0 auto 18px;
+  margin: 0 0 18px;
 }
 .products-page-title {
   font-family: var(--font-serif-title);
@@ -2969,8 +2968,6 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 1100px;
-  margin: 0 auto;
 }
 
 .products-empty {
@@ -3380,4 +3377,64 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   text-transform: uppercase;
   letter-spacing: .06em;
   color: var(--mu2);
+}
+
+/* ── plans row + floating plan card (2026-04-26 layout update) ── */
+.plans-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.plan-card-float {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--mu2);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.06);
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 110px;
+}
+.plan-card-float:hover {
+  border-color: var(--blue);
+  box-shadow: 0 4px 12px rgba(37,99,235,0.12);
+}
+.plan-card-float.is-archived { opacity: .5; }
+.plan-card-float.is-draft    { opacity: .75; }
+.plan-card-float.type-one_time     { border-left-color: var(--mu2); }
+.plan-card-float.type-installment  { border-left-color: var(--blue); }
+.plan-card-float.type-installments { border-left-color: var(--blue); }
+.plan-card-float.type-subscription { border-left-color: var(--purple); }
+.plan-card-float.type-package      { border-left-color: var(--green); }
+.plan-card-float .plan-card-name { font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.plan-card-float .plan-card-amount-row { display: flex; align-items: baseline; gap: 6px; }
+.plan-card-float .plan-card-amount { font-size: 18px; font-weight: 700; color: var(--ink); font-family: var(--font-serif-title); }
+.plan-card-float .plan-card-currency { font-size: 11px; color: var(--mu); font-family: var(--font-mono); }
+.plan-card-float .plan-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-card-float .plan-card-rail { font-size: 10px; color: var(--mu2); font-family: var(--font-mono); margin-top: auto; }
+
+/* checkbox row inside plan form */
+.cb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+.cb-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--green);
+  flex-shrink: 0;
 }
