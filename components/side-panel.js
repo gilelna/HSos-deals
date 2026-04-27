@@ -566,6 +566,167 @@
     return section
   }
 
+  function mountVendorFields(e) {
+    const section = document.createElement('div'); section.className = 'sp2-section'
+
+    const row1 = document.createElement('div'); row1.className = 'sp2-fields-row'; section.appendChild(row1)
+    const nameCell  = document.createElement('div'); nameCell.className  = 'sp2-field'; row1.appendChild(nameCell)
+    const emailCell = document.createElement('div'); emailCell.className = 'sp2-field'; row1.appendChild(emailCell)
+
+    const row2 = document.createElement('div'); row2.className = 'sp2-fields-row'; section.appendChild(row2)
+    const typeCell = document.createElement('div'); typeCell.className = 'sp2-field'; row2.appendChild(typeCell)
+    const curCell  = document.createElement('div'); curCell.className  = 'sp2-field'; row2.appendChild(curCell)
+
+    const row3 = document.createElement('div'); row3.className = 'sp2-fields-row'; section.appendChild(row3)
+    const phoneCell  = document.createElement('div'); phoneCell.className  = 'sp2-field'; row3.appendChild(phoneCell)
+    const payoutCell = document.createElement('div'); payoutCell.className = 'sp2-field'; row3.appendChild(payoutCell)
+
+    global.PanelEditor.field({
+      container: nameCell, label: 'Name', value: e.full_name || e.name || '',
+      type: 'text', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { full_name: next })
+        if (updated) Object.assign(e, updated)
+        else e.full_name = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: emailCell, label: 'Email', value: e.email || '',
+      type: 'email', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { email: next })
+        if (updated) Object.assign(e, updated)
+        else e.email = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: typeCell, label: 'Type', value: e.vendor_type || '',
+      type: 'select', saveMode: 'explicit',
+      options: [
+        { value: 'coach',       label: 'Coach' },
+        { value: 'contractor',  label: 'Contractor' },
+        { value: 'team_member', label: 'Team member' },
+        { value: 'merchant',    label: 'Merchant' },
+      ],
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { vendor_type: next })
+        if (updated) Object.assign(e, updated)
+        else e.vendor_type = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: curCell, label: 'Currency', value: e.payout_currency || '',
+      type: 'select', saveMode: 'explicit',
+      options: [
+        { value: 'USD', label: 'USD' },
+        { value: 'EUR', label: 'EUR' },
+        { value: 'ILS', label: 'ILS' },
+        { value: 'GBP', label: 'GBP' },
+      ],
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { payout_currency: next })
+        if (updated) Object.assign(e, updated)
+        else e.payout_currency = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: phoneCell, label: 'Phone', value: e.phone || '',
+      type: 'text', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { phone: next })
+        if (updated) Object.assign(e, updated)
+        else e.phone = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: payoutCell, label: 'Payout method', value: e.payout_method || '',
+      type: 'text', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { payout_method: next })
+        if (updated) Object.assign(e, updated)
+        else e.payout_method = next
+        return updated
+      },
+    })
+
+    return section
+  }
+
+  function mountClientFields(e) {
+    const section = document.createElement('div'); section.className = 'sp2-section'
+
+    const row1 = document.createElement('div'); row1.className = 'sp2-fields-row'; section.appendChild(row1)
+    const nameCell  = document.createElement('div'); nameCell.className  = 'sp2-field'; row1.appendChild(nameCell)
+    const emailCell = document.createElement('div'); emailCell.className = 'sp2-field'; row1.appendChild(emailCell)
+
+    const row2 = document.createElement('div'); row2.className = 'sp2-fields-row'; section.appendChild(row2)
+    const statusCell = document.createElement('div'); statusCell.className = 'sp2-field'; row2.appendChild(statusCell)
+    const vendorCell = document.createElement('div'); vendorCell.className = 'sp2-field'; row2.appendChild(vendorCell)
+
+    global.PanelEditor.field({
+      container: nameCell, label: 'Name', value: e.full_name || e.name || '',
+      type: 'text', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateClient(e.id, { full_name: next })
+        if (updated) Object.assign(e, updated)
+        else e.full_name = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: emailCell, label: 'Email', value: e.email || '',
+      type: 'email', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateClient(e.id, { email: next })
+        if (updated) Object.assign(e, updated)
+        else e.email = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: statusCell, label: 'Status', value: e.active === true ? 'active' : 'inactive',
+      type: 'select', saveMode: 'explicit',
+      options: [
+        { value: 'active',   label: 'active' },
+        { value: 'inactive', label: 'inactive' },
+      ],
+      onSave: async (next) => {
+        const updated = await global.updateClient(e.id, { active: next === 'active' })
+        if (updated) Object.assign(e, updated)
+        else e.active = next === 'active'
+        return updated
+      },
+    })
+
+    // Assigned vendor: clients table has no direct column for this — assignments
+    // live in vendor_client_assignments. Read-only placeholder for this session;
+    // editing requires modifying the join table (follow-up).
+    const labelEl = document.createElement('div')
+    labelEl.className = 'pe-field-label'
+    labelEl.textContent = 'Assigned vendor'
+    const dispEl = document.createElement('div')
+    dispEl.className = 'pe-field-display'
+    dispEl.style.cursor = 'default'
+    dispEl.textContent = '—'
+    const wrap = document.createElement('div'); wrap.className = 'pe-field'
+    wrap.appendChild(labelEl); wrap.appendChild(dispEl)
+    vendorCell.appendChild(wrap)
+
+    return section
+  }
+
   function mountNotesField(type, e) {
     const section = document.createElement('div')
     section.className = 'sp2-section sp2-section-inverted'
@@ -655,9 +816,18 @@
       els.body.appendChild(mountNotesField(type, e))
       appendHtmlSection(els.body, remindersBlock(rel.reminders))
       appendHtmlSection(els.body, documentsBlock(rel.documents))
+    } else if (type === 'vendor') {
+      els.body.appendChild(mountVendorFields(e))
+      els.body.appendChild(mountNotesField(type, e))
+      appendHtmlSection(els.body, remindersBlock(rel.reminders))
+      appendHtmlSection(els.body, documentsBlock(rel.documents))
+    } else if (type === 'client') {
+      els.body.appendChild(mountClientFields(e))
+      els.body.appendChild(mountNotesField(type, e))
+      appendHtmlSection(els.body, remindersBlock(rel.reminders))
+      appendHtmlSection(els.body, documentsBlock(rel.documents))
     } else {
-      // Other types still go through the legacy HTML-string path (Task 5 will
-      // migrate vendor + client to the new mounter pattern).
+      // session / bill / product / plan: legacy HTML path.
       // sections[] are built by helpers that esc() all user values.
       const sections = [
         inlineFieldsBlock(inlineFieldsFor(type, e, rel)),
