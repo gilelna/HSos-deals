@@ -180,15 +180,16 @@
 
   function pill(palette, value, opts) {
     opts = opts || {}
-    const p = (PILLS[palette] || {})[value]
-    if (!p) {
-      return '<span class="sp2-pill" style="background:#F1EFE8;color:#5F5E5A">' + esc(value || '—') + '</span>'
-    }
+    const safeValue = value || ''
     const clickable = opts.clickable ? ' sp2-pill-click' : ''
     const dataAttrs = opts.clickable
-      ? ' data-palette="' + esc(palette) + '" data-status="' + esc(value) + '" data-field="' + esc(opts.field || '') + '"'
-      : ''
-    return '<span class="sp2-pill' + clickable + '" style="background:' + p.bg + ';color:' + p.color + '"' + dataAttrs + '>' + esc(value) + '</span>'
+      ? ' data-palette="' + esc(palette) + '" data-status="' + esc(safeValue) + '" data-field="' + esc(opts.field || '') + '"'
+      : ' data-status="' + esc(safeValue) + '"'
+    // Coloring sourced from .badge[data-status] in shared.css. The
+    // `sp2-pill` class keeps the click cursor + size for the side-panel
+    // context. PILLS palette retained for any legacy lookups but no longer
+    // drives inline color.
+    return '<span class="badge sp2-pill' + clickable + '"' + dataAttrs + '>' + esc(safeValue || '—') + '</span>'
   }
 
   // ─── DOM scaffold (built with safe DOM APIs, not innerHTML) ────────

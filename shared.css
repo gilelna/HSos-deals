@@ -19,6 +19,7 @@
   --red:         #E24B4A; --red-bg:   #FAECE7; --red-text:   #712B13;
   --purple:      #534AB7; --purple-bg:#EEEDFE; --purple-text:#3C3489;
   --gold-bg:     #fff8e0;
+  --gold-text:   #6b5a1f;
 
   /* typography */
   --font-sans:        'DM Sans', sans-serif;
@@ -4007,3 +4008,27 @@ body.sp2-open { overflow: hidden; }
   color: var(--ink);
   font-weight: 500;
 }
+
+/* === Unified status badges (data-status driven) === */
+/* sales_status */
+.badge[data-status="lead"]      { background: var(--bg);        color: var(--mu);          border-color: var(--border2); }
+.badge[data-status="qualified"] { background: var(--amber-bg);  color: var(--amber-text);  border-color: var(--amber); }
+.badge[data-status="active"]    { background: var(--green-bg);  color: var(--green-text);  border-color: var(--green); }
+.badge[data-status="delivered"] { background: var(--purple-bg); color: var(--purple-text); border-color: var(--purple); }
+.badge[data-status="closed"]    { background: var(--blue-bg);   color: var(--blue-text);   border-color: var(--blue); }
+
+/* billing_status */
+.badge[data-status="pending"]   { background: var(--bg);       color: var(--mu);         border-color: var(--border2); }
+.badge[data-status="link_sent"] { background: var(--blue-bg);  color: var(--blue-text);  border-color: var(--blue); }
+.badge[data-status="invoiced"]  { background: var(--blue-bg);  color: var(--blue-text);  border-color: var(--blue); }
+.badge[data-status="partial"]   { background: var(--gold-bg);  color: var(--gold-text);  border-color: var(--gold); }
+.badge[data-status="paid"]      { background: var(--green-bg); color: var(--green-text); border-color: var(--green); }
+.badge[data-status="overdue"]   { background: var(--red-bg);   color: var(--red-text);   border-color: var(--red); }
+
+/* bill.status */
+.badge[data-status="draft"]        { background: var(--bg);       color: var(--mu);         border-color: var(--border2); }
+.badge[data-status="submitted"]    { background: var(--amber-bg); color: var(--amber-text); border-color: var(--amber); }
+.badge[data-status="approved"]     { background: var(--green-bg); color: var(--green-text); border-color: var(--green); }
+.badge[data-status="rejected"]     { background: var(--red-bg);   color: var(--red-text);   border-color: var(--red); }
+.badge[data-status="ready_to_pay"] { background: var(--green-bg); color: var(--green-text); border-color: var(--green); }
+.badge[data-status="returned"]     { background: var(--red-bg);   color: var(--red-text);   border-color: var(--red); }
