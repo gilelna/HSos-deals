@@ -117,6 +117,25 @@ function _groupHeaderRow(label, count, colspan = 5) {
   `
 }
 
+// Skeleton rows shown before initial loadData() resolves. Static markup;
+// no user-supplied strings.
+function renderVendorsSkeleton() {
+  const tbody = document.getElementById('vendors-tbody')
+  if (!tbody || _vendors.length) return
+  let html = ''
+  for (let i = 0; i < 8; i++) {
+    html +=
+      '<tr><td colspan="5" style="padding:8px 12px">' +
+        '<div class="skeleton-row" style="padding:0">' +
+          '<div class="skeleton-shimmer" style="width:24px;height:24px;border-radius:50%;flex:0 0 auto"></div>' +
+          '<div class="skeleton-shimmer" style="width:50%"></div>' +
+        '</div>' +
+      '</td></tr>'
+  }
+  tbody.innerHTML = html
+}
+window.renderVendorsSkeleton = renderVendorsSkeleton
+
 function renderVendors() {
   const tbody = document.getElementById('vendors-tbody')
   if (!tbody) return

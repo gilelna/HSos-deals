@@ -49,6 +49,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 })
 
 async function loadData() {
+  // Paint skeleton placeholders before awaiting fetches, so navigating
+  // straight to clients/vendors doesn't show an empty pane.
+  window.renderClientsSkeleton?.()
+  window.renderVendorsSkeleton?.()
   try {
     const [deals, clients, vendors, vendorsInactive, products, companies] = await Promise.all([
       getDeals(),

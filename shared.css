@@ -4076,3 +4076,26 @@ body.sp2-open { overflow: hidden; }
   color: var(--mu);
   font-size: 12px;
 }
+
+/* === SKELETON === */
+/* Shimmering placeholder for content that's still loading. Used by side-panel
+   body, list rows, etc. Pair multiple .skeleton-shimmer lines with .skeleton-stack. */
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: hsos-shimmer 1.2s infinite;
+  border-radius: 4px;
+  height: 14px;
+}
+@keyframes hsos-shimmer {
+  0%   { background-position:  200% 0 }
+  100% { background-position: -200% 0 }
+}
+.skeleton-stack { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+.skeleton-stack .skeleton-shimmer:nth-child(1) { width: 60%; }
+.skeleton-stack .skeleton-shimmer:nth-child(2) { width: 85%; }
+.skeleton-stack .skeleton-shimmer:nth-child(3) { width: 40%; }
+.skeleton-stack .skeleton-shimmer:nth-child(4) { width: 75%; height: 32px; }
+.skeleton-stack .skeleton-shimmer:nth-child(5) { width: 50%; }
+.skeleton-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+.skeleton-row .skeleton-shimmer { flex: 1; }

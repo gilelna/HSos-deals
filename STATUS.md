@@ -1,8 +1,26 @@
 # HSos — STATUS.md
 _Living handoff file. Update at end of every session._
-Last updated: 2026-04-27 (Deals & Payments QA pass — enum fix, inline editing, dashboard wiring, kanban toggle)
+Last updated: 2026-04-27 (Performance pass — cache layer, hover prefetch, skeleton UI for Deal panel / Clients / Vendors)
 
 ---
+
+### Performance pass 2026-04-27 — done
+- **Cache layer:** new `cache.js` with 5-min TTL, in-flight guard (coalesces concurrent fetches for same key), eviction at >150 entries. Loaded between `db.js` and `app.js` in all 12 active HTML pages. `Cache.readThrough(key, fetcher)` is the canonical helper.
+- **Cached entity reads:** `getDeal/getClient/getVendor` (detail) + `getClients/getVendors/getVendorsInactive` (list) all go through read-through cache. Cache keys: `deal:<id>`, `client:<id>`, `vendor:<id>`, `clients:list`, `deals:list`, `vendors:list:active`, `vendors:list:inactive`.
+- **Invalidation:** every write path (create/update/delete) on `deals`, `clients`, `vendors` invalidates the matching detail key + list key adjacent to the successful insert/update/delete in `db.js`.
+- **Hover prefetch:** `deals-kanban.js` adds delegated `mouseover` listener on kanban + list containers. On hover, calls `getDeal(id)` to warm the cache (skipped if already cached or in-flight). Card click → side-panel hits warm cache.
+- **Skeleton UI:** `.skeleton-shimmer` + `.skeleton-stack` + `.skeleton-row` styles in shared.css. `components/side-panel.js openPanel()` paints a 5-line skeleton stack before data resolves (replaces "Loading…"). `renderClientsSkeleton()` / `renderVendorsSkeleton()` paint 8 placeholder rows during initial `loadData()`.
+- **Explicit select:** `getDeal()` now selects an explicit 19-column list (drops 5 unused gateway-ref cols: `gi_client_id`, `gi_invoice_series`, `wise_iban`, `wise_bank_ref`, `thrive_ref`). `getClients()` (list) drops `notes` from the row payload — `getClient(id)` (detail) keeps `select('*')`. `getVendors()` keeps `select('*')` because every column is consumed somewhere.
+- **Migration 018 (proposed):** SKIPPED — audit on 2026-04-27 confirmed all proposed indexes already exist; `vendor_hours.paycheck_id` does not exist. See SCHEMA.md migration log for the rationale.
+
+### Performance pass — manual QA (Gil, run after pulling)
+1. Open Operations → click into a deal card → side panel shows skeleton briefly → data fills in.
+2. Hover (don't click) over a deal card → no visible UI change → click → panel opens noticeably faster (cache warm).
+3. Edit a deal field → save → close panel → reopen → reflects new value (write invalidated detail key).
+4. Open Clients page on cold load → 8 skeleton rows visible briefly → list resolves.
+5. Open Vendors page on cold load → skeleton rows in tbody briefly → list resolves.
+6. Network tab: navigate Deal → Deal → Deal (same id) → only ONE `/rest/v1/deals?...id=eq.<id>` request total within 5 minutes.
+7. Console clean — no errors. `window.Cache.get('deal:<id>')` returns the cached deal in DevTools after opening it.
 
 ### Deals & Payments QA pass 2026-04-27 — done
 - **Side panel:** sales_status enum fix (UI cycle now matches DB: lead | qualified | active | delivered | closed); panel width responsive via clamp(300px, 30vw, 500px) using shared --sp-width custom property; empty package section confirmed hidden.

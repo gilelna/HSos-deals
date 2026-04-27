@@ -97,6 +97,25 @@ function renderKanban() {
       renderKanban()
     })
   })
+
+  _wirePrefetchOnce(el)
+}
+
+// Delegated hover-prefetch for deal cards. Attached once per container element
+// (kanban or list tbody). On hover, warms the deal:<id> cache via getDeal().
+const _PREFETCH_FLAG = '__hsosPrefetchWired'
+function _wirePrefetchOnce(container) {
+  if (!container || container[_PREFETCH_FLAG]) return
+  container[_PREFETCH_FLAG] = true
+  container.addEventListener('mouseover', e => {
+    const card = e.target.closest('[data-deal-id]')
+    if (!card || !container.contains(card)) return
+    const id = card.dataset.dealId
+    if (!id || !window.Cache || !window.getDeal) return
+    const key = 'deal:' + id
+    if (window.Cache.get(key) || window.Cache.isInFlight(key)) return
+    window.getDeal(id).catch(() => { /* prefetch failures are silent */ })
+  })
 }
 
 function kanbanCardCondensed(d) {
@@ -105,7 +124,7 @@ function kanbanCardCondensed(d) {
   const price  = d.agreed_price != null ? fmt(finalAmt(d.agreed_price, d.vat_pct, d.vat_mode), d.agreed_currency) : ''
   const status = d.sales_status || ''
   return `
-    <div class="kanban-card kanban-card-condensed" onclick="openEditDeal('${d.id}',event)">
+    <div class="kanban-card kanban-card-condensed" data-deal-id="${d.id}" onclick="openEditDeal('${d.id}',event)">
       <span class="kc-name">${escHtml(client)}</span>
       <span class="badge kc-stage" data-status="${escHtml(status)}">${escHtml(status)}</span>
       ${price ? `<span class="kc-price">${price}</span>` : ''}
@@ -129,7 +148,7 @@ function kanbanCard(d) {
     : ''
 
   return `
-    <div class="kanban-card" onclick="openEditDeal('${d.id}',event)">
+    <div class="kanban-card" data-deal-id="${d.id}" onclick="openEditDeal('${d.id}',event)">
       <div style="margin-bottom:4px">
         <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.3">${product}</div>
       </div>
@@ -175,7 +194,7 @@ function renderList() {
     const stage   = STAGES.find(s => s.key === d.sales_status)
     const bColor  = BILLING_COLORS[d.billing_status] || 'var(--mu2)'
     return `
-      <tr onclick="openEditDeal('${d.id}',event)" style="cursor:pointer">
+      <tr data-deal-id="${d.id}" onclick="openEditDeal('${d.id}',event)" style="cursor:pointer">
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="av av-sm" style="background:${avatarBg(client)};color:${avatarFg(client)}">${initials(client)}</div>
@@ -191,4 +210,5 @@ function renderList() {
       </tr>
     `
   }).join('')
+  _wirePrefetchOnce(tbody)
 }

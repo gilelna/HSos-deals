@@ -62,7 +62,22 @@ async function _hydrateVendors(vendors) {
   }))
 }
 
+// List view consumes: id, full_name, name, vendor_type, payout_currency,
+// is_active, active, email, company_id, vendor_clients (via _hydrateVendors).
+// Detail panel additionally consumes notes, category_id, tags, payment_cadence,
+// + rates[] (via _hydrateVendors). Other UI fields like profile_picture_url,
+// phone, city, country, tax_id, zip_code, nationality, state, currency,
+// preferred_currency are referenced in code but DO NOT EXIST on the demo
+// vendors table — they read as undefined today. select('*') here keeps the
+// behavior unchanged so generated columns full_name/active continue to flow.
 async function getVendors() {
+  if (window.Cache) {
+    return window.Cache.readThrough('vendors:list:active', _fetchVendorsActiveFresh)
+  }
+  return _fetchVendorsActiveFresh()
+}
+
+async function _fetchVendorsActiveFresh() {
   const { data, error } = await _withVendorActiveFilter(_sb
     .from('vendors')
     .select('*'), true)
@@ -72,6 +87,13 @@ async function getVendors() {
 }
 
 async function getVendorsInactive() {
+  if (window.Cache) {
+    return window.Cache.readThrough('vendors:list:inactive', _fetchVendorsInactiveFresh)
+  }
+  return _fetchVendorsInactiveFresh()
+}
+
+async function _fetchVendorsInactiveFresh() {
   const { data, error } = await _withVendorActiveFilter(_sb
     .from('vendors')
     .select('*'), false)
@@ -93,6 +115,13 @@ async function getLatestBillForVendor(vendorId) {
 }
 
 async function getVendor(id) {
+  if (window.Cache) {
+    return window.Cache.readThrough('vendor:' + id, () => _fetchVendorFresh(id))
+  }
+  return _fetchVendorFresh(id)
+}
+
+async function _fetchVendorFresh(id) {
   const { data, error } = await _sb
     .from('vendors')
     .select('*')
@@ -116,18 +145,23 @@ function _mapVendor(v) {
 async function createVendor(fields) {
   const { data, error } = await _sb.from('vendors').insert(fields).select().single()
   if (error) throw error
+  window.Cache?.invalidatePrefix('vendors:list')
   return data
 }
 
 async function updateVendor(id, fields) {
   const { data, error } = await _sb.from('vendors').update(fields).eq('id', id).select().single()
   if (error) throw error
+  window.Cache?.invalidate('vendor:' + id)
+  window.Cache?.invalidatePrefix('vendors:list')
   return data
 }
 
 async function deleteVendor(id) {
   const { error } = await _sb.from('vendors').delete().eq('id', id)
   if (error) throw error
+  window.Cache?.invalidate('vendor:' + id)
+  window.Cache?.invalidatePrefix('vendors:list')
 }
 
 // ─── rates ───────────────────────────────────────────────────
@@ -214,17 +248,36 @@ async function getVendorClientsForClient(clientId) {
 
 // ─── clients ─────────────────────────────────────────────────
 
+// List view + FK pickers + side-panel option loader all consume this:
+// id, full_name, email, phone, client_kind, company, source, active.
+// Detail-only fields (notes, customer_id, customer_id_fk, created_at) come
+// via getClient(id). Update this comment if list consumers change.
 async function getClients() {
+  if (window.Cache) {
+    return window.Cache.readThrough('clients:list', _fetchClientsListFresh)
+  }
+  return _fetchClientsListFresh()
+}
+
+async function _fetchClientsListFresh() {
   const { data, error } = await _sb
     .from('clients')
-    .select('*')
+    .select('id, full_name, email, phone, client_kind, company, source, active, created_at')
     .eq('active', true)
     .order('full_name')
   if (error) throw error
   return data
 }
 
+// Client detail panel renders all columns including notes + customer_id refs.
 async function getClient(id) {
+  if (window.Cache) {
+    return window.Cache.readThrough('client:' + id, () => _fetchClientFresh(id))
+  }
+  return _fetchClientFresh(id)
+}
+
+async function _fetchClientFresh(id) {
   const { data, error } = await _sb.from('clients').select('*').eq('id', id).single()
   if (error) throw error
   return data
@@ -233,18 +286,23 @@ async function getClient(id) {
 async function createClient(fields) {
   const { data, error } = await _sb.from('clients').insert(fields).select().single()
   if (error) throw error
+  window.Cache?.invalidate('clients:list')
   return data
 }
 
 async function updateClient(id, fields) {
   const { data, error } = await _sb.from('clients').update(fields).eq('id', id).select().single()
   if (error) throw error
+  window.Cache?.invalidate('client:' + id)
+  window.Cache?.invalidate('clients:list')
   return data
 }
 
 async function deleteClient(id) {
   const { error } = await _sb.from('clients').delete().eq('id', id)
   if (error) throw error
+  window.Cache?.invalidate('client:' + id)
+  window.Cache?.invalidate('clients:list')
 }
 
 // ─── products ────────────────────────────────────────────────
@@ -486,15 +544,32 @@ async function getDeals(filters = {}) {
   return _hydrateDealsRelations(data)
 }
 
+// Panel renders: id, client_id, primary_vendor_id, product_id, plan_id, vat_pct,
+//   vat_mode, sales_status, billing_status, payment_processor, payment_method,
+//   payment_link, notes, created_at, updated_at, origin, external_id,
+//   agreed_price, agreed_currency  + nested clients(*), deal_documents(*),
+//   deal_reminders(*) + hydrated vendors / products via _hydrateDealsRelations.
+// Update this comment if panel fields change.
+const _DEAL_COLS = [
+  'id','client_id','primary_vendor_id','product_id','plan_id',
+  'vat_pct','vat_mode','sales_status','billing_status',
+  'payment_processor','payment_method','payment_link',
+  'notes','created_at','updated_at','origin','external_id',
+  'agreed_price','agreed_currency',
+].join(',')
+
 async function getDeal(id) {
+  const cacheKey = 'deal:' + id
+  if (window.Cache) {
+    return window.Cache.readThrough(cacheKey, () => _fetchDealFresh(id))
+  }
+  return _fetchDealFresh(id)
+}
+
+async function _fetchDealFresh(id) {
   const { data, error } = await _sb
     .from('deals')
-    .select(`
-      *,
-      clients(*),
-      deal_documents(*),
-      deal_reminders(*)
-    `)
+    .select(_DEAL_COLS + ', clients(*), deal_documents(*), deal_reminders(*)')
     .eq('id', id)
     .single()
   if (error) throw error
@@ -505,6 +580,7 @@ async function getDeal(id) {
 async function createDeal(fields) {
   const { data, error } = await _sb.from('deals').insert(fields).select().single()
   if (error) throw error
+  window.Cache?.invalidate('deals:list')
   return data
 }
 
@@ -512,12 +588,16 @@ async function updateDeal(id, fields) {
   const { data, error } = await _sb
     .from('deals').update(fields).eq('id', id).select().single()
   if (error) throw error
+  window.Cache?.invalidate('deal:' + id)
+  window.Cache?.invalidate('deals:list')
   return data
 }
 
 async function deleteDeal(id) {
   const { error } = await _sb.from('deals').delete().eq('id', id)
   if (error) throw error
+  window.Cache?.invalidate('deal:' + id)
+  window.Cache?.invalidate('deals:list')
 }
 
 async function addDealReminder(dealId, text, dueDate) {

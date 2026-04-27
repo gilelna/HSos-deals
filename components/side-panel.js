@@ -962,7 +962,15 @@
     els.title.textContent = 'Loading…'
     els.eyebrow.innerHTML = '<span class="sp2-eyebrow-type">' + esc(entityType) + '</span>'
     els.pills.innerHTML = ''
-    els.body.innerHTML  = '<div class="sp2-empty">Loading…</div>'
+    // Static template literal, no user input.
+    els.body.innerHTML  =
+      '<div class="skeleton-stack" aria-busy="true" aria-live="polite">' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+      '</div>'
     els.fullLink.style.display = 'none'
 
     document.body.classList.add('sp2-open')

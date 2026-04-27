@@ -211,6 +211,7 @@ business_training
 | 011_products_plans_new_columns.sql | logo_url, category, status, price_min/max, currency, links, prd_uid on products; plan_uid, plan_type, status, description, link_source, link_id on plans; PLN/PRD auto-uid triggers | ✅ Demo — run on Production |
 | 015_profiles_role_foundation.sql | profiles table with system_role FK, RLS open for demo | ⚠️ NOT YET RUN — run on both |
 | 016_activities_foundation.sql | Patch profiles (email, slack_user_id, updated_at); create activities + 6 indexes | ✅ Production — run on Demo |
+| 018_performance_indexes.sql | (proposed for perf pass) — NOT NEEDED. Audit on 2026-04-27 confirmed `idx_clients_active`, `idx_deals_sales_status`, `idx_deals_billing_status`, `idx_vendor_hours_vendor` already exist on demo; `vendor_hours.paycheck_id` does not exist (no FK to paychecks on that table). | 🚫 Skipped |
 
 
 ---

@@ -6,6 +6,23 @@ function setClientsSearch(v) {
 }
 window.setClientsSearch = setClientsSearch
 
+// Skeleton placeholder rendered while initial loadData() is in flight.
+// Static markup; no user-supplied strings.
+function renderClientsSkeleton() {
+  const list = document.getElementById('clients-list')
+  if (!list || _clients.length) return
+  let html = ''
+  for (let i = 0; i < 8; i++) {
+    html +=
+      '<div class="skeleton-row">' +
+        '<div class="skeleton-shimmer" style="width:24px;height:24px;border-radius:50%;flex:0 0 auto"></div>' +
+        '<div class="skeleton-shimmer" style="width:60%"></div>' +
+      '</div>'
+  }
+  list.innerHTML = html
+}
+window.renderClientsSkeleton = renderClientsSkeleton
+
 function renderClients() {
   const list = document.getElementById('clients-list')
   let clients = [..._clients]

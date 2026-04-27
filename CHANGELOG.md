@@ -3,6 +3,38 @@ _Reverse chronological. One entry per session._
 
 ---
 
+## 2026-04-27 — Performance pass (Deal panel, Clients, Vendors)
+
+### Added
+- `cache.js`: shared client-side cache with 5-minute TTL, in-flight guard, eviction at >150 entries, and `Cache.readThrough(key, fetcher)` helper. Loaded between `db.js` and `app.js` in all 12 active HTML pages.
+- `db.js getDeal(id)`: read-through cache (`deal:<id>`) with explicit-column select (drops 5 unused gateway-ref cols).
+- `db.js getClients()` / `getClient(id)`: read-through cache (`clients:list`, `client:<id>`); list select drops `notes` and customer FK fields.
+- `db.js getVendors()` / `getVendorsInactive()` / `getVendor(id)`: read-through cache (`vendors:list:active`, `vendors:list:inactive`, `vendor:<id>`).
+- `createDeal/updateDeal/deleteDeal`, `createClient/updateClient/deleteClient`, `createVendor/updateVendor/deleteVendor`: invalidate detail key + list key after every successful write.
+- `deals-kanban.js _wirePrefetchOnce()`: delegated `mouseover` listener on kanban + list containers warms `deal:<id>` cache on hover (skipped if already cached or in-flight).
+- Skeleton UI: `.skeleton-shimmer` + `.skeleton-stack` + `.skeleton-row` styles in `shared.css`. Side-panel renders 5 skeleton lines instead of "Loading…" while data resolves. `renderClientsSkeleton()` and `renderVendorsSkeleton()` paint 8 placeholder rows during initial `loadData()`.
+- `data-deal-id` attribute on every kanban card and deals list row, enabling delegated hover-prefetch.
+
+### Changed
+- `components/side-panel.js openPanel()`: `<div class="sp2-empty">Loading…</div>` placeholder replaced with skeleton stack.
+- `deals-init.js loadData()`: paints `renderClientsSkeleton()` + `renderVendorsSkeleton()` before awaiting fetches.
+
+### Skipped (audit findings)
+- **Migration 018 (indexes)**: not needed — verified against demo DB on 2026-04-27 that `idx_clients_active`, `idx_deals_sales_status`, `idx_deals_billing_status`, `idx_vendor_hours_vendor` already exist; `vendor_hours.paycheck_id` does not exist (no FK to paychecks on that table).
+- **Step 2A "parallelize sequential awaits"**: not needed — `panel-manager.js loadDealModel()`, `client-profile.js loadAll()`, and `vendor-profile.js loadAll()` already use `Promise.all`.
+- **Vendor select-column trim**: every column on `vendors` is consumed somewhere (or is a generated column the code reads); no real bandwidth saving.
+- **Clients list/detail "split"**: already structurally split via `getClients()` vs `getClient(id)`; refined by trimming `notes` from the list select.
+
+### Files touched
+- new: `cache.js`
+- modified: `db.js`, `components/side-panel.js`, `deals-kanban.js`, `deals-clients.js`, `deals-vendors.js`, `deals-init.js`, `shared.css`
+- modified (script tag insert only): `deals.html`, `client-profile.html`, `vendor-profile.html`, `products.html`, `payments.html`, `activity-log.html`, `workload.html`, `deal.html`, `import.html`, `income.html`, `contractors.html`, `recurring.html`
+
+### Branch
+- `qa-pass-2026-04-27`
+
+---
+
 ## 2026-04-27 — Deals & Payments QA pass
 
 ### Fixed

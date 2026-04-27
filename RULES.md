@@ -82,6 +82,15 @@ _Non-negotiable conventions. Every AI model working on this project MUST read th
 - Transfers between accounts: include=false (excluded from P&L)
 - transaction_kind drives P&L inclusion and classification UI
 
+## Performance patterns
+- All list and entity-detail fetches go through `cache.js` (`window.Cache`) via the `Cache.readThrough(key, fetcher)` helper in `db.js`. Don't bypass — even one direct uncached `_sb.from(...).select(...)` for a hot entity defeats the read-through.
+- Every write (`update`, `insert`, `delete`) on `deals` / `clients` / `vendors` MUST invalidate both the detail key and the list key adjacent to the successful write. Pattern: `Cache.invalidate('deal:' + id)` + `Cache.invalidate('deals:list')`.
+- Use `Promise.all` for any multi-fetch on panel/page open. Sequential awaits where independent are a regression.
+- Use **explicit `select()` columns** for hot entity fetches that the panel renders (`getDeal` is the canonical example). Add a comment above the column list naming the consumers; update both when consumer fields change.
+- Panel open paints skeleton (`.skeleton-stack` + `.skeleton-shimmer`) before awaiting data. List pages paint 8 skeleton rows via `render*Skeleton()` helpers before `loadData()` resolves.
+- Hover-prefetch entity rows with delegated `mouseover` on the list container, gated by `Cache.get(key) || Cache.isInFlight(key)` to prevent double-fetch.
+- `cache.js` evicts the oldest 30 entries when size > 150 — leave it in place.
+
 ## Role system
 - 4 roles: Admin | Manager | Finance | Vendor
 - Stored: sessionStorage key `hsos_role`
