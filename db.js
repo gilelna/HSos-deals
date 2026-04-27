@@ -1985,3 +1985,114 @@ async function updateActivity(id, fields) {
   if (error) throw error
   return data
 }
+
+// ─── Operations dashboard: Needs Attention ─────────────────────
+// TODO: role-gate. Currently visible to all users who can reach the
+// operations dashboard (admin/manager/finance per existing route guards).
+async function getNeedsAttentionItems({ limit = 8 } = {}) {
+  const now = Date.now()
+  const items = []
+
+  // 1. Overdue bills: status='submitted', age > 7 days
+  try {
+    const sevenDays = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: overdue } = await _sb
+      .from('bills')
+      .select('id, vendor_id, total_amount, currency, created_at, vendors(full_name)')
+      .eq('status', 'submitted')
+      .lt('created_at', sevenDays)
+      .order('created_at', { ascending: true })
+    ;(overdue || []).forEach(b => {
+      const ageDays = Math.floor((now - new Date(b.created_at).getTime()) / 86400000)
+      items.push({
+        kind: 'overdue_bill',
+        id: b.id,
+        title: (b.vendors && b.vendors.full_name) || 'Unknown vendor',
+        sub: _formatBillAmount(b.total_amount, b.currency) + ' · submitted ' + ageDays + 'd ago',
+        sortKey: ageDays,
+        priority: 1,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] overdue bills', err) }
+
+  // 2. Ready to pay: status='ready_to_pay'
+  try {
+    const { data: ready } = await _sb
+      .from('bills')
+      .select('id, vendor_id, total_amount, currency, vendors(full_name)')
+      .eq('status', 'ready_to_pay')
+    ;(ready || []).forEach(b => {
+      items.push({
+        kind: 'ready_bill',
+        id: b.id,
+        title: (b.vendors && b.vendors.full_name) || 'Unknown vendor',
+        sub: _formatBillAmount(b.total_amount, b.currency) + ' · ready to pay',
+        sortKey: 0,
+        priority: 2,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] ready bills', err) }
+
+  // 3. Stale deals: lead/qualified, no update >14 days
+  try {
+    const fourteenDays = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: stale } = await _sb
+      .from('deals')
+      .select('id, sales_status, updated_at, clients(full_name)')
+      .in('sales_status', ['lead', 'qualified'])
+      .lt('updated_at', fourteenDays)
+      .order('updated_at', { ascending: true })
+    ;(stale || []).forEach(d => {
+      const ageDays = Math.floor((now - new Date(d.updated_at).getTime()) / 86400000)
+      items.push({
+        kind: 'stale_deal',
+        id: d.id,
+        title: (d.clients && d.clients.full_name) || 'Unknown client',
+        sub: d.sales_status + ' · no follow-up ' + ageDays + 'd',
+        sortKey: ageDays,
+        priority: 3,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] stale deals', err) }
+
+  // 4. Expiring packages: active, sessions_used / sessions_total >= 0.8
+  try {
+    const { data: pkgs } = await _sb
+      .from('packages')
+      .select('id, deal_id, sessions_used, sessions_total, status, deals(client_id, clients(full_name))')
+      .eq('status', 'active')
+    ;(pkgs || []).forEach(p => {
+      const total = Number(p.sessions_total || 0)
+      const used  = Number(p.sessions_used  || 0)
+      if (total <= 0) return
+      const ratio = used / total
+      if (ratio < 0.8) return
+      const remaining = Math.max(0, total - used)
+      const clientName = p.deals && p.deals.clients ? (p.deals.clients.full_name || 'Unknown client') : 'Unknown client'
+      items.push({
+        kind: 'expiring_package',
+        id: p.deal_id,
+        title: clientName,
+        sub: remaining + ' / ' + total + ' sessions left',
+        sortKey: -ratio,
+        priority: 4,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] expiring packages', err) }
+
+  // Sort: priority asc, then sortKey desc (older = higher).
+  items.sort((a, b) => a.priority - b.priority || b.sortKey - a.sortKey)
+  return items.slice(0, limit)
+}
+
+function _formatBillAmount(amount, currency) {
+  const n = Number(amount)
+  if (Number.isNaN(n)) return '—'
+  const cur = (currency || 'USD').toUpperCase()
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(n)
+  } catch (_) {
+    return cur + ' ' + n.toFixed(0)
+  }
+}
+window.getNeedsAttentionItems = getNeedsAttentionItems
