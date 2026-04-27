@@ -3961,3 +3961,49 @@ body.sp2-open { overflow: hidden; }
 .na-item[data-kind="ready_bill"]   { border-left: 3px solid var(--green); }
 .na-item[data-kind="stale_deal"]   { border-left: 3px solid var(--amber); }
 .na-item[data-kind="expiring_package"] { border-left: 3px solid var(--purple); }
+
+/* === Kanban view toggle === */
+.kanban-view-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  justify-content: flex-end;
+}
+.ktv-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--mu);
+}
+.ktv-btn.is-active {
+  background: var(--ink);
+  color: var(--surface);
+  border-color: var(--ink);
+}
+
+/* === Condensed kanban card === */
+.kanban-card-condensed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  min-height: 32px;
+  font-size: 12px;
+}
+.kanban-card-condensed .kc-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+}
+.kanban-card-condensed .kc-stage { font-size: 11px; }
+.kanban-card-condensed .kc-price {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+  font-weight: 500;
+}

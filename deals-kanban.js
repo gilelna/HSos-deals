@@ -1,5 +1,16 @@
 // deals-kanban.js — deals filtering, kanban, and list view
 
+const KANBAN_VIEW_KEY = 'hsos.kanban.cardView'
+function kanbanViewMode() {
+  try {
+    const v = localStorage.getItem(KANBAN_VIEW_KEY)
+    return v === 'condensed' ? 'condensed' : 'full'
+  } catch (_) { return 'full' }
+}
+function setKanbanViewMode(v) {
+  try { localStorage.setItem(KANBAN_VIEW_KEY, v === 'condensed' ? 'condensed' : 'full') } catch (_) {}
+}
+
 function filteredDeals() {
   let d = [..._deals]
   if (_search) {
@@ -50,7 +61,15 @@ function renderKanban() {
     el.innerHTML = `<div class="empty"><div class="empty-icon">◻</div><div>No deals yet</div></div>`
     return
   }
-  el.innerHTML = STAGES.map(stage => {
+  const view = kanbanViewMode()
+  const toggleHtml = `
+    <div class="kanban-view-toggle">
+      <button class="ktv-btn ${view === 'full' ? 'is-active' : ''}" data-ktv="full">Full</button>
+      <button class="ktv-btn ${view === 'condensed' ? 'is-active' : ''}" data-ktv="condensed">Condensed</button>
+    </div>
+  `
+
+  const colsHtml = STAGES.map(stage => {
     const cols = deals.filter(d => d.sales_status === stage.key)
     return `
       <div class="kanban-col" style="min-width:240px">
@@ -61,10 +80,37 @@ function renderKanban() {
           </span>
           <span style="font-size:11px">${cols.length}</span>
         </div>
-        ${cols.map(d => kanbanCard(d)).join('')}
+        ${cols.map(d => view === 'condensed' ? kanbanCardCondensed(d) : kanbanCard(d)).join('')}
       </div>
     `
   }).join('')
+
+  // Output already escaped via escHtml() in card builders (existing pattern).
+  el.replaceChildren()
+  const tpl = document.createElement('template')
+  tpl.innerHTML = toggleHtml + `<div class="kanban-cols">${colsHtml}</div>`
+  while (tpl.content.firstChild) el.appendChild(tpl.content.firstChild)
+
+  el.querySelectorAll('.ktv-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      setKanbanViewMode(b.dataset.ktv)
+      renderKanban()
+    })
+  })
+}
+
+function kanbanCardCondensed(d) {
+  // Click anywhere opens the deal panel via openEditDeal.
+  const client = d.clients?.full_name || '—'
+  const price  = d.agreed_price != null ? fmt(finalAmt(d.agreed_price, d.vat_pct, d.vat_mode), d.agreed_currency) : ''
+  const status = d.sales_status || ''
+  return `
+    <div class="kanban-card kanban-card-condensed" onclick="openEditDeal('${d.id}',event)">
+      <span class="kc-name">${escHtml(client)}</span>
+      <span class="badge kc-stage" data-status="${escHtml(status)}">${escHtml(status)}</span>
+      ${price ? `<span class="kc-price">${price}</span>` : ''}
+    </div>
+  `
 }
 
 function kanbanCard(d) {
