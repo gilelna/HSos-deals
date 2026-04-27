@@ -3816,3 +3816,73 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
 }
 
 body.sp2-open { overflow: hidden; }
+
+/* === PANEL EDITOR (inline edit framework) === */
+.pe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border2);
+}
+.pe-field:last-child { border-bottom: none; }
+
+.pe-field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--mu);
+  font-weight: 500;
+}
+
+.pe-field-display {
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 4px;
+  min-height: 22px;
+  transition: background .12s ease;
+}
+.pe-field-display:hover { background: var(--bg); }
+
+.pe-field-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pe-input {
+  flex: 1;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  outline: none;
+}
+.pe-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
+.pe-textarea { min-height: 60px; resize: vertical; flex: 1 1 100%; }
+
+.pe-save-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.pe-save-btn:hover { filter: brightness(1.05); }
+
+.pe-field-status {
+  font-size: 12px;
+  min-width: 14px;
+  display: inline-block;
+}
+.pe-field-status.pe-saving { color: var(--mu2); }
+.pe-field-status.pe-saved  { color: var(--green); }
