@@ -25,9 +25,64 @@ async function renderDashboard() {
     renderDashCoaches()
     renderDashClients()
     renderDashMetricsAttention()
+    renderNeedsAttention()
   } catch(e) {
     console.error('[Dashboard]', e)
   }
+}
+
+async function renderNeedsAttention() {
+  const section = document.getElementById('needs-attention')
+  const strip   = document.getElementById('needs-attention-strip')
+  const countEl = document.getElementById('needs-attention-count')
+  if (!section || !strip) return
+
+  let items = []
+  try {
+    items = await getNeedsAttentionItems({ limit: 8 })
+  } catch (err) {
+    console.error('[Dashboard] needs-attention', err)
+    items = []
+  }
+
+  if (!items.length) {
+    section.style.display = 'none'
+    return
+  }
+  section.style.display = ''
+  if (countEl) countEl.textContent = String(items.length)
+
+  // Build items via DOM APIs (no innerHTML with interpolation).
+  strip.textContent = ''
+  items.forEach(it => {
+    const card = document.createElement('div')
+    card.className = 'na-item'
+    card.dataset.kind = it.kind
+    card.dataset.id   = it.id
+
+    const title = document.createElement('div')
+    title.className = 'na-item-title'
+    title.textContent = it.title
+    card.appendChild(title)
+
+    const sub = document.createElement('div')
+    sub.className = 'na-item-sub'
+    sub.textContent = it.sub
+    card.appendChild(sub)
+
+    card.addEventListener('click', () => {
+      const kind = card.dataset.kind
+      const id   = card.dataset.id
+      if (!kind || !id) return
+      if (kind === 'overdue_bill' || kind === 'ready_bill') {
+        if (window.SidePanel) window.SidePanel.open('bill', { id })
+      } else if (kind === 'stale_deal' || kind === 'expiring_package') {
+        if (window.SidePanel) window.SidePanel.open('deal', { id })
+      }
+    })
+
+    strip.appendChild(card)
+  })
 }
 
 function renderDashMetrics() {

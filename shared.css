@@ -3886,3 +3886,78 @@ body.sp2-open { overflow: hidden; }
 }
 .pe-field-status.pe-saving { color: var(--mu2); }
 .pe-field-status.pe-saved  { color: var(--green); }
+
+/* === Operations dashboard: clickable hero cards + Needs Attention === */
+.dash-metric-card.clickable {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+  display: block;
+}
+.dash-metric-card.clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+
+.needs-attention {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.needs-attention-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.needs-attention-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--mu);
+  font-weight: 500;
+}
+.needs-attention-count {
+  font-size: 12px;
+  color: var(--red);
+  background: var(--red-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.needs-attention-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.na-item {
+  flex: 0 0 200px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color .12s ease;
+}
+.na-item:hover { border-color: var(--blue); }
+.na-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.na-item-sub {
+  font-size: 11px;
+  color: var(--mu);
+  margin-top: 2px;
+}
+.na-item[data-kind="overdue_bill"] { border-left: 3px solid var(--red); }
+.na-item[data-kind="ready_bill"]   { border-left: 3px solid var(--green); }
+.na-item[data-kind="stale_deal"]   { border-left: 3px solid var(--amber); }
+.na-item[data-kind="expiring_package"] { border-left: 3px solid var(--purple); }

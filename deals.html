@@ -83,27 +83,36 @@
 
           <!-- Metrics row -->
           <div class="dash-metrics" id="dash-metrics">
-            <div class="dash-metric-card">
+            <a class="dash-metric-card clickable" href="deals.html?view=deals&amp;filter=active">
               <div class="dash-metric-val" id="dm-active-deals">—</div>
               <div class="dash-metric-label">Active deals</div>
               <div class="dash-metric-sub" id="dm-active-deals-sub">—</div>
-            </div>
-            <div class="dash-metric-card">
+            </a>
+            <a class="dash-metric-card clickable" href="deals.html?view=clients&amp;filter=active">
               <div class="dash-metric-val" id="dm-active-clients">—</div>
               <div class="dash-metric-label">Active clients</div>
               <div class="dash-metric-sub" id="dm-active-clients-sub">—</div>
-            </div>
-            <div class="dash-metric-card">
+            </a>
+            <a class="dash-metric-card clickable" href="deals.html?view=vendors&amp;filter=coach">
               <div class="dash-metric-val" id="dm-coaches">—</div>
               <div class="dash-metric-label">Coaches</div>
               <div class="dash-metric-sub" id="dm-coaches-sub">—</div>
-            </div>
-            <div class="dash-metric-card" id="dm-attention-card">
+            </a>
+            <a class="dash-metric-card clickable" id="dm-attention-card" href="#needs-attention">
               <div class="dash-metric-val" id="dm-attention">—</div>
               <div class="dash-metric-label">Needs attention</div>
               <div class="dash-metric-sub" id="dm-attention-sub">—</div>
-            </div>
+            </a>
           </div>
+
+          <!-- Needs Attention strip -->
+          <section id="needs-attention" class="needs-attention" style="display:none">
+            <div class="needs-attention-head">
+              <span class="needs-attention-label">Needs attention</span>
+              <span class="needs-attention-count" id="needs-attention-count">0</span>
+            </div>
+            <div class="needs-attention-strip" id="needs-attention-strip"></div>
+          </section>
 
           <!-- Deals kanban section -->
           <div class="dash-section">
