@@ -553,16 +553,20 @@
       },
     })
 
-    global.PanelEditor.field({
-      container: dateCell, label: 'Started', value: e.start_date,
-      type: 'date', saveMode: 'explicit',
-      onSave: async (next) => {
-        const updated = await global.updateDeal(e.id, { start_date: next })
-        if (updated) Object.assign(e, updated)
-        else e.start_date = next
-        return updated
-      },
-    })
+    // Deals table has no editable start_date column on demo (verified via
+    // information_schema). Show created_at read-only as the closest "when"
+    // signal. If a real start_date column is added later, swap this for an
+    // editable PanelEditor.field.
+    const createdLabel = document.createElement('div')
+    createdLabel.className = 'pe-field-label'
+    createdLabel.textContent = 'Created'
+    const createdDisp = document.createElement('div')
+    createdDisp.className = 'pe-field-display'
+    createdDisp.style.cursor = 'default'
+    createdDisp.textContent = fmtDate(e.created_at)
+    const createdWrap = document.createElement('div'); createdWrap.className = 'pe-field'
+    createdWrap.appendChild(createdLabel); createdWrap.appendChild(createdDisp)
+    dateCell.appendChild(createdWrap)
 
     return section
   }
@@ -577,9 +581,6 @@
     const row2 = document.createElement('div'); row2.className = 'sp2-fields-row'; section.appendChild(row2)
     const typeCell = document.createElement('div'); typeCell.className = 'sp2-field'; row2.appendChild(typeCell)
     const curCell  = document.createElement('div'); curCell.className  = 'sp2-field'; row2.appendChild(curCell)
-
-    const row3 = document.createElement('div'); row3.className = 'sp2-fields-row'; section.appendChild(row3)
-    const phoneCell  = document.createElement('div'); phoneCell.className  = 'sp2-field'; row3.appendChild(phoneCell)
 
     // Vendors: full_name is a generated column (→ name). Write to `name`;
     // full_name updates automatically.
@@ -639,19 +640,9 @@
       },
     })
 
-    global.PanelEditor.field({
-      container: phoneCell, label: 'Phone', value: e.phone || '',
-      type: 'text', saveMode: 'blur',
-      onSave: async (next) => {
-        const updated = await global.updateVendor(e.id, { phone: next })
-        if (updated) Object.assign(e, updated)
-        else e.phone = next
-        return updated
-      },
-    })
-
-    // TODO: re-add Payout method when the column lands on the vendors table.
-    // The existing schema has no payout_method column (PGRST204).
+    // TODO: re-add Phone + Payout method fields when those columns land on
+    // the vendors table. The existing schema has neither (verified via
+    // information_schema on demo 2026-04-27).
 
     return section
   }
@@ -840,7 +831,8 @@
   // ─── interactions ──────────────────────────────────────────────────
   function wireHeaderPillClicks(type, entity) {
     els.pills.querySelectorAll('.sp2-pill-click').forEach(p => {
-      p.addEventListener('click', async () => {
+      p.addEventListener('click', e => {
+        e.stopPropagation()
         const palette = p.dataset.palette
         const field   = p.dataset.field
         const current = p.dataset.status
@@ -849,11 +841,60 @@
                        : palette === 'bill'   ? BILL_OPTIONS
                        : []
         if (!options.length) return
-        const idx  = options.indexOf(current)
-        const next = options[(idx + 1) % options.length]
-        await updateStatus(type, entity, field, next)
+        openStatusMenu(p, options, current, async next => {
+          if (next === current) return
+          await updateStatus(type, entity, field, next)
+        })
       })
     })
+  }
+
+  // Floating dropdown anchored to a pill. One menu open at a time.
+  let _statusMenuEl = null
+  let _statusMenuCleanup = null
+  function closeStatusMenu() {
+    if (_statusMenuEl && _statusMenuEl.parentNode) _statusMenuEl.parentNode.removeChild(_statusMenuEl)
+    _statusMenuEl = null
+    if (_statusMenuCleanup) { _statusMenuCleanup(); _statusMenuCleanup = null }
+  }
+  function openStatusMenu(anchor, options, current, onSelect) {
+    closeStatusMenu()
+    const menu = document.createElement('div')
+    menu.className = 'sp2-status-menu'
+    options.forEach(opt => {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.className = 'sp2-status-menu-item' + (opt === current ? ' is-current' : '')
+      item.dataset.status = opt
+      // Reuse the .badge[data-status] palette so menu chips match the pill.
+      const chip = document.createElement('span')
+      chip.className = 'badge'
+      chip.dataset.status = opt
+      chip.textContent = opt
+      item.appendChild(chip)
+      item.addEventListener('click', ev => {
+        ev.stopPropagation()
+        closeStatusMenu()
+        onSelect(opt)
+      })
+      menu.appendChild(item)
+    })
+    document.body.appendChild(menu)
+    const rect = anchor.getBoundingClientRect()
+    menu.style.top  = (rect.bottom + 4) + 'px'
+    menu.style.left = rect.left + 'px'
+    _statusMenuEl = menu
+
+    const onDocClick = ev => {
+      if (!menu.contains(ev.target) && ev.target !== anchor) closeStatusMenu()
+    }
+    const onEsc = ev => { if (ev.key === 'Escape') closeStatusMenu() }
+    setTimeout(() => document.addEventListener('click', onDocClick), 0)
+    document.addEventListener('keydown', onEsc)
+    _statusMenuCleanup = () => {
+      document.removeEventListener('click', onDocClick)
+      document.removeEventListener('keydown', onEsc)
+    }
   }
 
   async function updateStatus(type, entity, field, next) {

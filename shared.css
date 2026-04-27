@@ -3964,6 +3964,16 @@ body.sp2-open { overflow: hidden; }
 .na-item[data-kind="expiring_package"] { border-left: 3px solid var(--purple); }
 
 /* === Kanban view toggle === */
+/* Column wrapper added by renderKanban so the toggle can sit above the
+   columns without becoming a flex sibling. Inherit row layout + scroll
+   from the original .kanban rules. */
+.kanban-cols {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  flex: 1;
+  align-items: flex-start;
+}
 .kanban-view-toggle {
   display: flex;
   gap: 4px;
@@ -4032,3 +4042,37 @@ body.sp2-open { overflow: hidden; }
 .badge[data-status="rejected"]     { background: var(--red-bg);   color: var(--red-text);   border-color: var(--red); }
 .badge[data-status="ready_to_pay"] { background: var(--green-bg); color: var(--green-text); border-color: var(--green); }
 .badge[data-status="returned"]     { background: var(--red-bg);   color: var(--red-text);   border-color: var(--red); }
+
+/* === Status pill dropdown menu (side-panel header) === */
+.sp2-status-menu {
+  position: fixed;
+  z-index: 300;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+.sp2-status-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 4px;
+  transition: background .12s ease;
+}
+.sp2-status-menu-item:hover { background: var(--bg); }
+.sp2-status-menu-item.is-current { background: var(--bg); }
+.sp2-status-menu-item.is-current::after {
+  content: '✓';
+  margin-left: auto;
+  color: var(--mu);
+  font-size: 12px;
+}
