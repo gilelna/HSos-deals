@@ -3484,6 +3484,8 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   inset: 0;
   z-index: 200;
   pointer-events: none;
+  /* Shared width for panel + backdrop offset; single source of truth. */
+  --sp-width: clamp(300px, 30vw, 500px);
 }
 /* Backdrop only covers the area LEFT of the panel so clicks inside the panel
    never have to compete with the backdrop for pointer events. */
@@ -3492,14 +3494,11 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   top: 0;
   bottom: 0;
   left: 0;
-  right: 420px;
+  right: var(--sp-width);
   background: rgba(0, 0, 0, 0.34);
   opacity: 0;
   transition: opacity .18s ease;
   pointer-events: none;
-}
-@media (min-width: 1400px) {
-  #side-panel-root .sp2-backdrop { right: 480px; }
 }
 #side-panel-root.is-open .sp2-backdrop {
   opacity: 1;
@@ -3510,7 +3509,7 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   top: 0;
   right: 0;
   bottom: 0;
-  width: 420px;
+  width: var(--sp-width);
   max-width: 92vw;
   background: var(--surface);
   border-left: 1px solid var(--border);
@@ -3521,9 +3520,6 @@ td.reg-error .reg-cell-input, td.reg-error .reg-cell-select { background: var(--
   pointer-events: auto;
   z-index: 1;
   box-shadow: -8px 0 24px rgba(0, 0, 0, .06);
-}
-@media (min-width: 1400px) {
-  #side-panel-root .sp2-panel { width: 480px; }
 }
 #side-panel-root.is-open .sp2-panel { transform: translateX(0); }
 /* Defensive: make sure inputs inside the panel always receive clicks. */

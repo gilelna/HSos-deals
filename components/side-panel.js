@@ -487,6 +487,7 @@
     }
     const sections = []
     sections.push(inlineFieldsBlock(inlineFieldsFor(type, e, rel)))
+    // Hide package section entirely when the deal has no package — no empty state.
     if (type === 'deal' && rel.package) sections.push(packageBlockHtml(rel.package))
     sections.push(notesBlock(e))
     sections.push(remindersBlock(rel.reminders))
