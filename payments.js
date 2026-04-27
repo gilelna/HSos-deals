@@ -4509,6 +4509,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast('Failed to load vendor data', 'warn')
   }
   const initTab = new URLSearchParams(window.location.search).get('tab') || 'transactions'
+  const initFilter = new URLSearchParams(window.location.search).get('filter') || ''
+  if (initTab === 'vendor-bills' && initFilter) {
+    // TODO: wire bills tab status filter — the current vendor-bills tab
+    // shows a per-vendor list, not a flat status-filtered bills list. The
+    // ?filter= param is parsed but not applied yet. Linked from operations
+    // dashboard hero cards (deals.html → ?tab=vendor-bills&filter=submitted
+    // / ready_to_pay). When a status filter exists on this tab, set the
+    // variable here.
+    window._initBillsFilter = initFilter
+  }
   switchTab(initTab, { pushUrl: false })
   if (window.Router) Router.dispatch()
 })

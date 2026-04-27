@@ -13,6 +13,25 @@ function filteredDeals() {
   if (_filters.has('overdue')) d = d.filter(x => x.billing_status === 'overdue')
   if (_filters.has('active'))  d = d.filter(x => x.sales_status === 'active')
   if (_filters.has('unpaid'))  d = d.filter(x => !['paid'].includes(x.billing_status))
+  if (_filters.has('stale')) {
+    const cutoff = Date.now() - 14 * 86400000
+    d = d.filter(x => ['lead','qualified'].includes(x.sales_status) &&
+                       x.updated_at && new Date(x.updated_at).getTime() < cutoff)
+  }
+  if (_filters.has('expiring')) {
+    // Show only deals whose package is at >=80% utilization. Package data is
+    // populated on _dashData by renderDashboard; falls through silently if
+    // not loaded yet.
+    const pkgList = (window._dashData && window._dashData.allPackages) || []
+    const expiringDealIds = new Set(
+      pkgList.filter(p => {
+        const total = Number(p.sessions_total || 0)
+        const used  = Number(p.sessions_used  || 0)
+        return total > 0 && used / total >= 0.8 && p.status === 'active'
+      }).map(p => p.deal_id)
+    )
+    d = d.filter(x => expiringDealIds.has(x.id))
+  }
   if (_fVendor)  d = d.filter(x => x.primary_vendor_id === _fVendor)
   if (_fProduct) d = d.filter(x => x.product_id === _fProduct)
   if (_fBilling) d = d.filter(x => x.billing_status === _fBilling)

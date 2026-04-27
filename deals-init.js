@@ -11,6 +11,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _initView   = _initParams.get('view') || 'kanban'
   const _hasEntity  = !!_initParams.get('entity')
 
+  // Apply ?filter= URL param. Supported values:
+  //   deals/kanban view: 'active' | 'stale' | 'expiring'
+  //   vendors view:      'coach' | 'contractor' | 'team_member' | 'merchant'
+  //   clients view:      'active' (no-op, default state)
+  const _filterParam = _initParams.get('filter')
+  if (_filterParam) {
+    if (_initView === 'kanban' || _initView === 'list' || _initPage === 'deals') {
+      if (_filterParam === 'active')   _filters.add('active')
+      if (_filterParam === 'stale')    _filters.add('stale')
+      if (_filterParam === 'expiring') _filters.add('expiring')
+    }
+    if (_initPage === 'vendors' && ['coach','contractor','team_member','merchant'].includes(_filterParam)) {
+      _fVendorType = _filterParam
+    }
+  }
+
   if (!_hasEntity) {
     setView(_initView, { pushUrl: false })
     switchPage(_initPage, null, { pushUrl: false })
