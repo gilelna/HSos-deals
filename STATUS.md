@@ -1,6 +1,41 @@
 # HSos — STATUS.md
 _Living handoff file. Update at end of every session._
-Last updated: 2026-04-26 (Side-panel bugfixes — width, name resolution, pointer events)
+Last updated: 2026-04-27 (Deals & Payments QA pass — enum fix, inline editing, dashboard wiring, kanban toggle)
+
+---
+
+### Deals & Payments QA pass 2026-04-27 — done
+- **Side panel:** sales_status enum fix (UI cycle now matches DB: lead | qualified | active | delivered | closed); panel width responsive via clamp(300px, 30vw, 500px) using shared --sp-width custom property; empty package section confirmed hidden.
+- **Inline editing:** new components/panel-editor.js framework; Deal/Vendor/Client panels editable inline. Hybrid save mode: text fields blur-save, money/date/relation fields require explicit Save click. Notes auto-save with toast feedback (no longer silent).
+- **Operations dashboard:** existing 4 hero cards (Active deals/Active clients/Coaches/Needs attention) now clickable to filtered views. New Needs Attention strip below renders up to 8 actionable items (overdue/ready bills, stale deals, expiring packages) via getNeedsAttentionItems() in db.js.
+- **URL filters:** deals-init.js parses ?filter= URL param. New deals filter values: active, stale, expiring. Vendors view: coach/contractor/team_member/merchant. Bills tab: parsed but stashed on window._initBillsFilter (TODO; see follow-ups).
+- **Kanban toggle:** Full/Condensed view toggle persisted to localStorage hsos.kanban.cardView.
+- **Badges unified:** side-panel pills + condensed Kanban stage pills migrated to .badge[data-status="..."] styles in shared.css using existing --*-bg/--*-text CSS vars (added missing --gold-text).
+
+### Known follow-ups (next session)
+- **Cross-app counter audit:** payments tab summary cards, vendor profile stat cards, client profile stat cards, workload alert-bar metrics — make each clickable to a filtered view, matching the operations dashboard pattern shipped 2026-04-27.
+- **BILL_OPTIONS audit:** the side-panel bill status cycle (draft/approved/rejected/ready_to_pay/paid) doesn't match the actual bills.status enum values (draft/submitted/approved/paid/returned). Cycle silently no-ops on transitions without a dedicated db.js updater. Audit and reconcile.
+- **Bills tab status filter wiring:** the vendor-bills tab in payments.js shows a per-vendor list, not a flat status-filtered bills list. The ?filter=submitted / ready_to_pay URL param is parsed and stashed on window._initBillsFilter but not applied. When the bills tab gains a flat status view, wire it.
+- **Role gating on Needs Attention:** currently visible to all admin/manager/finance who reach the dashboard. Wire to role visibility table in SCHEMA.md.
+- **File splitting (large modules):** flagged for future session — prefer adding new functionality in new focused modules (per the panel-editor approach) rather than growing existing large files.
+- **Kanban full-card billing pill:** still uses inline hex via BILLING_COLORS. Migrate to .badge[data-status] in the cross-app pass.
+- **Vendor "Rates" inline edit:** out of scope this session — rates live in a separate table per vendor + task_type and have a dedicated UI on vendor-profile.html.
+- **Client "Assigned vendor" inline edit:** placeholder only — assignments live in vendor_client_assignments. Implementing edit requires a join-table editor.
+- **Manual browser QA:** all UI changes this session were not browser-tested (no dev server in this environment). See QA checklist below.
+
+### QA checklist (Gil, run after pulling qa-pass-2026-04-27 branch)
+1. Deal sales pill — cycle all 5 statuses, no console errors, badge colors update, PATCH succeeds.
+2. Edit deal Notes → blur → toast appears, value persists on reload.
+3. Edit deal Amount → "Save" button appears → click → toast → value persists. Tab away from amount without saving → reverts.
+4. Edit deal Client/Vendor (select) → "Save" required → toast → reload, persists.
+5. Edit deal Start date → "Save" required → toast → reload, persists.
+6. Open vendor panel → change name → blur → saves. Change vendor type → "Save" button required.
+7. Open client panel → change name → blur → saves. Change status → "Save" button required.
+8. Operations dashboard → hero cards clickable, land on filtered views (?view=…&filter=…).
+9. Needs Attention strip — if any items in demo DB → click items → opens correct side panel.
+10. Kanban toggle → switch to Condensed → reload → still Condensed.
+11. ESC + backdrop click both close any side panel.
+12. Console clean — no errors during normal usage.
 
 ---
 

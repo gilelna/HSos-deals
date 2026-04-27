@@ -3,6 +3,30 @@ _Reverse chronological. One entry per session._
 
 ---
 
+## 2026-04-27 — Deals & Payments QA pass
+
+### Fixed
+- `components/side-panel.js`: `sales_status` enum mismatch (`proposal`, `churned` invalid) replaced with canonical DB values `lead | qualified | active | delivered | closed`. PATCH calls now succeed.
+
+### Added
+- `components/panel-editor.js`: inline-edit framework for entity side panels. Hybrid save mode (blur for text, explicit Save for money/date/relation). Toast feedback on every save.
+- Deal / Vendor / Client side panels: all listed fields editable inline.
+- Operations dashboard: hero cards clickable to filtered views; new Needs Attention strip with up to 8 actionable items.
+- `db.js getNeedsAttentionItems()`: returns overdue bills, ready-to-pay bills, stale deals, expiring packages.
+- Kanban: Full/Condensed view toggle, persisted to localStorage `hsos.kanban.cardView`.
+- `?filter=` URL param parsing in `deals-init.js` (deals/vendors filters wired) and `payments.js` (bills filter parsed, TODO: apply).
+- shared.css: `--gold-text` CSS variable (was referenced by `partial` billing badge but undefined).
+
+### Changed
+- Side panel width: hardcoded 420px/480px → `clamp(300px, 30vw, 500px)` via shared `--sp-width` CSS custom property.
+- Side-panel + condensed Kanban status pills now use `.badge[data-status="..."]` from shared.css (single source of truth for status colors).
+- Notes field on side panel now toasts on save (no longer silent).
+
+### Branch
+- Work landed on `qa-pass-2026-04-27`. Pre-session WIP captured on `main` as commit `c67b2fc` (wip: pre-QA-pass session snapshot).
+
+---
+
 ## 2026-04-22 — Activities foundation + UI
 
 ### DB (migration 016)
