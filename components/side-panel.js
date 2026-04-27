@@ -35,10 +35,11 @@
       cancelled:   { bg: '#FBEAF0', color: '#72243E' },
     },
     sales: {
-      lead:     { bg: '#F1EFE8', color: '#5F5E5A' },
-      proposal: { bg: '#FAEEDA', color: '#854F0B' },
-      active:   { bg: '#EAF3DE', color: '#3B6D11' },
-      churned:  { bg: '#FBEAF0', color: '#72243E' },
+      lead:      { bg: '#F1EFE8', color: '#5F5E5A' },  // mu/grey
+      qualified: { bg: '#FAEEDA', color: '#854F0B' },  // amber
+      active:    { bg: '#EAF3DE', color: '#3B6D11' },  // green
+      delivered: { bg: '#EEEDFE', color: '#3C3489' },  // purple
+      closed:    { bg: '#E6F1FB', color: '#185FA5' },  // blue
     },
     bill: {
       draft:        { bg: '#F1EFE8', color: '#5F5E5A' },
@@ -50,7 +51,11 @@
   }
 
   const BILLING_OPTIONS = ['draft','pending','invoiced','installment','paid','overdue','cancelled']
-  const SALES_OPTIONS   = ['lead','proposal','active','churned']
+  const SALES_OPTIONS   = ['lead','qualified','active','delivered','closed']
+  // TODO(next session): audit BILL_OPTIONS against actual bills.status enum
+  // (DB has draft/submitted/approved/paid/returned per STATUS.md). Current
+  // values may not all be valid transitions; updateStatus only handles
+  // approved/rejected/paid via dedicated db.js functions.
   const BILL_OPTIONS    = ['draft','approved','rejected','ready_to_pay','paid']
 
   // ─── inline SVG icons ──────────────────────────────────────────────
