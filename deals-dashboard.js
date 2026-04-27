@@ -370,11 +370,11 @@ function _renderClientDetailPanel(clientId) {
           <thead><tr><th>Product</th><th>Status</th><th>Billing</th><th></th></tr></thead>
           <tbody>
             ${deals.length ? deals.slice(0, 8).map(d => `
-              <tr>
+              <tr onclick="openEditDeal('${d.id}',event)" style="cursor:pointer">
                 <td>${escHtml(d.products?.name || 'Custom')}</td>
                 <td>${escHtml(d.sales_status || '—')}</td>
                 <td>${escHtml(d.billing_status || '—')}</td>
-                <td><button class="btn btn-sm btn-ghost" style="padding:2px 7px;font-size:11px" onclick="openEditDeal('${d.id}',event)">Edit</button></td>
+                <td><button class="btn btn-sm btn-ghost" style="padding:2px 7px;font-size:11px" onclick="event.stopPropagation();openEditDeal('${d.id}',event)">Edit</button></td>
               </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--mu2);padding:16px">No deals yet</td></tr>`}
           </tbody>
         </table>
