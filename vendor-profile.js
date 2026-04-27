@@ -237,9 +237,9 @@ async function _updateVendorWithSchemaFallback(fields) {
 
 function openVendorEditModal() {
   if (_readOnly || !_vendor) return
-  if (window.PanelManager?.open && _vendorId) {
-    window.PanelManager.open('vendor', _vendorId)
-  }
+  if (!_vendorId) return
+  if (window.SidePanel?.open) { window.SidePanel.open('vendor', { id: _vendorId }); return }
+  window.PanelManager?.open('vendor', _vendorId)
 }
 window.openVendorEditModal = openVendorEditModal
 
@@ -321,6 +321,7 @@ function renderClientsList() {
 
 function openClientPanelFromVendorProfile(clientId) {
   if (!clientId) return
+  if (window.SidePanel?.open) { window.SidePanel.open('client', { id: clientId }); return }
   window.PanelManager?.open('client', clientId)
 }
 window.openClientPanelFromVendorProfile = openClientPanelFromVendorProfile

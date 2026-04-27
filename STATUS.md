@@ -1,6 +1,6 @@
 # HSos — STATUS.md
 _Living handoff file. Update at end of every session._
-Last updated: 2026-04-26 (Products page rebuild — expandable cards + plan grid + right panel)
+Last updated: 2026-04-26 (Side-panel bugfixes — width, name resolution, pointer events)
 
 ---
 
@@ -31,6 +31,27 @@ No framework. No build step. Files served directly.
 | Products | products.html + products.js | ✅ Rebuilt 2026-04-26 — expandable product cards, auto-fill plan grid, unified right panel (Details + Deals tabs), soft-archive with active-deal guard |
 | Activity Log | activity-log.html + activity-log.js | ✅ New — full activity table, type/status filters, inline Markdown |
 | Import | import.html + import.js | 🟡 Exists |
+
+### Icons module 2026-04-26
+- **New file:** `components/icons.js` — central inline-SVG icon set + entity colour ramps. Exposes `window.HSOS_ICONS` (entity + space keys → raw `<svg>` strings), `window.ENTITY_COLORS` (`{ bg, border, text, eyebrow }` per entity, mirrors the side-panel ramps), and `window.getIcon(key, size = 16, color = 'currentColor')` which returns the SVG string with width/height/stroke applied. Unknown keys fall back to a generic circle. Plain script — no build step, no module imports. Not yet referenced by any HTML page; opt-in for new components and refactors.
+
+### Side-panel bugfixes 2026-04-26
+- **Width:** `.sp2-panel` was 300px. Now **420px** with `@media (min-width: 1400px)` bumping to **480px**.
+- **Deal title showed UUID:** `entityTitle('deal', e)` was reading `e.title || e.name || e.id` but the deals table has neither `title` nor `name`. Now reads `e.products?.name` (the joined product name, e.g. "1:1 Fluency Sessions") with fallbacks `e.clients?.full_name → e.deal_uid → e.id`.
+- **Client/Vendor body fields showed UUIDs:** the inline-fields block was reading `e.clients?.name` and `e.vendors?.full_name`. The clients table column is `full_name`, not `name`. Both fields now resolve through the joined relations from `_hydrateDealsRelations()` (vendors) and the `clients(*)` join in `getDeal()`. The `clientName`/`vendorName` locals fall through to `'—'` rather than UUID strings.
+- **resolveEntity hardening:** the `looksFull` check for deals required only `data.title || data.deal_uid`. Deals coming in via `SidePanel.open('deal', { id })` from card click handlers were treated as "full enough" if they ever had a `deal_uid`, but they didn't have the joined relations the panel renders. Now a deal is only considered hydrated if **both** `data.clients` and (`data.vendors` or `data.products`) are present — otherwise it re-fetches via `getDeal(id)`.
+- **Pointer-events fix:** `.sp2-backdrop` previously covered the full viewport with `inset: 0`. Even though painted under the panel by DOM order, this could capture clicks on inputs in some stacking-context edge cases. The backdrop is now scoped to **left of the panel** (`right: 420px`, or `480px` ≥1400px), so clicks inside the panel can never compete with the backdrop. Added `z-index: 1` to `.sp2-panel` and a defensive `pointer-events: auto` on `input, textarea, select, button, a` inside the panel.
+- **Browser smoke test:** not run from this environment (no dev server access). Manual QA required: open a deal card → verify title shows the product name (not UUID), Client and Vendor fields show full names (not UUIDs), Notes textarea is focusable + typeable, panel is wider/easier to read, backdrop click still closes.
+
+### Side-panel component 2026-04-26 — known gaps & manual QA needed
+- **New file:** `components/side-panel.js` exposes `window.SidePanel.open(entityType, entityData)` + `closePanel()`. Renders into a body-injected `<div id="side-panel-root">` with backdrop, ESC close, 300px slide-in. Class prefix `sp2-` to avoid collisions with the older root `panel-manager.js` (untouched) and the legacy `.sp-` vendor sidebar styles.
+- **Styles added** to `shared.css` under `/* === SIDE PANEL === */` (sp2-* namespace).
+- **Wiring:** `components/side-panel.js` `<script>` tag added to deals.html, payments.html, workload.html, vendor-profile.html, client-profile.html (after `panel-manager.js`). Every existing `window.PanelManager?.open(type, id)` call site now has a `window.SidePanel?.open(type, { id })` guard ahead of it — SidePanel takes the click; PanelManager remains as fallback.
+- **Carve-out:** `payments.js` transaction drawer (`openTxDrawer`) still routes to PanelManager — the new component does not yet support `transaction`.
+- **Header per type:** pastel ramps (client/deal/vendor/session/bill/product/plan) with eyebrow icon + "ENTITY · sub" + 16/500 title + status pill row. Pills are clickable (cycle through palette) for deal sales/billing and bill status.
+- **Body sections:** inline fields row, package progress block (deal-only when package present), Notes textarea (auto-save on blur via `update<Entity>(notes)`), Reminders list, Documents list with drop-zone placeholder.
+- **Manual QA TODO:** click client row in deals → panel opens with purple header + email/phone fields + notes save on blur; click deal card → green header, package progress bar visible if deal has a package, status pill cycles `lead→proposal→active→churned`; click vendor in operations → orange header; click bill row in vendor-profile → green header + status cycles `draft→approved→rejected→ready_to_pay→paid`; click client in payments → purple header; ESC + backdrop click both close; "Open full profile →" navigates to entity page.
+- **Not yet wired:** reminders "+ Add" link is a no-op stub; documents drop zone is a placeholder (no upload handler yet); session click handlers currently route through workload's own inline view, not the new panel — file follow-up if session entity is needed.
 
 ### Known broken right now (2026-04-22 — post UI fixes)
 - Demo DB: migration 016 (activities + profiles patch) not yet run — must be run manually at https://pqkzffgpkpovternesmt.supabase.co

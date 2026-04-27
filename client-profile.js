@@ -312,6 +312,7 @@ function renderDealsList() {
 
 function openDealPanelFromClientProfile(dealId) {
   if (!dealId) return
+  if (window.SidePanel?.open) { window.SidePanel.open('deal', { id: dealId }); return }
   window.PanelManager?.open('deal', dealId)
 }
 window.openDealPanelFromClientProfile = openDealPanelFromClientProfile

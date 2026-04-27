@@ -3087,6 +3087,8 @@ function openTxDrawer(txId) {
   }
   _txDrawerOpenId = txId
   if (window.PanelManager?.open) {
+    // Transactions are not yet supported by the new side-panel — keep using
+    // the existing root panel-manager for this entity type.
     window.PanelManager.open('transaction', txId)
     return
   }
@@ -3875,6 +3877,7 @@ function openClientPanel(clientId) {
     Router.open({ entity: 'client', id: clientId, view: 'panel', from: currentTab || 'payments' })
     return
   }
+  if (window.SidePanel?.open) { window.SidePanel.open('client', { id: clientId }); return }
   window.PanelManager?.open('client', clientId)
 }
 window.openClientPanel = openClientPanel
@@ -3885,6 +3888,7 @@ function openDealPanel(dealId) {
     Router.open({ entity: 'deal', id: dealId, view: 'panel', from: currentTab || 'payments' })
     return
   }
+  if (window.SidePanel?.open) { window.SidePanel.open('deal', { id: dealId }); return }
   window.PanelManager?.open('deal', dealId)
 }
 window.openDealPanel = openDealPanel
@@ -3899,6 +3903,7 @@ async function openVendorDetail(vendorId) {
     Router.open({ entity: 'vendor', id: vendorId, view: 'panel', from: 'list' })
     return
   }
+  if (window.SidePanel?.open) { window.SidePanel.open('vendor', { id: vendorId }); return }
   if (window.PanelManager?.open) {
     window.PanelManager.open('vendor', vendorId)
     return

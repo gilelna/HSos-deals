@@ -11,3 +11,4 @@ env-keys.js
 _archive/
 migrations/
 docs/
+*.zip

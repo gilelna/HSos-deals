@@ -6,6 +6,7 @@ function openEditDeal(id, e) {
     Router.open({ entity: 'deal', id, view: 'panel', from: _view === 'list' ? 'list' : 'kanban' })
     return
   }
+  if (window.SidePanel?.open) { window.SidePanel.open('deal', { id }); return }
   window.PanelManager?.open('deal', id)
 }
 window.openEditDeal = openEditDeal

@@ -924,6 +924,7 @@ function showClientDetail(id) {
     Router.open({ entity: 'client', id, view: 'panel', from: 'clients' })
     return
   }
+  if (window.SidePanel?.open) { window.SidePanel.open('client', { id }); return }
   if (window.PanelManager?.open) {
     window.PanelManager.open('client', id)
     return

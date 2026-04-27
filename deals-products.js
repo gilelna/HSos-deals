@@ -520,6 +520,7 @@ window.savePlanInlineEdit = savePlanInlineEdit
 
 function openProductModal(id, e) {
   e?.stopPropagation()
+  if (id && window.SidePanel?.open) { window.SidePanel.open('product', { id }); return }
   if (id && window.PanelManager?.open) {
     window.PanelManager.open('product', id)
     return
@@ -759,6 +760,7 @@ function renderPlans() {
 
 function openPlanModal(id, e) {
   e?.stopPropagation()
+  if (id && window.SidePanel?.open) { window.SidePanel.open('plan', { id }); return }
   window.PanelManager?.open('plan', id)
 }
 window.openPlanModal = openPlanModal
