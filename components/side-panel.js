@@ -87,6 +87,28 @@
     fetchToken: 0,
   }
 
+  // ─── relation option loaders (for select fields) ─────────────────
+  async function loadClientOptions() {
+    if (!global.getClients) return []
+    try {
+      const rows = await global.getClients()
+      return (rows || []).map(c => ({ value: c.id, label: c.full_name || c.name || c.id }))
+    } catch (err) {
+      console.warn('[side-panel] loadClientOptions failed', err)
+      return []
+    }
+  }
+  async function loadVendorOptions() {
+    if (!global.getVendors) return []
+    try {
+      const rows = await global.getVendors()
+      return (rows || []).map(v => ({ value: v.id, label: v.full_name || v.name || v.id }))
+    } catch (err) {
+      console.warn('[side-panel] loadVendorOptions failed', err)
+      return []
+    }
+  }
+
   let els = null
 
   // ─── helpers ───────────────────────────────────────────────────────
@@ -480,21 +502,174 @@
     return []
   }
 
+  // ─── DOM mounters for editable panels (deal / vendor / client) ─────
+  async function mountDealFields(e) {
+    const section = document.createElement('div')
+    section.className = 'sp2-section'
+
+    const row1 = document.createElement('div'); row1.className = 'sp2-fields-row'; section.appendChild(row1)
+    const clientCell = document.createElement('div'); clientCell.className = 'sp2-field'; row1.appendChild(clientCell)
+    const vendorCell = document.createElement('div'); vendorCell.className = 'sp2-field'; row1.appendChild(vendorCell)
+
+    const row2 = document.createElement('div'); row2.className = 'sp2-fields-row'; section.appendChild(row2)
+    const amountCell = document.createElement('div'); amountCell.className = 'sp2-field'; row2.appendChild(amountCell)
+    const dateCell   = document.createElement('div'); dateCell.className   = 'sp2-field'; row2.appendChild(dateCell)
+
+    const [clientOpts, vendorOpts] = await Promise.all([loadClientOptions(), loadVendorOptions()])
+
+    global.PanelEditor.field({
+      container: clientCell, label: 'Client', value: e.client_id,
+      type: 'select', saveMode: 'explicit', options: clientOpts,
+      format: () => (e.clients && (e.clients.full_name || e.clients.name)) || e.client_name || '—',
+      onSave: async (next) => {
+        const updated = await global.updateDeal(e.id, { client_id: next })
+        if (updated) Object.assign(e, updated)
+        else e.client_id = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: vendorCell, label: 'Vendor', value: e.primary_vendor_id,
+      type: 'select', saveMode: 'explicit', options: vendorOpts,
+      format: () => (e.vendors && (e.vendors.full_name || e.vendors.name)) || e.primary_vendor_name || '—',
+      onSave: async (next) => {
+        const updated = await global.updateDeal(e.id, { primary_vendor_id: next })
+        if (updated) Object.assign(e, updated)
+        else e.primary_vendor_id = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: amountCell, label: 'Amount', value: e.agreed_price,
+      type: 'money', saveMode: 'explicit', currency: e.agreed_currency || 'USD',
+      onSave: async (next) => {
+        const updated = await global.updateDeal(e.id, { agreed_price: next })
+        if (updated) Object.assign(e, updated)
+        else e.agreed_price = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: dateCell, label: 'Started', value: e.start_date,
+      type: 'date', saveMode: 'explicit',
+      onSave: async (next) => {
+        const updated = await global.updateDeal(e.id, { start_date: next })
+        if (updated) Object.assign(e, updated)
+        else e.start_date = next
+        return updated
+      },
+    })
+
+    return section
+  }
+
+  function mountNotesField(type, e) {
+    const section = document.createElement('div')
+    section.className = 'sp2-section sp2-section-inverted'
+
+    const head = document.createElement('div')
+    head.className = 'sp2-section-head'
+
+    // Build the icon span using parseHTMLFragment so an SVG literal can mount
+    // without setting innerHTML directly. SECTION_ICON.notes is a static
+    // literal defined at module top — not user content.
+    const iconSpan = document.createElement('span')
+    iconSpan.className = 'sp2-section-icon'
+    const tpl = document.createElement('template')
+    tpl.innerHTML = SECTION_ICON.notes
+    iconSpan.appendChild(tpl.content.cloneNode(true))
+
+    const labelSpan = document.createElement('span')
+    labelSpan.className = 'sp2-section-label'
+    labelSpan.textContent = 'Notes'
+
+    head.appendChild(iconSpan)
+    head.appendChild(labelSpan)
+    section.appendChild(head)
+
+    const cell = document.createElement('div')
+    section.appendChild(cell)
+
+    const updaters = {
+      deal:    global.updateDeal,
+      client:  global.updateClient,
+      vendor:  global.updateVendor,
+      session: global.updateSession,
+    }
+    const updater = updaters[type]
+    if (!updater) return section
+
+    global.PanelEditor.field({
+      container: cell, label: '', value: e.notes || '',
+      type: 'textarea', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await updater(e.id, { notes: next })
+        if (updated) Object.assign(e, updated)
+        else e.notes = next
+        return updated
+      },
+    })
+    return section
+  }
+
+  // appendHtmlSection: parses an HTML string built by remindersBlock /
+  // documentsBlock / packageBlockHtml (which esc() user values internally,
+  // matching the project's existing convention) and appends the first
+  // resulting element. Uses <template> so untrusted content cannot execute
+  // — template parsing does not run scripts or load resources.
+  function appendHtmlSection(parent, html) {
+    if (!html) return
+    const tpl = document.createElement('template')
+    tpl.innerHTML = html
+    const first = tpl.content.firstElementChild
+    if (first) parent.appendChild(first)
+  }
+
   function renderBody(type, e, rel) {
     if (!e) {
-      els.body.innerHTML = '<div class="sp2-empty">No data</div>'
+      els.body.textContent = ''
+      const empty = document.createElement('div'); empty.className = 'sp2-empty'; empty.textContent = 'No data'
+      els.body.appendChild(empty)
       return
     }
-    const sections = []
-    sections.push(inlineFieldsBlock(inlineFieldsFor(type, e, rel)))
-    // Hide package section entirely when the deal has no package — no empty state.
-    if (type === 'deal' && rel.package) sections.push(packageBlockHtml(rel.package))
-    sections.push(notesBlock(e))
-    sections.push(remindersBlock(rel.reminders))
-    sections.push(documentsBlock(rel.documents))
-    els.body.innerHTML = sections.filter(Boolean).join('')
+    els.body.textContent = ''
 
-    wireBodyEvents(type, e)
+    if (type === 'deal') {
+      const placeholder = document.createElement('div')
+      placeholder.className = 'sp2-section'
+      const placeholderInner = document.createElement('div')
+      placeholderInner.className = 'sp2-empty'
+      placeholderInner.textContent = '…'
+      placeholder.appendChild(placeholderInner)
+      els.body.appendChild(placeholder)
+
+      mountDealFields(e).then(section => {
+        if (placeholder.parentNode) placeholder.parentNode.replaceChild(section, placeholder)
+      })
+
+      // Hide package section entirely when the deal has no package — no empty state.
+      if (rel.package) appendHtmlSection(els.body, packageBlockHtml(rel.package))
+      els.body.appendChild(mountNotesField(type, e))
+      appendHtmlSection(els.body, remindersBlock(rel.reminders))
+      appendHtmlSection(els.body, documentsBlock(rel.documents))
+    } else {
+      // Other types still go through the legacy HTML-string path (Task 5 will
+      // migrate vendor + client to the new mounter pattern).
+      // sections[] are built by helpers that esc() all user values.
+      const sections = [
+        inlineFieldsBlock(inlineFieldsFor(type, e, rel)),
+        notesBlock(e),
+        remindersBlock(rel.reminders),
+        documentsBlock(rel.documents),
+      ].filter(Boolean)
+      const tpl = document.createElement('template')
+      tpl.innerHTML = sections.join('')
+      while (tpl.content.firstChild) els.body.appendChild(tpl.content.firstChild)
+      wireBodyEvents(type, e)
+    }
     wireHeaderPillClicks(type, e)
   }
 
