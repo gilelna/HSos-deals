@@ -72,6 +72,12 @@
       const n = Number(v)
       return Number.isNaN(n) ? null : n
     }
+    // Empty string isn't a valid value for date or for nullable FK selects —
+    // Postgres rejects '' for date columns and treats '' as a missing match
+    // for uuid/text FKs. Normalize to null so the DB sees a clear "unset".
+    if (type === 'date' || type === 'select') {
+      return editor.value === '' ? null : editor.value
+    }
     return editor.value
   }
 

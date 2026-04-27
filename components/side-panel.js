@@ -580,15 +580,16 @@
 
     const row3 = document.createElement('div'); row3.className = 'sp2-fields-row'; section.appendChild(row3)
     const phoneCell  = document.createElement('div'); phoneCell.className  = 'sp2-field'; row3.appendChild(phoneCell)
-    const payoutCell = document.createElement('div'); payoutCell.className = 'sp2-field'; row3.appendChild(payoutCell)
 
+    // Vendors: full_name is a generated column (→ name). Write to `name`;
+    // full_name updates automatically.
     global.PanelEditor.field({
-      container: nameCell, label: 'Name', value: e.full_name || e.name || '',
+      container: nameCell, label: 'Name', value: e.name || e.full_name || '',
       type: 'text', saveMode: 'blur',
       onSave: async (next) => {
-        const updated = await global.updateVendor(e.id, { full_name: next })
+        const updated = await global.updateVendor(e.id, { name: next })
         if (updated) Object.assign(e, updated)
-        else e.full_name = next
+        else { e.name = next; e.full_name = next }
         return updated
       },
     })
@@ -649,16 +650,8 @@
       },
     })
 
-    global.PanelEditor.field({
-      container: payoutCell, label: 'Payout method', value: e.payout_method || '',
-      type: 'text', saveMode: 'blur',
-      onSave: async (next) => {
-        const updated = await global.updateVendor(e.id, { payout_method: next })
-        if (updated) Object.assign(e, updated)
-        else e.payout_method = next
-        return updated
-      },
-    })
+    // TODO: re-add Payout method when the column lands on the vendors table.
+    // The existing schema has no payout_method column (PGRST204).
 
     return section
   }
