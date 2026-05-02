@@ -3,6 +3,64 @@ _Reverse chronological. One entry per session._
 
 ---
 
+## 2026-05-02 — Open Invoices workflow page
+
+### Added
+- `overdue.html` (82 lines) — standalone Payments-space shell for the Open Invoices workflow. Cover with 4 metric cards, filter pill bar, card list root.
+- `overdue.js` (304 lines) — loads deals via `getDeals({billing_status})` for overdue/pending/invoiced (3 calls merged), filters out closed/lead sales_status, sorts oldest-first. Per-card actions: Send reminder (stub toast), Mark paid (`updateDeal` + cache invalidate + optimistic remove), Open in Green Invoice (toast with `gi_client_id`/`gi_invoice_series` refs).
+
+### Changed
+- `STATUS.md` — added Open Invoices section + manual QA steps; bumped "last updated" header.
+
+### Schema
+- No DB schema changes.
+- **Gaps surfaced (no fix applied):** spec assumed `clients.green_invoice_url`, `deals.invoice_number`, `deals.due_date` — none exist. Used `gi_invoice_series` for invoice refs and `created_at` for age. Real GI "open" requires either a URL pattern decision or a stored URL field.
+
+---
+
+## 2026-05-02 — Rules update
+
+- Added Rule 11: schema-first verification before write operations
+
+---
+
+## 2026-05-02 — Account balances standalone page
+
+### Added
+- `balances.html` — standalone Payments-space account balance snapshot page.
+- `balances.js` — balances tab logic promoted from `payments.js`: account/company/balance loading, transaction-net enrichment, expected closing, delta coloring, inline actual-closing edits via `upsertAccountBalance()`, and snapshot deletion via `deleteAccountBalance()`.
+
+### Changed
+- Payments sidebar `Balances` link now opens `balances.html`.
+- `getAccountBalances()` detects the demo database's older `date/balance/balance_type` schema before applying year filters, avoiding a 400 on `month` when migration 006 has not been applied.
+- `STATUS.md` marks balances as promoted to standalone.
+
+### Schema
+- No DB schema changes.
+
+---
+
+## 2026-05-02 — Reconcile workflow page (Phase 1)
+
+### Added
+- `reconcile.html` — new standalone page (Payments space). Two tabs (Deals, Bills), two-column layout (open items ↔ unmatched transactions), sticky action bar that appears once both sides have a selection. Inline `<style>` is page-local layout only; all colors via shared.css CSS vars.
+- `reconcile.js` — page logic (424 lines). Auto-suggests matches on load: for each open deal/bill, finds unmatched transactions where |amount diff| < 5% AND tx date within 30d of created_at, with direction filter (deals → tx.direction='in', bills → 'out'). Manual override by clicking any pair. Search filter, three action buttons per match (Match + mark paid / Match + reconciled / Match + issue receipt via GI — third only when client has `green_invoice_client_id`). Deep-link via `?highlight=<dealId>` auto-selects + scroll-into-view.
+- `db.js matchTransactionToDeal(txId, dealId, status='matched')` — sets `transactions.linked_entity_type='deal'`, `linked_entity_id=dealId`, `status`; sets `deals.billing_status='paid'`; invalidates `deal:` and `deals:` cache prefixes.
+- `db.js matchTransactionToBill(txId, billId, status='matched')` — sets `transactions.linked_entity_type='paycheck'`, `linked_entity_id=billId`, `status`. (Bill `status` enum has no terminal "paid via tx" state distinct from `paid`, so we don't auto-flip it here — finance bumps it through the existing `markBillPaidV2` flow.)
+- `payments.js eiMatchTx(dealId)` — redirects to `reconcile.html?highlight=<dealId>`. Wired into the Expected Income action cell: non-thrivecart rows now show a "Match" button (was "—").
+
+### Schema
+- No DB schema changes. Confirmed `transactions.linked_entity_type` / `linked_entity_id` and `clients.green_invoice_client_id` exist on demo. (Spec referred to `clients.green_invoice_id`; actual column is `green_invoice_client_id`.)
+
+### Files touched
+- new: `reconcile.html`, `reconcile.js`
+- modified: `db.js` (+30 lines, two new exports in Transactions section), `payments.js` (+7 lines, eiMatchTx + EI action cell)
+
+### Branch
+- `qa-pass-2026-04-27`
+
+---
+
 ## 2026-04-27 — Performance pass (Deal panel, Clients, Vendors)
 
 ### Added

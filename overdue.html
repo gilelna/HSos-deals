@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Open Invoices</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="app">
+  <div id="layout-topbar"></div>
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+    <div class="app-content">
+
+      <div class="space-cover payments">
+        <div class="space-cover__bg" style="background-image:url('files/payments.png')"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow">Payments &middot; Finance</div>
+        <div class="space-cover-title">Open Invoices</div>
+        <div class="cover-widgets">
+          <a class="alert-card" href="#" onclick="ovSetFilter('overdue');return false">
+            <div class="alert-card-val" id="ov-metric-overdue">—</div>
+            <div class="alert-card-label">Overdue</div>
+          </a>
+          <a class="alert-card" href="#" onclick="ovSetFilter('pending');return false">
+            <div class="alert-card-val" id="ov-metric-pending">—</div>
+            <div class="alert-card-label">Pending</div>
+          </a>
+          <a class="alert-card" href="#" onclick="ovSetFilter('invoiced');return false">
+            <div class="alert-card-val" id="ov-metric-invoiced">—</div>
+            <div class="alert-card-label">Invoiced</div>
+          </a>
+          <a class="alert-card" href="#" onclick="ovSetFilter('all');return false">
+            <div class="alert-card-val" id="ov-metric-total">—</div>
+            <div class="alert-card-label">Total open</div>
+          </a>
+        </div>
+      </div>
+      <div class="alert-bar"></div>
+
+      <div class="main">
+        <div class="scroll" style="padding:20px">
+
+          <div id="ov-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+            <span id="ov-count-badge" style="font-size:11px;font-family:var(--font-mono);color:var(--mu);padding:4px 10px;background:var(--bg);border-radius:12px">0 deals</span>
+            <span style="flex:1"></span>
+            <button class="btn btn-sm" data-pill="all" onclick="ovSetFilter('all')">All</button>
+            <button class="btn btn-sm" data-pill="overdue" onclick="ovSetFilter('overdue')">Overdue</button>
+            <button class="btn btn-sm" data-pill="pending" onclick="ovSetFilter('pending')">Pending</button>
+            <button class="btn btn-sm" data-pill="invoiced" onclick="ovSetFilter('invoiced')">Invoiced</button>
+          </div>
+
+          <div id="ov-list">
+            <div style="padding:40px;text-align:center;color:var(--mu2);font-size:13px">Loading…</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="cache.js"></script>
+<script src="app.js"></script>
+<script src="router.js"></script>
+<script src="components/layout.js"></script>
+<script src="components/icons.js"></script>
+<script src="components/badges.js"></script>
+<script src="components/panel-editor.js"></script>
+<script src="components/side-panel.js"></script>
+<script src="panel-manager.js"></script>
+<script src="overdue.js"></script>
+</body>
+</html>

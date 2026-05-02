@@ -62,22 +62,7 @@ async function _hydrateVendors(vendors) {
   }))
 }
 
-// List view consumes: id, full_name, name, vendor_type, payout_currency,
-// is_active, active, email, company_id, vendor_clients (via _hydrateVendors).
-// Detail panel additionally consumes notes, category_id, tags, payment_cadence,
-// + rates[] (via _hydrateVendors). Other UI fields like profile_picture_url,
-// phone, city, country, tax_id, zip_code, nationality, state, currency,
-// preferred_currency are referenced in code but DO NOT EXIST on the demo
-// vendors table — they read as undefined today. select('*') here keeps the
-// behavior unchanged so generated columns full_name/active continue to flow.
 async function getVendors() {
-  if (window.Cache) {
-    return window.Cache.readThrough('vendors:list:active', _fetchVendorsActiveFresh)
-  }
-  return _fetchVendorsActiveFresh()
-}
-
-async function _fetchVendorsActiveFresh() {
   const { data, error } = await _withVendorActiveFilter(_sb
     .from('vendors')
     .select('*'), true)
@@ -87,13 +72,6 @@ async function _fetchVendorsActiveFresh() {
 }
 
 async function getVendorsInactive() {
-  if (window.Cache) {
-    return window.Cache.readThrough('vendors:list:inactive', _fetchVendorsInactiveFresh)
-  }
-  return _fetchVendorsInactiveFresh()
-}
-
-async function _fetchVendorsInactiveFresh() {
   const { data, error } = await _withVendorActiveFilter(_sb
     .from('vendors')
     .select('*'), false)
@@ -115,13 +93,6 @@ async function getLatestBillForVendor(vendorId) {
 }
 
 async function getVendor(id) {
-  if (window.Cache) {
-    return window.Cache.readThrough('vendor:' + id, () => _fetchVendorFresh(id))
-  }
-  return _fetchVendorFresh(id)
-}
-
-async function _fetchVendorFresh(id) {
   const { data, error } = await _sb
     .from('vendors')
     .select('*')
@@ -145,23 +116,18 @@ function _mapVendor(v) {
 async function createVendor(fields) {
   const { data, error } = await _sb.from('vendors').insert(fields).select().single()
   if (error) throw error
-  window.Cache?.invalidatePrefix('vendors:list')
   return data
 }
 
 async function updateVendor(id, fields) {
   const { data, error } = await _sb.from('vendors').update(fields).eq('id', id).select().single()
   if (error) throw error
-  window.Cache?.invalidate('vendor:' + id)
-  window.Cache?.invalidatePrefix('vendors:list')
   return data
 }
 
 async function deleteVendor(id) {
   const { error } = await _sb.from('vendors').delete().eq('id', id)
   if (error) throw error
-  window.Cache?.invalidate('vendor:' + id)
-  window.Cache?.invalidatePrefix('vendors:list')
 }
 
 // ─── rates ───────────────────────────────────────────────────
@@ -248,36 +214,17 @@ async function getVendorClientsForClient(clientId) {
 
 // ─── clients ─────────────────────────────────────────────────
 
-// List view + FK pickers + side-panel option loader all consume this:
-// id, full_name, email, phone, client_kind, company, source, active.
-// Detail-only fields (notes, customer_id, customer_id_fk, created_at) come
-// via getClient(id). Update this comment if list consumers change.
 async function getClients() {
-  if (window.Cache) {
-    return window.Cache.readThrough('clients:list', _fetchClientsListFresh)
-  }
-  return _fetchClientsListFresh()
-}
-
-async function _fetchClientsListFresh() {
   const { data, error } = await _sb
     .from('clients')
-    .select('id, full_name, email, phone, client_kind, company, source, active, created_at')
+    .select('*')
     .eq('active', true)
     .order('full_name')
   if (error) throw error
   return data
 }
 
-// Client detail panel renders all columns including notes + customer_id refs.
 async function getClient(id) {
-  if (window.Cache) {
-    return window.Cache.readThrough('client:' + id, () => _fetchClientFresh(id))
-  }
-  return _fetchClientFresh(id)
-}
-
-async function _fetchClientFresh(id) {
   const { data, error } = await _sb.from('clients').select('*').eq('id', id).single()
   if (error) throw error
   return data
@@ -286,23 +233,18 @@ async function _fetchClientFresh(id) {
 async function createClient(fields) {
   const { data, error } = await _sb.from('clients').insert(fields).select().single()
   if (error) throw error
-  window.Cache?.invalidate('clients:list')
   return data
 }
 
 async function updateClient(id, fields) {
   const { data, error } = await _sb.from('clients').update(fields).eq('id', id).select().single()
   if (error) throw error
-  window.Cache?.invalidate('client:' + id)
-  window.Cache?.invalidate('clients:list')
   return data
 }
 
 async function deleteClient(id) {
   const { error } = await _sb.from('clients').delete().eq('id', id)
   if (error) throw error
-  window.Cache?.invalidate('client:' + id)
-  window.Cache?.invalidate('clients:list')
 }
 
 // ─── products ────────────────────────────────────────────────
@@ -544,32 +486,15 @@ async function getDeals(filters = {}) {
   return _hydrateDealsRelations(data)
 }
 
-// Panel renders: id, client_id, primary_vendor_id, product_id, plan_id, vat_pct,
-//   vat_mode, sales_status, billing_status, payment_processor, payment_method,
-//   payment_link, notes, created_at, updated_at, origin, external_id,
-//   agreed_price, agreed_currency  + nested clients(*), deal_documents(*),
-//   deal_reminders(*) + hydrated vendors / products via _hydrateDealsRelations.
-// Update this comment if panel fields change.
-const _DEAL_COLS = [
-  'id','client_id','primary_vendor_id','product_id','plan_id',
-  'vat_pct','vat_mode','sales_status','billing_status',
-  'payment_processor','payment_method','payment_link',
-  'notes','created_at','updated_at','origin','external_id',
-  'agreed_price','agreed_currency',
-].join(',')
-
 async function getDeal(id) {
-  const cacheKey = 'deal:' + id
-  if (window.Cache) {
-    return window.Cache.readThrough(cacheKey, () => _fetchDealFresh(id))
-  }
-  return _fetchDealFresh(id)
-}
-
-async function _fetchDealFresh(id) {
   const { data, error } = await _sb
     .from('deals')
-    .select(_DEAL_COLS + ', clients(*), deal_documents(*), deal_reminders(*)')
+    .select(`
+      *,
+      clients(*),
+      deal_documents(*),
+      deal_reminders(*)
+    `)
     .eq('id', id)
     .single()
   if (error) throw error
@@ -580,7 +505,6 @@ async function _fetchDealFresh(id) {
 async function createDeal(fields) {
   const { data, error } = await _sb.from('deals').insert(fields).select().single()
   if (error) throw error
-  window.Cache?.invalidate('deals:list')
   return data
 }
 
@@ -588,16 +512,12 @@ async function updateDeal(id, fields) {
   const { data, error } = await _sb
     .from('deals').update(fields).eq('id', id).select().single()
   if (error) throw error
-  window.Cache?.invalidate('deal:' + id)
-  window.Cache?.invalidate('deals:list')
   return data
 }
 
 async function deleteDeal(id) {
   const { error } = await _sb.from('deals').delete().eq('id', id)
   if (error) throw error
-  window.Cache?.invalidate('deal:' + id)
-  window.Cache?.invalidate('deals:list')
 }
 
 async function addDealReminder(dealId, text, dueDate) {
@@ -1673,6 +1593,35 @@ async function getTransactions({ includeDeleted = false } = {}) {
   return data || []
 }
 
+// Reconcile: link a transaction to a deal and update both statuses.
+// Consumers: reconcile.js
+async function matchTransactionToDeal(txId, dealId, status = 'matched') {
+  const { error: txErr } = await _sb
+    .from('transactions')
+    .update({ linked_entity_type: 'deal', linked_entity_id: dealId, status })
+    .eq('id', txId)
+  if (txErr) throw txErr
+  const { error: dealErr } = await _sb
+    .from('deals')
+    .update({ billing_status: 'paid' })
+    .eq('id', dealId)
+  if (dealErr) throw dealErr
+  if (typeof Cache !== 'undefined') {
+    Cache.invalidatePrefix('deal:')
+    Cache.invalidatePrefix('deals:')
+  }
+}
+
+// Reconcile: link a transaction to a bill (paycheck slot in linked_entity_type).
+// Consumers: reconcile.js
+async function matchTransactionToBill(txId, billId, status = 'matched') {
+  const { error } = await _sb
+    .from('transactions')
+    .update({ linked_entity_type: 'paycheck', linked_entity_id: billId, status })
+    .eq('id', txId)
+  if (error) throw error
+}
+
 // ─── registry: exchange_rates ─────────────────────────────────
 
 async function getExchangeRates() {
@@ -1705,6 +1654,48 @@ async function deleteExchangeRate(id) {
 // ─── registry: account_balances (monthly snapshots) ──────────
 
 async function getAccountBalances(accountId, year) {
+  const sample = await _sb
+    .from('account_balances')
+    .select('*')
+    .limit(1)
+  if (sample.error) throw sample.error
+
+  const sampleRow = (sample.data || [])[0]
+  if (sampleRow && !Object.prototype.hasOwnProperty.call(sampleRow, 'month') && Object.prototype.hasOwnProperty.call(sampleRow, 'date')) {
+    let oldQ = _sb
+      .from('account_balances')
+      .select('*')
+      .order('date', { ascending: false })
+    if (accountId) oldQ = oldQ.eq('account_id', accountId)
+    if (year) {
+      const from = `${year}-01-01`
+      const to   = `${year}-12-31`
+      oldQ = oldQ.gte('date', from).lte('date', to)
+    }
+    const oldResult = await oldQ
+    if (oldResult.error) throw oldResult.error
+
+    const merged = new Map()
+    for (const row of oldResult.data || []) {
+      if (!row.account_id) continue
+      const month = row.date ? row.date.slice(0, 7) + '-01' : null
+      const key = `${row.account_id}:${month}`
+      const next = merged.get(key) || {
+        id: row.id,
+        account_id: row.account_id,
+        month,
+        opening_balance: null,
+        closing_balance: null,
+        currency: row.currency || null,
+        notes: row.notes || null,
+      }
+      if (row.balance_type === 'closing') next.closing_balance = row.balance
+      else next.opening_balance = row.balance
+      merged.set(key, next)
+    }
+    return Array.from(merged.values())
+  }
+
   let q = _sb
     .from('account_balances')
     .select('*')
@@ -1729,6 +1720,61 @@ async function getAccountBalances(accountId, year) {
 }
 
 async function upsertAccountBalance({ account_id, month, opening_balance, closing_balance, currency, notes }) {
+  const sample = await _sb
+    .from('account_balances')
+    .select('*')
+    .limit(1)
+  if (sample.error) throw sample.error
+
+  const sampleRow = (sample.data || [])[0]
+  if (sampleRow && !Object.prototype.hasOwnProperty.call(sampleRow, 'month') && Object.prototype.hasOwnProperty.call(sampleRow, 'date')) {
+    const date = month
+    const existing = await _sb
+      .from('account_balances')
+      .select('*')
+      .eq('account_id', account_id)
+      .eq('date', date)
+      .eq('balance_type', 'closing')
+      .maybeSingle()
+    if (existing.error) throw existing.error
+
+    let saved = existing.data
+    if (closing_balance == null) {
+      if (saved?.id) {
+        const del = await _sb.from('account_balances').delete().eq('id', saved.id)
+        if (del.error) throw del.error
+      }
+      saved = null
+    } else if (saved?.id) {
+      const updated = await _sb
+        .from('account_balances')
+        .update({ balance: closing_balance, notes })
+        .eq('id', saved.id)
+        .select()
+        .single()
+      if (updated.error) throw updated.error
+      saved = updated.data
+    } else {
+      const inserted = await _sb
+        .from('account_balances')
+        .insert({ account_id, date, balance: closing_balance, balance_type: 'closing', notes })
+        .select()
+        .single()
+      if (inserted.error) throw inserted.error
+      saved = inserted.data
+    }
+
+    return {
+      id: saved?.id || `${account_id}:${date}:closing`,
+      account_id,
+      month: date,
+      opening_balance,
+      closing_balance,
+      currency,
+      notes: saved?.notes || notes || null,
+    }
+  }
+
   const { data, error } = await _sb
     .from('account_balances')
     .upsert(
@@ -1983,7 +2029,7 @@ async function getProfile(userId) {
   if (!userId) return null
   const { data, error } = await _sb
     .from('profiles')
-    .select('id, role, vendor_id, full_name, email')
+    .select('id, system_role, vendor_id, full_name, email')
     .eq('id', userId)
     .maybeSingle()
   if (error) throw error
@@ -2095,18 +2141,18 @@ async function getNeedsAttentionItems({ limit = 8 } = {}) {
     })
   } catch (err) { console.warn('[needs-attention] overdue bills', err) }
 
-  // 2. Ready to pay: status='ready_to_pay'
+  // 2. Ready to pay: status='approved' (approved = manager reviewed, awaiting payment)
   try {
     const { data: ready } = await _sb
       .from('bills')
       .select('id, vendor_id, total_amount, currency, vendors(full_name)')
-      .eq('status', 'ready_to_pay')
+      .eq('status', 'approved')
     ;(ready || []).forEach(b => {
       items.push({
         kind: 'ready_bill',
         id: b.id,
         title: (b.vendors && b.vendors.full_name) || 'Unknown vendor',
-        sub: _formatBillAmount(b.total_amount, b.currency) + ' · ready to pay',
+        sub: _formatBillAmount(b.total_amount, b.currency) + ' · approved, awaiting payment',
         sortKey: 0,
         priority: 2,
       })

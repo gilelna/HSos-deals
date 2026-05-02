@@ -105,3 +105,12 @@ _Non-negotiable conventions. Every AI model working on this project MUST read th
 - Do not change shared.css layout primitives (.app, .sidebar, .topbar, .app-body) without understanding the full cascade
 - Do not use position:fixed anywhere (breaks layout)
 - Do not hardcode vendor IDs, product IDs, or any real data in JS
+
+11. **Schema-first before any write operation.**
+    Before writing any code that inserts or upserts to a table:
+    a. Read the relevant migration file for that table (in /migrations/)
+    b. List every field you plan to send in the payload
+    c. Verify each field exists as a column with the correct type
+    d. If there is any mismatch — propose and apply the migration fix FIRST,
+       before writing any application code.
+    Never assume the schema matches the spec. Always verify.

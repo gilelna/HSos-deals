@@ -3704,7 +3704,7 @@ function renderExpectedIncome() {
     const badgeHtml = `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${bg};color:${col};font-family:var(--font-mono)">${status.replace('_', ' ')}</span>`
     const actionHtml = isTC
       ? '<span style="font-size:11px;color:var(--mu)">auto-closed</span>'
-      : '<span style="font-size:11px;color:var(--mu2)">—</span>'
+      : `<button class="ep-link" onclick="event.stopPropagation();eiMatchTx('${escHtmlAttr(deal.id)}')" style="font-size:11px">Match</button>`
 
     const SYM = { USD: '$', ILS: '₪', EUR: '€' }
     const sym = SYM[deal.agreed_currency] || '$'
@@ -3725,6 +3725,13 @@ function renderExpectedIncome() {
     </tr>`
   }).join('')
 }
+
+// Reconcile entry point: open reconcile.html with the deal pre-selected.
+// Consumer: Expected Income action cell.
+function eiMatchTx(dealId) {
+  window.location.href = `reconcile.html?highlight=${encodeURIComponent(dealId)}`
+}
+window.eiMatchTx = eiMatchTx
 
 function updateEiMetrics() {
   const pending  = eiRows.filter(d => d.billing_status === 'pending')

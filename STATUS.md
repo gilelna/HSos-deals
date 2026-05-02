@@ -1,6 +1,46 @@
 # HSos — STATUS.md
 _Living handoff file. Update at end of every session._
-Last updated: 2026-04-27 (Performance pass — cache layer, hover prefetch, skeleton UI for Deal panel / Clients / Vendors)
+Last updated: 2026-05-02 (Open Invoices workflow page — built)
+
+---
+
+### Open Invoices page 2026-05-02 — built
+- **`overdue.html` + `overdue.js`** (Phase 1 ROADMAP item — overdue/open-invoices workflow). Standalone page in the Payments space.
+- **Layout:** Cover with 4 metric cards (Overdue / Pending / Invoiced / Total open, each = `count · sum`), filter bar with All/Overdue/Pending/Invoiced pills + count badge, card-per-deal list sorted oldest-first.
+- **Cards:** client name (→ side panel), status badge, payment-method badge if present, deal/product name (→ side panel), age line ("Nd overdue" or "Open Nd"), invoice ref (`gi_invoice_series`) if present, amount + currency, three actions: Send reminder (stub toast), Mark paid (`updateDeal(id, {billing_status:'paid'})` + cache invalidate + optimistic remove), Open in Green Invoice (shows `gi_client_id / gi_invoice_series` ref via toast — no real GI URL field exists on clients).
+- **Data path:** uses `getDeals({ billing_status })` once per status, merges client-side, filters out `sales_status IN (closed, lead)`. No new db.js functions added — `updateDeal` already existed.
+- **Schema gaps surfaced:** spec assumed `clients.green_invoice_url`, `deals.invoice_number`, `deals.due_date` — none of these exist. `gi_invoice_series` (text on deals) is the closest invoice ref; age is derived from `created_at`. Real "Open in GI" requires either a URL pattern decision or storing a full URL — currently stubbed to a toast with the GI refs.
+- **Send reminder:** stubbed to a toast. No reminder/email integration built. Could later log a `deal_reminder` row and/or hit a Green Invoice send-link API.
+
+### Open Invoices page — manual QA (Gil, run after pulling)
+1. Open `overdue.html` directly. Confirm cover paints, 4 metric cards show counts (or "0" if no open deals).
+2. Confirm cards list paints sorted oldest-first; each has client name, status badge, age label.
+3. Click a status pill (Overdue / Pending / Invoiced) → list filters; count badge updates; pill highlights.
+4. Click "All" → all rows return.
+5. Click client name on a row → side panel opens to the client.
+6. Click deal/product name → side panel opens to the deal.
+7. Click "Mark paid" → confirm dialog → on accept: row disappears, toast "Marked as paid", metrics drop. Reopen Operations dashboard → that deal now shows billing_status=paid.
+8. Click "Send reminder" → toast "Reminder queued (stub)…".
+9. Click "Open in Green Invoice" on a row that has a `gi_client_id` set → toast shows the GI ref. Rows without `gi_client_id` should NOT show this button.
+
+---
+
+### Reconcile page 2026-05-02 — built
+- **`reconcile.html` + `reconcile.js`** (Phase 1 ROADMAP item, was the highest-priority missing feature). Standalone page in the Payments space.
+- **Layout:** Tab strip (Deals / Bills) → two-column body. LEFT = open deals (or submitted bills); RIGHT = unmatched transactions filtered by direction (in for deals, out for bills). Sticky action bar appears once both sides have a selection.
+- **Auto-suggest:** on page load, computes amount-and-date proximity matches (|Δ| < 5%, within 30 days of `created_at`). Suggested cards get a green border + "match" badge. Selecting a deal narrows highlights to that deal's specific suggestions. Manual override by clicking any deal + any tx.
+- **Write-back:** uses two new `db.js` functions — `matchTransactionToDeal(txId, dealId, status)` flips `transactions.linked_entity_*` + `transactions.status` AND bumps `deals.billing_status='paid'`; `matchTransactionToBill(txId, billId, status)` flips the tx fields only (bill terminal-status is owned by the existing `markBillPaidV2` flow).
+- **Green Invoice integration:** if the deal's client has a `green_invoice_client_id`, a third button ("Match + issue receipt via GI") appears on the action bar. Currently a stub (`console.log` + match+reconciled write-back); flagged TODO until real GI receipt-issuance API call replaces it.
+- **Deep link:** `reconcile.html?highlight=<dealId>` auto-selects that deal card and scrolls it into view. The Expected Income tab's per-row action cell now exposes this via a "Match" button (was "—") wired to a new `payments.js eiMatchTx(dealId)` redirector.
+
+### Reconcile page — manual QA (Gil, run after pulling)
+1. Open Payments → Expected Income tab → click "Match" on any non-TC deal row → reconcile.html opens with that deal highlighted (amber background) + scrolled into view.
+2. Reconcile page → confirm both columns paint a "Loading…" skeleton briefly, then resolve to deal cards (LEFT) and unmatched-tx cards (RIGHT).
+3. Confirm any auto-suggested pairs are visibly highlighted (green border on both sides, "match" badge).
+4. Click a deal card → action bar stays hidden until a tx is also selected; then it appears at the bottom showing `<deal client> $X ↔ <tx desc> $Y` plus exact/Δ.
+5. Click "Match + mark paid" → toast "Matched + marked paid" → both cards disappear from the lists. Re-open the deal panel from Operations → its `billing_status` reads "paid".
+6. Switch to Bills tab → confirm submitted bills appear LEFT, outgoing unmatched txs appear RIGHT. Match flow same as deals (without GI button).
+7. URL `?tab=bills` opens directly on Bills tab.
 
 ---
 
@@ -78,7 +118,7 @@ No framework. No build step. Files served directly.
 | Payments — Vendor Bills tab | payments.html + payments.js | ✅ Working |
 | Payments — History tab | payments.html + payments.js | ✅ Working |
 | Payments — Vendor Manager tab | payments.html + payments.js | ✅ Working — vendor defaults + unmatched merchant assignment |
-| Payments — Balances tab | payments.html + payments.js | ✅ New — monthly opening/closing snapshots per account, delta reconciliation |
+| Payments — Balances | balances.html + balances.js | ✅ Promoted to standalone — monthly opening/closing snapshots per account, delta reconciliation |
 | Vendor profile | vendor-profile.html + vendor-profile.js | ✅ New — hero with overlay, stats, assigned clients, bills, docs |
 | Client profile | client-profile.html + client-profile.js | ✅ Rebuilt — hero with overlay, stats, deals/packages, payments, tags, docs, details panel |
 | Products | products.html + products.js | ✅ Rebuilt 2026-04-26 — expandable product cards, auto-fill plan grid, unified right panel (Details + Deals tabs), soft-archive with active-deal guard |

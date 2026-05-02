@@ -34,10 +34,11 @@ const NAV_HTML = {
       <a class="sb-link" id="nav-contractors"     href="contractors.html">Contractors &amp; Coaches</a>
       <div class="sb-section-label" style="margin-top:8px">Manage</div>
       <a class="sb-link" id="nav-expected-income" href="payments.html?tab=expected-income">Expected Income</a>
+      <a class="sb-link" id="nav-overdue"         href="overdue.html">Open Invoices</a>
       <a class="sb-link" id="nav-vendor-bills"    href="payments.html?tab=vendor-bills">Vendor Bills</a>
       <a class="sb-link" id="nav-history"         href="payments.html?tab=history">History</a>
       <a class="sb-link" id="nav-registry"        href="payments.html?tab=registry">Registry</a>
-      <a class="sb-link" id="nav-balances"        href="payments.html?tab=balances">Balances</a>
+      <a class="sb-link" id="nav-balances"        href="balances.html">Balances</a>
       <a class="sb-link" id="nav-vendors"         href="payments.html?tab=vendors">Vendor Manager</a>
       <a class="sb-link" id="nav-activity-log"    href="activity-log.html">Activity Log</a>
       <div class="sb-section-label" style="margin-top:8px">Tools</div>
