@@ -1,47 +1,64 @@
 // app.js — HSos shared application layer
-// Loaded on every page after db.js
+// Loaded on every page after db.js + auth.js
+//
+// Auth model: there is no demo bypass. Every page using LAYOUT.init()
+// must have a real Supabase session and a profiles row with a non-null
+// system_role. The gate runs in components/layout.js (LAYOUT._runAuthGate)
+// and caches { session, user, profile } on window.__hsosAuth before any
+// of the helpers below are used.
 
 // ─── role enforcement ────────────────────────────────────────
-// DEMO MODE: role is driven by the 4-pill selector → sessionStorage.
-// PHASE 2: Role.set() will be called once on login using getRoleFromDB()
-//          from db.js. The pill selector will be hidden for non-admin users.
-//
-// Access rules (enforced in layout.js sidebar + page guards below):
-//   admin    → all spaces
-//   finance  → all spaces
-//   manager  → operations + workload only (no payments)
-//   vendor   → workload only (no operations, no payments)
+// Effective role = system_role from profiles. Admin can *preview* as
+// another role within the session (sessionStorage 'hsos_role_preview');
+// non-admin previews are ignored. The Role pill switcher only renders
+// when the real role is admin.
 
-// ─── role selector ────────────────────────────────────────────
 const ROLES = ['Admin', 'Manager', 'Finance', 'Vendor']
 
 const Role = {
+  // The user's real role from profiles.system_role (lowercase).
+  // Returns '' when called before LAYOUT._runAuthGate completes.
+  real() {
+    return (window.__hsosAuth?.profile?.system_role || '').toLowerCase()
+  },
+
+  // The role currently driving the UI. For admin: any preview override
+  // (sessionStorage 'hsos_role_preview') if set, else 'Admin'. For all
+  // other roles: always the real role — preview is ignored.
   get() {
-    return sessionStorage.getItem('hsos_role') || 'Admin'
+    const real = this.real()
+    if (real !== 'admin') return capitalize(real || '')
+    const preview = sessionStorage.getItem('hsos_role_preview')
+    if (preview && ROLES.includes(preview)) return preview
+    return 'Admin'
   },
+
+  // Admin-only preview override. No-op for non-admin. Reloads the page
+  // so role-conditional rendering picks up the new value.
   set(r) {
-    const previous = sessionStorage.getItem('hsos_role') || 'Admin'
-    sessionStorage.setItem('hsos_role', r)
-    if (r !== previous) {
-      window.location.reload()
+    if (this.real() !== 'admin') return
+    if (!ROLES.includes(r)) return
+    const previous = sessionStorage.getItem('hsos_role_preview') || 'Admin'
+    if (r === 'Admin') {
+      sessionStorage.removeItem('hsos_role_preview')
     } else {
-      document.body.dataset.role = r.toLowerCase()
-      const btns = document.querySelectorAll('.role-btn')
-      btns.forEach(b => {
-        const active = b.dataset.role === r
-        b.classList.toggle('cur', active)
-        b.setAttribute('aria-pressed', active ? 'true' : 'false')
-      })
+      sessionStorage.setItem('hsos_role_preview', r)
     }
+    if (r !== previous) window.location.reload()
   },
+
   init() {
-    const r = Role.get()
-    document.body.dataset.role = r.toLowerCase()
-  }
+    document.body.dataset.role = (this.get() || '').toLowerCase()
+  },
 }
 window.Role = Role
 
-// Returns true if the current role can access the given space.
+function capitalize(s) {
+  if (!s) return ''
+  return s[0].toUpperCase() + s.slice(1).toLowerCase()
+}
+
+// Returns true if the current effective role can access the given space.
 // space: 'operations' | 'workload' | 'payments'
 function canAccessSpace(space) {
   const role = Role.get().toLowerCase()
@@ -52,10 +69,15 @@ function canAccessSpace(space) {
 }
 window.canAccessSpace = canAccessSpace
 
-// Call on DOMContentLoaded in each page to guard access.
-// requiredSpace: 'operations' | 'workload' | 'payments'
-// redirectTo: page to send unauthorized users to (default: workload.html)
+// Call on DOMContentLoaded in each page to guard access. Sends
+// unauthorized users to redirectTo. If the auth gate hasn't completed
+// yet (window.__hsosAuth not populated), returns true without
+// redirecting — the gate in layout.js will own the final UI state by
+// replacing document.body if the user isn't authorized. Skipping the
+// premature redirect prevents an authed admin from being kicked to
+// workload.html on a slow network.
 function guardSpace(requiredSpace, redirectTo = 'workload.html') {
+  if (!window.__hsosAuth) return true
   if (!canAccessSpace(requiredSpace)) {
     window.location.replace(redirectTo)
     return false
@@ -67,23 +89,41 @@ window.guardSpace = guardSpace
 function renderRoleSelector() {
   const el = document.getElementById('role-selector')
   if (!el) return
+  // Only the real admin gets the switcher pill rendered. For everyone
+  // else clear the container; layout.js also hides #role-selector via
+  // display:none so this is belt-and-braces.
+  if (Role.real() !== 'admin') {
+    while (el.firstChild) el.removeChild(el.firstChild)
+    return
+  }
   el.setAttribute('role', 'group')
-  el.setAttribute('aria-label', 'Active role')
+  el.setAttribute('aria-label', 'Active role (preview)')
+  while (el.firstChild) el.removeChild(el.firstChild)
   const cur = Role.get()
-  el.innerHTML = ROLES.map(r =>
-    `<button class="role-btn${r === cur ? ' cur' : ''}" data-role="${r}" aria-pressed="${r === cur ? 'true' : 'false'}" aria-label="Switch to ${r} role" onclick="Role.set('${r}')">${r}</button>`
-  ).join('')
+  ROLES.forEach(r => {
+    const b = document.createElement('button')
+    b.className = 'role-btn' + (r === cur ? ' cur' : '')
+    b.dataset.role = r
+    b.setAttribute('aria-pressed', r === cur ? 'true' : 'false')
+    b.setAttribute('aria-label', `Preview as ${r}`)
+    b.textContent = r
+    b.addEventListener('click', () => Role.set(r))
+    el.appendChild(b)
+  })
 }
 window.renderRoleSelector = renderRoleSelector
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Role.init reads window.__hsosAuth, which isn't populated until the
+  // gate resolves. layout.js calls Role.init() implicitly via render
+  // sequencing; this is just for any pages that don't use LAYOUT.init.
   Role.init()
-  renderRoleSelector()
 })
 
-// ─── demo identity ────────────────────────────────────────────
-// In demo mode, the current vendor is stored in sessionStorage.
-// The vendor picker lets you switch vendor to showcase any role.
+// ─── vendor identity (post-auth) ──────────────────────────────
+// `DEMO` is kept for backward compatibility with workload.js. The
+// vendor identity is now seeded from profiles.vendor_id when present.
+// The picker stays as an admin-only "view as vendor" override.
 
 const DEMO = {
   get vendor() {
@@ -98,12 +138,12 @@ const DEMO = {
 }
 window.DEMO = DEMO
 
-// Show vendor picker. Returns a Promise that resolves when a vendor is picked.
+// Show vendor picker. Returns a Promise that resolves with the picked
+// vendor (or null on cancel).
 async function showVendorPicker(opts = {}) {
-  // opts.required = true means user cannot dismiss without picking
   return new Promise(async (resolve) => {
     let vendors = []
-    try { vendors = await getVendors() } catch(e) {
+    try { vendors = await getVendors() } catch (e) {
       console.error('[HSos] Could not load vendors:', e)
     }
 
@@ -123,7 +163,9 @@ async function showVendorPicker(opts = {}) {
 
     const sub = document.createElement('div')
     sub.className = 'vpick-sub'
-    sub.textContent = 'DEMO MODE — pick who you are'
+    sub.textContent = Role.real() === 'admin'
+      ? 'Admin preview — view workload as this vendor'
+      : 'Pick the vendor to log work for'
 
     const list = document.createElement('div')
     list.className = 'vpick-list'
@@ -192,22 +234,11 @@ async function showVendorPicker(opts = {}) {
 }
 window.showVendorPicker = showVendorPicker
 
-// Update topbar with current vendor name and initials
+// Update topbar with current vendor name. Used by workload.js for its
+// vendor-identity hero. The avatar dropdown is owned by USER_MENU.
 function updateTopbarUser(vendor) {
   const nameEl = document.querySelector('.tb-user-name')
-  const avEl   = document.querySelector('.tb-av')
   if (nameEl) nameEl.textContent = vendor?.full_name || '—'
-  if (avEl) {
-    if (vendor?.profile_picture_url) {
-      avEl.textContent = ''
-      avEl.style.backgroundImage = `url("${vendor.profile_picture_url.replace(/"/g, '%22')}")`
-      avEl.style.backgroundSize = 'cover'
-      avEl.style.backgroundPosition = 'center'
-    } else {
-      avEl.textContent = initials(vendor?.full_name || '')
-      avEl.style.backgroundImage = ''
-    }
-  }
 }
 window.updateTopbarUser = updateTopbarUser
 
@@ -268,8 +299,6 @@ window.formatMonth = formatMonth
 
 // ─── HTML escaping ────────────────────────────────────────────
 // Authoritative implementations — used by all pages.
-// escHtmlAttr: for values inside HTML attribute strings (onclick="…", href="…")
-// esc / escHtml: for text content inside HTML tags
 
 function esc(v) {
   return String(v == null ? '' : v)
@@ -291,9 +320,6 @@ window.escHtml     = escHtml
 window.escHtmlAttr = escHtmlAttr
 
 // ─── confirm dialog ───────────────────────────────────────────
-// Replaces native confirm() for destructive actions.
-// Usage: showConfirm('Are you sure?', () => doDelete())
-// Optional opts: { confirmLabel, cancelLabel }
 
 function showConfirm(msg, onConfirm, opts = {}) {
   const confirmLabel = opts.confirmLabel || 'Confirm'
@@ -310,7 +336,7 @@ function showConfirm(msg, onConfirm, opts = {}) {
   head.className = 'modal-head'
   const title = document.createElement('div')
   title.className = 'modal-title'
-  title.textContent = msg    // textContent — no XSS risk
+  title.textContent = msg
   head.appendChild(title)
 
   const foot = document.createElement('div')

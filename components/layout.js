@@ -1,5 +1,12 @@
 // components/layout.js — Shared layout loader for HSos
 // Handles loading topbar + sidebar components and initializing shared layout behavior.
+//
+// Auth gate: LAYOUT.init() now blocks on a real Supabase auth session
+// before any page-specific UI is rendered. There is no demo bypass.
+//   - No session              → full-page "Sign in with Google" screen, init() never resolves.
+//   - Session, no profile row → full-page "Access pending" screen, init() never resolves.
+//   - Session + profile row with non-null system_role → init() proceeds.
+// The resolved auth state is cached on window.__hsosAuth = { session, user, profile }.
 
 const NAV_HTML = {
   operations: `
@@ -46,8 +53,12 @@ const NAV_HTML = {
     </div>`
 }
 
+// A Promise that never resolves — used to halt `await LAYOUT.init(...)`
+// when the auth gate fails, so page-specific code that awaits init()
+// never proceeds to its data-loading / render stage.
+const NEVER = new Promise(() => {})
+
 const LAYOUT = {
-  // Load a component's HTML into a container element by ID
   async loadComponent(containerId, componentPath) {
     const el = document.getElementById(containerId)
     if (!el) return
@@ -56,21 +67,16 @@ const LAYOUT = {
     el.innerHTML = await res.text()
   },
 
-  // Inject the correct nav section for the active space and mark the space button active
-  // space: 'operations' | 'workload' | 'payments'
   setActiveSpace(space) {
     if (!space) return
-    // Inject the correct nav HTML into the nav container
     const navContainer = document.getElementById('sb-nav-container')
     if (navContainer && NAV_HTML[space]) {
       navContainer.innerHTML = NAV_HTML[space]
     }
-    // Mark the active space button
     const btn = document.getElementById(`space-btn-${space}`)
     if (btn) btn.classList.add('cur')
   },
 
-  // Set the active sidebar nav link based on current page filename
   setActiveSidebarLink() {
     const filename = window.location.pathname.split('/').pop() || 'index.html'
     document.querySelectorAll('.sb-link').forEach(link => {
@@ -82,40 +88,86 @@ const LAYOUT = {
     })
   },
 
-  // Set page title in topbar placeholder and <title> tag
   setPageTitle(title) {
     const el = document.getElementById('topbar-page-title')
     if (el) el.textContent = title
     document.title = `${title} — HSos`
   },
 
-  // Initialize the full layout:
-  //   pageTitle  — shown in topbar and <title>
-  //   space      — 'operations' | 'workload' | 'payments' (controls which sidebar nav is shown)
+  // ── Auth gate ──────────────────────────────────────────────
+  // Resolves to { ok: true, session, user, profile } when allowed,
+  // or paints a full-page screen and returns NEVER otherwise.
+  async _runAuthGate() {
+    if (!window.HSOS_AUTH || typeof getProfile !== 'function') {
+      this._renderSignInScreen('Auth layer unavailable')
+      return NEVER
+    }
+
+    let session = null
+    let user = null
+    let profile = null
+
+    try {
+      session = await window.HSOS_AUTH.getSession()
+    } catch (err) {
+      this._renderSignInScreen(err?.message || 'Session check failed')
+      return NEVER
+    }
+
+    if (!session) {
+      this._renderSignInScreen()
+      return NEVER
+    }
+
+    try {
+      user = await window.HSOS_AUTH.getUser()
+    } catch (_) { user = null }
+
+    if (!user?.id) {
+      this._renderSignInScreen('Could not load user')
+      return NEVER
+    }
+
+    try {
+      profile = await getProfile(user.id)
+    } catch (err) {
+      this._renderPendingScreen(user, err?.message || 'Profile lookup failed')
+      return NEVER
+    }
+
+    if (!profile || !profile.system_role) {
+      this._renderPendingScreen(user)
+      return NEVER
+    }
+
+    window.__hsosAuth = { session, user, profile }
+    return { ok: true, session, user, profile }
+  },
+
   async init(pageTitle, space) {
+    const gate = await this._runAuthGate()
+    if (!gate || gate.ok !== true) return
+
     await Promise.all([
       this.loadComponent('layout-topbar', '/components/topbar.html'),
       this.loadComponent('layout-sidebar', '/components/sidebar.html')
     ])
 
-    // Load env-toggle into its container inside the topbar component
     const envContainer = document.getElementById('env-toggle-container')
     if (envContainer) {
       const res = await fetch('/env-toggle.html')
       if (res.ok) envContainer.innerHTML = await res.text()
-      // Init toggle UI — functions live in env-config.js (not in the injected HTML)
       if (typeof initEnvToggle === 'function') initEnvToggle()
     }
 
-    // Render role selector (app.js defines renderRoleSelector)
     if (typeof renderRoleSelector === 'function') renderRoleSelector()
 
     this.setActiveSpace(space)
     this.setActiveSidebarLink()
-    // Apply role-based sidebar restrictions
     this.applyRoleRestrictions()
     if (pageTitle) this.setPageTitle(pageTitle)
     BELL.init()
+    if (window.USER_MENU?.init) USER_MENU.init()
     this.setRandomCoverPhoto()
     this.initCoverShrink()
   },
@@ -125,20 +177,10 @@ const LAYOUT = {
     if (!coverBgs.length) return
 
     const coverImages = [
-      'accounts.png',
-      'class.png',
-      'client.png',
-      'clients.png',
-      'company.png',
-      'create.png',
-      'flow.png',
-      'payments.png',
-      'products.png',
-      'sales.png',
-      'team.png',
-      'vendors.png',
-      'welcome.jpg',
-      'workload.png'
+      'accounts.png', 'class.png', 'client.png', 'clients.png',
+      'company.png', 'create.png', 'flow.png', 'payments.png',
+      'products.png', 'sales.png', 'team.png', 'vendors.png',
+      'welcome.jpg', 'workload.png'
     ]
 
     const picked = coverImages[Math.floor(Math.random() * coverImages.length)]
@@ -146,13 +188,13 @@ const LAYOUT = {
     coverBgs.forEach(bg => { bg.style.backgroundImage = imageUrl })
   },
 
+  // Sidebar role restrictions — driven by profiles.system_role.
   applyRoleRestrictions() {
-    const role = (typeof Role !== 'undefined' ? Role.get() : 'admin').toLowerCase()
+    const role = (window.__hsosAuth?.profile?.system_role || '').toLowerCase()
 
-    // Space selector buttons: hide spaces the role cannot access
     const spaceRules = {
       'space-btn-operations': role === 'admin' || role === 'finance' || role === 'manager',
-      'space-btn-workload':   true, // everyone can see workload
+      'space-btn-workload':   true,
       'space-btn-payments':   role === 'admin' || role === 'finance',
     }
     Object.entries(spaceRules).forEach(([id, visible]) => {
@@ -160,23 +202,19 @@ const LAYOUT = {
       if (btn) btn.style.display = visible ? '' : 'none'
     })
 
-    // Admin/Manager-only nav items (e.g. Vendor Bills in Operations sidebar)
     const canManage = role === 'admin' || role === 'manager'
     document.querySelectorAll('.admin-manager-only').forEach(el => {
       el.style.display = canManage ? '' : 'none'
     })
 
-    // Role selector: hide the switcher for non-admin in future (currently always shown for demo)
-    // In Phase 2: if role !== 'admin' && role !== 'finance', hide the pill selector
-    // For now: leave visible (demo mode)
+    const switcher = document.getElementById('role-selector')
+    if (switcher) switcher.style.display = (role === 'admin') ? '' : 'none'
   },
 
   initCoverShrink() {
     const cover = document.querySelector('.space-cover')
     if (!cover) return
 
-    // Hook scroll on every .scroll and overflow-y element inside app-content.
-    // We use a shared handler — any scroll > 40px triggers shrink.
     const onScroll = (e) => {
       cover.classList.toggle('shrunk', e.target.scrollTop > 40)
     }
@@ -189,13 +227,128 @@ const LAYOUT = {
     }
     attach()
 
-    // Re-attach whenever new nodes are added to app-content (handles dynamically injected tabs)
     const appContent = document.querySelector('.app-content')
     if (appContent) {
       const observer = new MutationObserver(attach)
       observer.observe(appContent, { childList: true, subtree: true })
     }
-  }
+  },
+
+  // ── Gate screens ─────────────────────────────────────────────
+  // Both screens replace the entire <body> content so page-specific
+  // mount points (.app-content, kanban containers, etc.) no longer
+  // exist — page-specific JS that runs in parallel will silently no-op.
+
+  _resetBody() {
+    while (document.body.firstChild) document.body.removeChild(document.body.firstChild)
+    document.body.className = 'hsos-gate-body'
+  },
+
+  _googleSvg() {
+    // Static markup, no user data. innerHTML is fine here.
+    const span = document.createElement('span')
+    span.style.display = 'inline-flex'
+    span.style.alignItems = 'center'
+    span.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.49h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.71A5.41 5.41 0 0 1 3.68 9c0-.59.1-1.17.29-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.04l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58A8.96 8.96 0 0 0 9 0 9 9 0 0 0 .96 4.96l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>'
+    return span
+  },
+
+  _renderSignInScreen(errorMsg) {
+    this._resetBody()
+
+    const shell = document.createElement('div')
+    shell.className = 'hsos-gate'
+
+    const card = document.createElement('div')
+    card.className = 'hsos-gate-card'
+
+    const logo = document.createElement('div')
+    logo.className = 'hsos-gate-logo'
+    logo.textContent = 'HSos'
+
+    const title = document.createElement('div')
+    title.className = 'hsos-gate-title'
+    title.textContent = 'Sign in to continue'
+
+    const sub = document.createElement('div')
+    sub.className = 'hsos-gate-sub'
+    sub.textContent = 'Use your authorized Google account.'
+
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'hsos-gate-btn'
+    btn.appendChild(this._googleSvg())
+    const lbl = document.createElement('span')
+    lbl.textContent = 'Sign in with Google'
+    btn.appendChild(lbl)
+    btn.addEventListener('click', () => {
+      window.HSOS_AUTH.signInWithGoogle().catch(err => {
+        const e = document.getElementById('hsos-gate-error')
+        if (e) e.textContent = err?.message || 'Sign in failed'
+      })
+    })
+
+    const err = document.createElement('div')
+    err.id = 'hsos-gate-error'
+    err.className = 'hsos-gate-error'
+    if (errorMsg) err.textContent = errorMsg
+
+    card.appendChild(logo)
+    card.appendChild(title)
+    card.appendChild(sub)
+    card.appendChild(btn)
+    card.appendChild(err)
+    shell.appendChild(card)
+    document.body.appendChild(shell)
+  },
+
+  _renderPendingScreen(user, errorMsg) {
+    this._resetBody()
+
+    const shell = document.createElement('div')
+    shell.className = 'hsos-gate'
+
+    const card = document.createElement('div')
+    card.className = 'hsos-gate-card'
+
+    const logo = document.createElement('div')
+    logo.className = 'hsos-gate-logo'
+    logo.textContent = 'HSos'
+
+    const title = document.createElement('div')
+    title.className = 'hsos-gate-title'
+    title.textContent = 'Access pending'
+
+    const sub = document.createElement('div')
+    sub.className = 'hsos-gate-sub'
+    const email = user?.email || ''
+    sub.textContent = email
+      ? `Signed in as ${email}. Waiting for an admin to assign your role.`
+      : 'Waiting for an admin to assign your role.'
+
+    const out = document.createElement('button')
+    out.type = 'button'
+    out.className = 'hsos-gate-btn hsos-gate-btn-ghost'
+    out.textContent = 'Sign out'
+    out.addEventListener('click', () => {
+      window.HSOS_AUTH.signOut().catch(() => { /* swallow */ })
+    })
+
+    card.appendChild(logo)
+    card.appendChild(title)
+    card.appendChild(sub)
+    card.appendChild(out)
+
+    if (errorMsg) {
+      const err = document.createElement('div')
+      err.className = 'hsos-gate-error'
+      err.textContent = errorMsg
+      card.appendChild(err)
+    }
+
+    shell.appendChild(card)
+    document.body.appendChild(shell)
+  },
 }
 
 window.LAYOUT = LAYOUT
@@ -250,7 +403,7 @@ const BELL = {
   async _load() {
     const list = document.getElementById('bell-list')
     if (!list) return
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">Loading\u2026</div>'
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mu2);font-size:12px">Loading…</div>'
     try {
       if (typeof getNotifications !== 'function') throw new Error('getNotifications not available')
       this._items = await getNotifications()
@@ -273,7 +426,7 @@ const BELL = {
 
     list.innerHTML = this._items.map(a => {
       const stripped  = _bellStripMd(a.body || '')
-      const preview   = stripped.slice(0, 80) + (stripped.length > 80 ? '\u2026' : '')
+      const preview   = stripped.slice(0, 80) + (stripped.length > 80 ? '…' : '')
       const dueStr    = this._fmtDue(a.due_at)
       const isPending = a.type === 'reminder' && a.status === 'pending'
       const entityCtx = a.meta?.context

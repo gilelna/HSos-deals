@@ -3,216 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HSos — Sign In</title>
+  <title>HSos — Sign in</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --bg:#0f0f11;--sf:#18181c;--sf2:#212127;--sf3:#27272f;
-      --b:#2a2a32;--b2:#35353f;--b3:#42424e;
-      --tx:#f0efe8;--mu:#8a8a96;--mu2:#5a5a66;
-      --ac:#c8b87a;--ac2:#a89550;
-      --gn:#4caf82;--gn-b:#1a2e24;
-      --rd:#e05a5a;--rd-b:#2e1a1a;
-      --am:#e0a040;--am-b:#2e2210;
-      --bl:#5a9de0;--bl-b:#1a2233;
-      --pu:#a07de0;--pu-b:#221a33;
-      --tl:#3dbfb0;--tl-b:#0f2826;
-      --r:12px;--rs:8px;--rx:6px;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: var(--bg);
-      color: var(--tx);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .login-card {
-      width: 100%;
-      max-width: 380px;
-      background: var(--sf);
-      border: 1px solid var(--b2);
-      border-radius: 14px;
-      padding: 32px;
-    }
-
-    .logo-block {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 3px;
-      margin-bottom: 16px;
-    }
-
-    .logo-text {
-      font-family: 'DM Mono', monospace;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--ac);
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-
-    .logo-sub {
-      font-size: 11px;
-      color: var(--mu2);
-    }
-
-    .dot-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 16px;
-    }
-
-    .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-    }
-
-    .dot.teal  { background: var(--tl); }
-    .dot.purple { background: var(--pu); }
-    .dot.amber  { background: var(--am); }
-
-    .divider {
-      height: 1px;
-      background: var(--b);
-      margin-bottom: 20px;
-    }
-
-    .sign-in-heading {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--tx);
-      margin-bottom: 5px;
-    }
-
-    .sign-in-sub {
-      font-size: 12px;
-      color: var(--mu);
-      margin-bottom: 20px;
-    }
-
-    .google-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      width: 100%;
-      background: var(--sf2);
-      border: 1px solid var(--b2);
-      border-radius: var(--rs);
-      padding: 11px 16px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--tx);
-      cursor: pointer;
-      transition: background .15s, border-color .15s;
-    }
-
-    .google-btn:hover:not(:disabled) {
-      background: var(--sf3);
-      border-color: var(--b3);
-    }
-
-    .google-btn:disabled {
-      cursor: not-allowed;
-    }
-
-    .footer-note {
-      font-size: 11px;
-      color: var(--mu2);
-      text-align: center;
-      margin-top: 20px;
-    }
-
-    /* Toast */
-    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--sf2);border:1px solid var(--b2);border-radius:var(--rs);padding:9px 16px;font-size:12px;color:var(--tx);z-index:400;opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
-    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    .td{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-    .toast.success .td{background:var(--gn)}
-    .toast.info .td{background:var(--bl)}
-    .toast.warn .td{background:var(--am)}
-  </style>
-</head>
-<body>
-
-  <div class="login-card">
-
-    <div class="logo-block">
-      <span class="logo-text">HSos</span>
-      <span class="logo-sub">Operations Platform</span>
-    </div>
-
-    <div class="dot-row">
-      <span class="dot teal"></span>
-      <span class="dot purple"></span>
-      <span class="dot amber"></span>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="sign-in-heading">Sign in to continue</div>
-    <div class="sign-in-sub">Use your organization Google account</div>
-
-    <button class="google-btn" id="google-btn" onclick="handleGoogleSignIn()">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-      Continue with Google
-    </button>
-
-    <div class="footer-note">Access is restricted to team members.</div>
-
-  </div>
-
-  <div class="toast" id="toast"><span class="td"></span><span id="toast-msg"></span></div>
-
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="env-keys.js"></script>
   <script src="env-config.js"></script>
-  <script src="supabase-client.js"></script>
-  <script>
-    // If already logged in, redirect to deals.html
-    document.addEventListener('DOMContentLoaded', async () => {
-      const user = await getCurrentUser()
-      if (user) {
-        window.location.href = 'deals.html'
-        return
-      }
-    })
+  <script src="db.js"></script>
+  <script src="auth.js"></script>
+</head>
+<body>
 
-    async function handleGoogleSignIn() {
-      const btn = document.getElementById('google-btn')
-      btn.disabled = true
-      btn.style.opacity = '0.6'
-      try {
-        await signInWithGoogle()
-        // signInWithGoogle triggers redirect — no further action needed
-      } catch(err) {
-        showToast(err.message || 'Sign in failed', 'warn')
-        btn.disabled = false
-        btn.style.opacity = '1'
-      }
-    }
+  <div class="login-shell">
+    <div class="login-card">
 
-    function showToast(msg, type = 'info') {
-      const t = document.getElementById('toast')
-      const m = document.getElementById('toast-msg')
-      t.className = 'toast ' + type
-      m.textContent = msg
-      t.classList.add('show')
-      clearTimeout(t._timer)
-      t._timer = setTimeout(() => t.classList.remove('show'), 3000)
-    }
-  </script>
+      <div class="login-logo">HSos</div>
+      <div class="login-sub">Operations Platform</div>
+      <div class="login-divider"></div>
 
+      <div id="login-error" class="login-error" style="display:none"></div>
+
+      <div class="login-heading">Sign in to continue</div>
+      <div class="login-help">Use your organization Google account.</div>
+
+      <button class="btn btn-primary login-btn-google" id="login-google-btn" type="button">
+        <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+          <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        Sign in with Google
+      </button>
+
+      <div class="login-foot">Access is restricted to authorized team members.</div>
+
+    </div>
+  </div>
+
+  <script src="login.js"></script>
 </body>
 </html>

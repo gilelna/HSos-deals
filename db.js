@@ -2055,6 +2055,30 @@ async function getRoleFromDB() {
   return null
 }
 
+// User management (admin/users.html). Both go through SECURITY DEFINER RPCs
+// defined in schema/user_management_rpc.sql — that's the only way to read
+// auth.users.last_sign_in_at from the anon client, and it gates access to
+// admin callers server-side.
+
+async function getAllProfiles() {
+  const { data, error } = await _sb.rpc('get_user_management_rows')
+  if (error) throw error
+  return data || []
+}
+
+async function updateProfileRole(userId, newRole) {
+  const { data, error } = await _sb.rpc('update_profile_role', {
+    target_user_id: userId,
+    new_role:       newRole,
+  })
+  if (error) throw error
+  // RPC returns SETOF; supabase-js normalizes to an array of rows.
+  return Array.isArray(data) ? data[0] : data
+}
+
+window.getAllProfiles    = getAllProfiles
+window.updateProfileRole = updateProfileRole
+
 // ─── activities ───────────────────────────────────────────────
 
 async function logActivity({ entity_type, entity_id, type, subtype, body,

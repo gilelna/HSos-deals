@@ -758,6 +758,8 @@ business_training
 | `getNeedsAttentionItems()` | bills + deals + packages | Returns up to 8 actionable items |
 | `getProfile(userId)` | profiles | Single by id |
 | `upsertProfile(fields)` | profiles | Create or update |
+| `getAllProfiles()` | profiles + auth.users + vendors | Admin-only — RPC `get_user_management_rows`. Backs `admin/users.html`. |
+| `updateProfileRole(userId, newRole)` | profiles | Admin-only — RPC `update_profile_role`. Refuses self-demotion. |
 
 **Rule:** Every new DB query goes into db.js as a named function. Never write `.from(...)` directly in page JS files.
 

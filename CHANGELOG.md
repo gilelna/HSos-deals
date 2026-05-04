@@ -3,6 +3,113 @@ _Reverse chronological. One entry per session._
 
 ---
 
+## 2026-05-03 — Admin user-management page
+
+### Added
+- **`admin/users.html` + `admin/users.js`** — new page reachable from the avatar dropdown ("Manage users", admin-only). Standard HSos shell (operations sidebar). Single table: User (full name + email), Role, Vendor, Status (active-session indicator), Joined.
+  - **Inline role edit** via a `<select>` per row (admin/manager/finance/vendor). On change → `updateProfileRole(userId, newRole)` → optimistic update with a transient `…` → `✓` checkmark on success. Failure reverts the select and toasts the error code (`cannot_demote_self`, `forbidden_admin_only`, or the raw RPC message).
+  - **Vendor cell** — when `profiles.vendor_id` is set, shows the joined `vendors.name` as a clickable link that opens the vendor side panel via `SidePanel.open('vendor', { id })`. Empty state: em-dash.
+  - **Status cell** — colored dot + relative-time label derived from `auth.users.last_sign_in_at`: green/"active" (<24h), amber/"Nd ago" (<30d), gray/"never" or older. Clarifies what "active session" means in practice — Supabase only exposes the most recent sign-in timestamp, not a live-session signal.
+  - **Row click (outside the role select)** → vendor side panel when the user has `vendor_id`; otherwise an inline overlay card with name + email + role + a note that no vendor is linked.
+  - **Admin gate** — defense in depth: `LAYOUT._runAuthGate` populates `__hsosAuth`; the page then redirects non-admins to `/index.html` before any data fetch, AND the underlying RPCs reject non-admin callers server-side (RAISE EXCEPTION `forbidden_admin_only`).
+- **`schema/user_management_rpc.sql`** (new, **NOT applied**) — two SECURITY DEFINER RPCs.
+  - `get_user_management_rows()` returns one row per profile, joined with `auth.users.last_sign_in_at` and `vendors.name`. Required because the anon Supabase client cannot read `auth.users` directly under standard RLS — the function gates access to admin callers via `auth.uid()` lookup against `public.profiles.system_role`.
+  - `update_profile_role(target_user_id, new_role)` — flips `profiles.system_role`, refuses self-demotion (`cannot_demote_self`).
+  - Both `REVOKE FROM PUBLIC` and `GRANT EXECUTE TO authenticated`.
+- **`db.js`** — `getAllProfiles()` and `updateProfileRole(userId, newRole)` thin wrappers around the two RPCs. Both throw on error (RPC `RAISE EXCEPTION` surfaces as `error.message` in supabase-js).
+
+### Changed
+- **`components/user-menu.js`** — added an admin-only "Manage users" link to the avatar dropdown, between the identity block and the Sign out button. Visibility is gated on `__hsosAuth.profile.system_role === 'admin'`. The link uses the existing `.um-btn` style; an `a.um-btn { text-decoration: none }` rule was added to `shared.css` so the anchor matches the button siblings visually.
+- **`shared.css`** — new `/* ─── user management page ─── */` block: `.um-role-wrap`, `.um-role-select`, `.um-role-check`, `.um-dot` + variants (`-green/-amber/-gray`), `.um-status-label`, `.um-overlay`, `.um-profile-card` and supporting elements.
+
+### Schema
+- ⚠️ `schema/user_management_rpc.sql` must be applied to demo (`pqkzffgpkpovternesmt`) and production (`wmqmonjnmgtoilxfqqkv`) before the page can render rows. Without it, `getAllProfiles()` will throw `function public.get_user_management_rows() does not exist`.
+- No table-level changes. `profiles` already has `system_role`, `vendor_id (uuid)`, `full_name`, `email`, `created_at` from migrations 015 + 016 (verified against demo DB).
+
+### Notes
+- **Manual QA TODO** (Gil, after applying the RPC SQL on demo):
+  1. Sign in as admin → click avatar → dropdown shows "Manage users" → click → land on `/admin/users.html` with topbar/sidebar.
+  2. Confirm the row for `gil@hadarshemesh.com` shows Role=admin, vendor=— or vendor name link, Status=green/active.
+  3. Insert a profile row with `system_role='vendor'` and a `vendor_id` for a known vendor → reload → confirm the vendor name renders as a blue underlined link → click it → vendor side panel opens.
+  4. Click the row (not the link) for a user without `vendor_id` → small overlay card with name/email/role.
+  5. Change a user's role from `vendor` to `manager` → ✓ checkmark briefly → reload page → role persists.
+  6. Try to change your own role away from `admin` → select reverts and a red toast shows "You cannot demote yourself from admin."
+  7. Sign in as a non-admin (manager/finance/vendor) → click avatar → confirm "Manage users" link is NOT in the dropdown. Hit `/admin/users.html` directly → redirected to `/index.html`. (And in the unlikely case the redirect is bypassed, the RPC rejects with `forbidden_admin_only`.)
+- **Auto-provisioning** is still a known follow-up — without `schema/add_users_roles.sql` (or an upsert in `auth.js`), new sign-ins land on "Access pending" until an admin manually inserts a `profiles` row. Once auto-provisioning lands, the new admin user-management page is the natural place to assign roles to those auto-created rows.
+
+---
+
+## 2026-05-03 — Central auth gate / demo bypass removed
+
+### Changed
+- **`components/layout.js`** — full rewrite. Added `LAYOUT._runAuthGate()` at the top of `LAYOUT.init()`. Three branches: no session → full-page sign-in screen + never-resolving Promise; session + missing/role-null profile → full-page "Access pending" screen + never-resolving Promise; session + valid profile → caches `{ session, user, profile }` on `window.__hsosAuth` and continues. Both gate screens replace `document.body` so page-specific JS that runs in parallel finds no mount points. `applyRoleRestrictions()` now reads from `__hsosAuth.profile.system_role` and also hides `#role-selector` for non-admins.
+- **`app.js`** — full rewrite of the role layer. `Role.get()` no longer defaults to `'Admin'`. `Role.real()` returns the real `system_role`; `Role.get()` returns the admin's preview override (sessionStorage `hsos_role_preview`) or the real role. `Role.set()` is admin-only. `renderRoleSelector()` only renders the pill bar for the real admin. `guardSpace()` becomes a no-op until `__hsosAuth` is populated, preventing premature redirects on pages that call it from their own `DOMContentLoaded` handler. `DEMO.vendor` / `showVendorPicker()` retained for workload.js compatibility — the picker is reframed as "Admin preview — view workload as this vendor" when invoked by an admin.
+- **`auth.js`** — `redirectTo` now computed from `window.location.origin` (was hardcoded to the production host). Works on localhost and on Cloudways without code edits.
+- **`components/user-menu.js`** — simplified. Reads cached `__hsosAuth` instead of re-fetching session/user/profile; demo "not signed in" branch removed (by the time USER_MENU runs, the user is authenticated). Dropdown now also shows the role.
+- **`index.html`** — embedded `<head>` gate also fetches `getProfile(session.user.id)` and renders an inline "Access pending" card if the profile is missing or has a null role. The `auth-header` reads role from the profile, not from sessionStorage.
+
+### Added
+- **`shared.css`** — `/* ─── auth gate screens ─── */` block: `.hsos-gate`, `.hsos-gate-card`, `.hsos-gate-logo`, `.hsos-gate-title`, `.hsos-gate-sub`, `.hsos-gate-btn`, `.hsos-gate-btn-ghost`, `.hsos-gate-error`.
+
+### Removed
+- Demo-mode default role of `'Admin'` from `Role.get()`.
+- Demo-mode "Sign in with Google" branch from the avatar dropdown (`USER_MENU._renderDropdown` no-session path) — gate runs first, so by the time USER_MENU initializes, the user is authenticated.
+- Hardcoded `https://os.hadarshemesh.com/index.html` from `auth.js` `signInWithGoogle()`.
+- Stale `sessionStorage.getItem('hsos_role')` fallback in `index.html` (replaced by `profile.system_role`).
+
+### Schema
+- No DB changes. The `schema/add_users_roles.sql` from the prior session remains NOT applied — auto-creation of `profiles` rows on first sign-in is still a follow-up.
+
+### Notes
+- **Localhost OAuth:** add `http://localhost:<port>` (or whatever local origin you serve from) to Supabase's Auth → URL Configuration → "Additional Redirect URLs" allowlist. The redirect URL is now computed at runtime, but Supabase still validates against the allowlist.
+- **Cold-start race:** page-specific JS (e.g., `deals-init.js`, `payments.js`) that calls `guardSpace()` from its own `DOMContentLoaded` runs before the gate resolves. `guardSpace()` returns `true` (no-redirect) until `__hsosAuth` is populated; the gate may still replace the body, hiding any premature renders. Once the gate resolves and the user is authorized, the page's remaining init proceeds normally.
+
+---
+
+## 2026-05-03 — Avatar dropdown + role-switcher session gate
+
+### Added
+- `components/user-menu.js` — new module, exposes `window.USER_MENU`. On `init()` it resolves auth state once via `HSOS_AUTH.getSession() / getUser()` + `getProfile(user.id)`, then renders the avatar initials, paints the dropdown contents, and applies the role-switcher visibility gate. Click avatar (or Enter/Space) toggles the dropdown; click-outside or Esc closes. When signed in: shows name (`user_metadata.full_name || .name || email`) + email, "Sign out" button. When no session (demo): shows "Not signed in / Demo mode" + "Sign in with Google" button (calls `HSOS_AUTH.signInWithGoogle()`).
+- `components/topbar.html` — wrapped `.tb-av` in a `.um-wrap` positioning container, gave the avatar `id="user-menu-avatar"`, made it a keyboard-focusable `role="button"`, and added the empty `#user-menu-dropdown` sibling.
+- `shared.css` — new `/* ─── user menu (avatar dropdown) ─── */` block (`.um-wrap`, `.um-dropdown`, `.um-row`, `.um-identity`, `.um-name`, `.um-email`, `.um-divider`, `.um-btn`, `.um-btn-google`).
+
+### Changed
+- `components/layout.js` — `LAYOUT.init()` now calls `USER_MENU.init()` after `BELL.init()` (defensive: only if `window.USER_MENU` is defined). Stale "Phase 2" comment in `applyRoleRestrictions()` replaced with a pointer to `USER_MENU._applyRoleSwitcherGate()`, which is now the single source of truth for role-selector visibility.
+- 15 active pages (`deals.html`, `payments.html`, `workload.html`, `overdue.html`, `reconcile.html`, `balances.html`, `products.html`, `contractors.html`, `recurring.html`, `income.html`, `vendor-profile.html`, `client-profile.html`, `activity-log.html`, `import.html`, `deal.html`) — added `<script src="auth.js">` after `cache.js` and `<script src="components/user-menu.js">` immediately before `components/layout.js`. `index.html` was already wiring `auth.js` independently and is not affected.
+
+### Behavior
+- **Avatar dropdown** is available on every page that uses `LAYOUT.init()`.
+- **Role switcher visibility rule** (per task): no session → switcher shown (demo mode preserved); session + `profiles.system_role === 'admin'` → shown; session + any other role (or missing profile row) → hidden.
+- Defensive: if `HSOS_AUTH` or `getProfile()` are unavailable, `USER_MENU` falls through to the no-session branch — switcher stays visible, dropdown shows the Google sign-in button (no-op without `HSOS_AUTH`).
+
+### Notes
+- `profiles` is empty in demo (0 rows), so until the auth-trigger from `schema/add_users_roles.sql` (or an equivalent `profiles` upsert on first sign-in) is wired, signed-in users with no profile row will get `system_role = null` → switcher hidden. That matches the "only admins see the switcher" intent and is the safe default.
+- Display name is read from `auth.user_metadata` first (already populated by Google), not from `profiles.full_name`. Once profile auto-creation lands, this can be flipped to `profiles` first.
+
+---
+
+## 2026-05-03 — Google OAuth login + index.html gate
+
+### Added
+- `auth.js` — Supabase Google OAuth wrapper. Exposes `window.HSOS_AUTH` with `signInWithGoogle / signOut / getSession / getUser / onAuthStateChange / isEmailAllowed / enforceAllowedEmail`. `ALLOWED_EMAILS = ['gil@hadarshemesh.com']`; non-allowed emails get signed out immediately. Post-login `redirectTo` is hardcoded to `https://os.hadarshemesh.com/index.html` per spec.
+- `login.js` (paired with `login.html`) — handles the sign-in click, surfaces `?error=` params, and redirects already-signed-in users straight to `index.html`.
+- `schema/add_users_roles.sql` — `public.users` (id ↔ auth.users, email, name, role check vendor|manager|admin) + `handle_new_user()` trigger on `auth.users`. **Not applied** — overlaps with the existing `profiles` table (system_role enum) and needs reconciliation before running.
+
+### Changed
+- `login.html` — replaced the dark-theme standalone (which referenced a missing `supabase-client.js`) with a light, shared-css card matching the rest of the app. Single "Sign in with Google" button; existing-session check redirects to `index.html`; URL `?error=` surfaced inline.
+- `index.html` — auth gate added in `<head>`: loads `db.js` + `auth.js`, then a `window.__hsosAuthReady` IIFE checks `getSession()` and `enforceAllowedEmail()`; missing/disallowed sessions redirect to `login.html` before body paint. Replaced the in-page "Continue with Google" button (which referenced a missing `getCurrentUser()` / `signInWithGoogle()` from a non-existent `supabase-client.js`) with an `#auth-header` strip rendering the user's name + role + a "Sign out" button. Title changed to "HSos — Home".
+- `shared.css` — appended `/* === LOGIN PAGE === */` block (`.login-shell`, `.login-card`, `.login-logo`, `.login-divider`, `.login-btn-google`, `.login-error`, `.login-foot`) and `/* === AUTH HEADER ===*/` block (`.tb-auth*` classes for future topbar reuse on gated pages).
+
+### Schema
+- No DB changes applied this session.
+- `schema/add_users_roles.sql` is staged for a follow-up session — the spec asks for a `public.users` table, but `public.profiles` already exists (system_role enum, FK to auth.users). Decide whether to merge or run as-is.
+
+### Notes
+- `redirectTo` is the production URL — local OAuth testing requires editing `auth.js` temporarily.
+- Other gated pages (deals.html, payments.html, etc.) are NOT yet wired to the auth gate. This session only gates `index.html` per the task spec.
+
+---
+
 ## 2026-05-02 — Open Invoices workflow page
 
 ### Added
