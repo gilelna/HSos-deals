@@ -225,7 +225,7 @@
 <script src="components/panel-editor.js"></script>
 <script src="vendor-profile.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     const _fromWorkload = new URLSearchParams(location.search).get('from') === 'workload'
     if (_fromWorkload) {
       // Running inside workload iframe — suppress the admin shell
@@ -235,7 +235,7 @@
       document.querySelector('.app-body')?.setAttribute('style', 'display:block;padding:0')
       document.querySelector('.app-content')?.setAttribute('style', 'padding:0')
     } else {
-      LAYOUT.init('Vendor Profile', 'operations')
+      await LAYOUT.init('Vendor Profile', 'operations')
     }
     initVendorProfile()
   })

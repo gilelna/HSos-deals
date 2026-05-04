@@ -323,8 +323,8 @@ function ovOpenGreenInvoice(dealId) {
 window.ovOpenGreenInvoice = ovOpenGreenInvoice
 
 // ── boot ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  if (window.LAYOUT?.init) window.LAYOUT.init('Open Invoices', 'payments')
+document.addEventListener('DOMContentLoaded', async () => {
+  if (window.LAYOUT?.init) await window.LAYOUT.init('Open Invoices', 'payments')
   ovRegisterRouter()
   ovSetFilter('all')
   ovLoad()

@@ -247,8 +247,8 @@
 <script src="components/panel-editor.js"></script>
 <script src="client-profile.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    LAYOUT.init('Client Profile', 'operations')
+  document.addEventListener('DOMContentLoaded', async () => {
+    await LAYOUT.init('Client Profile', 'operations')
     initClientProfile()
   })
 </script>
