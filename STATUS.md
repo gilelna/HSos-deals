@@ -1,6 +1,204 @@
 # HSos — STATUS.md
 _Living handoff file. Update at end of every session._
-Last updated: 2026-04-26 (Side-panel bugfixes — width, name resolution, pointer events)
+Last updated: 2026-05-03 (admin user-management page)
+
+---
+
+### Admin user-management page 2026-05-03 — built
+- **`admin/users.html` + `admin/users.js`** — new page reachable from the avatar dropdown ("Manage users", admin-only). Single table: User (name + email), Role (inline `<select>` editor), Vendor (clickable name → vendor side panel), Status (dot + last-sign-in age), Joined. Admin gate is defense-in-depth: client-side redirect to `/index.html` for non-admins + server-side `RAISE EXCEPTION 'forbidden_admin_only'` from both RPCs.
+- **`db.js`** — added `getAllProfiles()` and `updateProfileRole(userId, newRole)`. Both go through SECURITY DEFINER RPCs (defined in `schema/user_management_rpc.sql`, NOT yet applied) — required because the anon client cannot read `auth.users.last_sign_in_at` directly. The RPCs check `auth.uid()`'s `profiles.system_role` server-side and reject non-admin callers.
+- **`schema/user_management_rpc.sql`** (new, **NOT applied**) — two definer functions:
+  - `get_user_management_rows()` joins `profiles` ⇄ `auth.users` ⇄ `vendors`. Returns: `id, email, full_name, system_role, vendor_id, vendor_name, last_sign_in_at, created_at`.
+  - `update_profile_role(target_user_id, new_role)` — flips `system_role`. Refuses self-demotion (`cannot_demote_self`).
+- **`components/user-menu.js`** — added an admin-only "Manage users" link to the avatar dropdown (between identity block and Sign out button). Visibility gated on `__hsosAuth.profile.system_role === 'admin'`.
+- **`shared.css`** — new `/* ─── user management page ─── */` block (`.um-role-wrap`, `.um-role-select`, `.um-role-check`, `.um-dot` + variants, `.um-overlay`, `.um-profile-card`) plus `a.um-btn { text-decoration: none }` so the new dropdown link visually matches the sibling button.
+
+### Status cell semantics
+Supabase only exposes the most recent sign-in timestamp (`auth.users.last_sign_in_at`), not a live-session signal. The page interprets this as:
+- 🟢 green dot · "active" — within last 24h
+- 🟠 amber dot · "Nd ago" — within last 30 days
+- ⚪ gray dot · "never" or older relative time — older or never signed in
+
+### Manual QA (Gil, run after applying `schema/user_management_rpc.sql` on demo + production)
+1. Sign in as admin → click avatar → dropdown shows "Manage users" → click → land on `/admin/users.html` with topbar + sidebar.
+2. Confirm the row for `gil@hadarshemesh.com` paints with Role=admin, Status=green/active.
+3. Insert a profile row with `system_role='vendor'` and a `vendor_id` pointing at a known vendor → reload → vendor name renders as a blue underlined link → click → vendor side panel opens.
+4. Click a row (not the link) for a user without `vendor_id` → centered overlay card with name/email/role + Esc closes.
+5. Change a user's role from `vendor` to `manager` → transient `…` then `✓` → reload → role persists.
+6. Try to change your own role to anything other than `admin` → select reverts, red toast: "You cannot demote yourself from admin."
+7. Sign in as a non-admin → confirm "Manage users" is NOT in the dropdown. Hit `/admin/users.html` directly → redirected to `/index.html`.
+
+### Known follow-ups (next session)
+- **Apply `schema/user_management_rpc.sql`** on both Supabase projects via the SQL editor before the page can render rows. Without it, the page paints "Failed to load users: function public.get_user_management_rows() does not exist".
+- **Profile auto-provisioning** is still NOT wired — new sign-ins still land on "Access pending" until an admin inserts a profiles row. The new user-management page is the natural place to assign roles once auto-provisioning lands.
+
+---
+
+### Central auth gate 2026-05-03 — built
+- **No demo bypass anywhere.** Every page that calls `LAYOUT.init()` now blocks on a real Supabase session + a `profiles` row with a non-null `system_role` before rendering anything. Demo "default to Admin" behavior in `Role.get()` is gone.
+- **`components/layout.js`** — full rewrite. New `LAYOUT._runAuthGate()` runs at the top of `LAYOUT.init()`:
+  1. No `HSOS_AUTH.getSession()` → `_renderSignInScreen()` (centered HSos logo card with "Sign in with Google" button) and return a never-resolving Promise so any `await LAYOUT.init(...)` halts.
+  2. Session present, no profile or `system_role === null` → `_renderPendingScreen()` ("Access pending — waiting for an admin to assign your role" + Sign out). User stays signed in.
+  3. Session + valid profile → cache `{ session, user, profile }` on `window.__hsosAuth` and continue normal init.
+  Both screens replace `document.body` content so page-specific JS that runs in parallel via its own `DOMContentLoaded` finds no mount points and silently no-ops.
+  - `applyRoleRestrictions()` now reads `window.__hsosAuth.profile.system_role` (not `Role.get()`); also hides `#role-selector` when the real role isn't admin.
+- **`app.js`** — full rewrite of role layer.
+  - `Role.real()` → real `system_role` from `__hsosAuth` (lowercase, '' if pre-gate).
+  - `Role.get()` → effective role for UI: admin's preview override (sessionStorage `hsos_role_preview`) or the real role.
+  - `Role.set(r)` is **admin-only** — non-admins cannot switch. Reloads on change.
+  - `renderRoleSelector()` only renders the pill bar for real admin; clears the container otherwise.
+  - `guardSpace()` is no-op until the gate resolves (returns true). Once `__hsosAuth` exists, it enforces normally. This avoids racing a redirect to `workload.html` before the gate has had a chance to run.
+  - `DEMO.vendor` / `showVendorPicker()` retained for `workload.js` compatibility — picker is now framed as "Admin preview — view workload as this vendor" when called by an admin.
+- **`auth.js`** — `redirectTo` now derived from `window.location.origin` instead of being hardcoded to `https://os.hadarshemesh.com/index.html`. Works on localhost and on the Cloudways production host without code changes. (Add the localhost URL to Supabase's "Additional Redirect URLs" allowlist.)
+- **`components/user-menu.js`** — simplified. Reads from `__hsosAuth` directly (no re-fetch); demo branch removed (by the time USER_MENU.init runs, the user is authenticated). Dropdown shows name / email / role + Sign out.
+- **`components/topbar.html`** — unchanged from previous session.
+- **`shared.css`** — new `/* ─── auth gate screens ─── */` block: `.hsos-gate`, `.hsos-gate-card`, `.hsos-gate-logo`, `.hsos-gate-title`, `.hsos-gate-sub`, `.hsos-gate-btn`, `.hsos-gate-btn-ghost`, `.hsos-gate-error`.
+- **`index.html`** — its embedded `<head>` gate now also fetches `getProfile(session.user.id)` and renders an inline "Access pending" card if the profile is missing or has no role. The `auth-header` now reads role from the profile instead of from sessionStorage `hsos_role`.
+
+### Manual QA (Gil, run after pulling)
+1. **Localhost sign-in:** clear cookies, visit `http://localhost:<port>/deals.html` → centered "Sign in to continue" card with HSos logo + Google button. Click button → Google OAuth round-trip → returns to `http://localhost:<port>/index.html`. Confirm Supabase project's Auth → URL Configuration has the localhost origin in "Additional Redirect URLs".
+2. **Production sign-in:** same flow on `https://os.hadarshemesh.com/deals.html` → returns to production index.html.
+3. **No-profile pending:** sign in with an allowlisted Google account that has *no* row in `profiles` → "Access pending" screen on every LAYOUT page (deals, payments, workload, …) and on `index.html`. "Sign out" button works.
+4. **Profile with null role:** insert a profile row with `system_role = null` for the signed-in user → still "Access pending."
+5. **Admin role:** insert/update profile to `system_role='admin'` → all LAYOUT pages render normally; topbar shows the 4-pill role switcher; clicking it sets `hsos_role_preview` and reloads. Avatar dropdown shows name/email/role + Sign out.
+6. **Manager role:** `system_role='manager'` → role switcher hidden; sidebar payments space hidden; deals + workload accessible.
+7. **Finance role:** `system_role='finance'` → role switcher hidden; all spaces accessible.
+8. **Vendor role:** `system_role='vendor'` → role switcher hidden; only workload space accessible. Visiting deals.html or payments.html → `guardSpace()` redirects to workload.html (after gate resolves).
+9. **Sign out:** from any state, click Sign out → returns to `login.html`. Refresh: still on `login.html`.
+
+### Known follow-ups (next session)
+- **Profile auto-provisioning trigger:** the `schema/add_users_roles.sql` from the previous session is still NOT applied. Without it, every new Google sign-in lands on "Access pending" until an admin manually inserts a `profiles` row. Either run that SQL or add an upsert in `auth.js`/`db.js` that auto-creates a row on first sign-in.
+- **Allowlist provisioning:** `auth.js` ALLOWED_EMAILS = ['gil@hadarshemesh.com'] — this is still the gating signal for who can even reach the profile check. Anyone outside the allowlist gets bounced from `login.html` with "Account not authorized" before the profile check runs. Decide whether to widen the allowlist or rely solely on the profile check.
+
+---
+
+### Avatar dropdown + role-switcher session gate 2026-05-03 — built
+- **`components/user-menu.js`** (new) — `window.USER_MENU` object with `init / toggle / close / signIn / signOut`. On init resolves `{ session, user, profile }` once via `HSOS_AUTH.getSession() + getUser()` and `getProfile(user.id)`. Renders avatar initials from `user_metadata.full_name || .name || email`. Click avatar toggles a 240px dropdown anchored under it; click-outside and Esc both close. Signed in → name + email + Sign out. No session → "Not signed in / Demo mode" + Google sign-in button.
+- **`components/topbar.html`** — avatar wrapped in `.um-wrap`; given `id="user-menu-avatar"`, `role="button"`, `tabindex="0"`, click + keydown wiring to `USER_MENU.toggle()`. New empty `#user-menu-dropdown` sibling.
+- **`components/layout.js`** — `LAYOUT.init()` now calls `USER_MENU.init()` after `BELL.init()` (guarded by `window.USER_MENU?.init`). Stale "Phase 2" comment in `applyRoleRestrictions()` replaced with a pointer to `USER_MENU._applyRoleSwitcherGate()`.
+- **`shared.css`** — `/* ─── user menu (avatar dropdown) ─── */` block: `.um-wrap`, `.um-dropdown`, `.um-row`, `.um-identity`, `.um-name`, `.um-email`, `.um-divider`, `.um-btn`, `.um-btn-google`.
+- **15 pages wired** — `deals / payments / workload / overdue / reconcile / balances / products / contractors / recurring / income / vendor-profile / client-profile / activity-log / import / deal` all now load `<script src="auth.js">` (after `cache.js`) and `<script src="components/user-menu.js">` (immediately before `components/layout.js`). `HSOS_AUTH` was previously only defined on `index.html`.
+- **Role-switcher rule:** no session → shown (demo mode preserved); session + `profiles.system_role === 'admin'` → shown; session + any other role (or missing `profiles` row) → hidden. Implemented in `USER_MENU._applyRoleSwitcherGate()` via `display:''`/`'none'` on `#role-selector`. **Profiles is empty in demo (0 rows)**, so currently any signed-in user gets `system_role = null` → switcher hidden. Provisioning a `profiles` row with `system_role='admin'` for the gil@hadarshemesh.com account brings it back; or wire profile auto-creation as a follow-up (see `schema/add_users_roles.sql`).
+
+### Avatar dropdown — manual QA (Gil, run after pulling)
+1. Visit any LAYOUT page (deals, payments, workload, …) while signed in. Avatar in top-right shows your initials (not "HS").
+2. Click avatar → dropdown opens below it with your name (Google `full_name`) and email + a "Sign out" button.
+3. Press Esc, or click outside the dropdown → dropdown closes.
+4. Click "Sign out" → redirected to `login.html`.
+5. Visit `index.html` while signed out → still gated by the existing auth gate (this change does not affect that flow).
+6. Role switcher visibility: while signed in with a real session and `profiles.system_role !== 'admin'` (or no profile row at all) → the Admin/Manager/Finance/Vendor pill bar in the topbar is hidden.
+7. Clear the session (DevTools → Application → Cookies/Storage), reload a LAYOUT page → switcher reappears (demo mode), avatar shows "HS", clicking avatar shows a "Sign in with Google" dropdown.
+
+---
+
+### Google OAuth login 2026-05-03 — built
+- **`auth.js`** (new) — wraps `_sb.auth` from `db.js`. Exposes `window.HSOS_AUTH` with `signInWithGoogle()`, `signOut()`, `getSession()`, `getUser()`, `onAuthStateChange(cb)`, `isEmailAllowed(email)`, `enforceAllowedEmail(session)`. `signInWithGoogle()` calls `_sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo:'https://os.hadarshemesh.com/index.html' } })`. `signOut()` clears the session and redirects to `login.html`.
+- **Allowlist:** `ALLOWED_EMAILS = ['gil@hadarshemesh.com']`. `enforceAllowedEmail()` signs the user out if their email is not in the list.
+- **`login.html` + `login.js`** (rewrite) — replaced the old dark-theme standalone with a light card matching `shared.css`. Single "Sign in with Google" button. On load, redirects to `index.html` if a valid session already exists. Surfaces OAuth provider errors via `?error=…` URL params. Login styles added to `shared.css` under `/* === LOGIN PAGE === */` (`.login-shell`, `.login-card`, `.login-btn-google`, `.login-error`).
+- **`index.html`** (gated) — auth gate runs in `<head>` before body paint. Loads supabase + env-keys + env-config + db.js + auth.js, then `window.__hsosAuthReady` resolves the session: no session → redirect to `login.html`; disallowed email → sign out + redirect with `?error=Account+not+authorized`. The old in-page "Continue with Google" button is replaced by an `#auth-header` strip showing user name + role + Sign out.
+- **`schema/add_users_roles.sql`** (new, **NOT applied**) — creates `public.users` (id, email, name, role text check vendor|manager|admin) + `handle_new_user()` trigger on `auth.users`. ⚠️ Overlaps with the existing `public.profiles` table (system_role enum, see SCHEMA.md) — reconcile before running.
+- **Hardcoded production redirect:** `redirectTo` is `https://os.hadarshemesh.com/index.html` per spec — local OAuth round-trip won't return to localhost. To test locally, temporarily edit `auth.js`.
+
+### Google OAuth login — manual QA (Gil, run after pulling)
+1. Visit any URL → since you have no session, you should land on `login.html` (with module icons hidden, just the centered card).
+2. Click "Sign in with Google" → Google consent screen → on success, redirected to `https://os.hadarshemesh.com/index.html` → page paints with your name + role + "Sign out" in the right panel.
+3. Click "Sign out" → redirected to `login.html`. Refresh → still on `login.html` (session cleared).
+4. Sign in with a Google account NOT in `ALLOWED_EMAILS` → should be signed out immediately and bounced to `login.html?error=Account+not+authorized`.
+5. While signed in, hit `login.html` directly → should auto-redirect to `index.html`.
+6. **Schema TODO:** decide whether to run `schema/add_users_roles.sql` as written (creates `public.users`) or backport to the existing `public.profiles` table — the trigger that auto-creates a row on first sign-in is the part that matters.
+
+---
+
+### Open Invoices page 2026-05-02 — built
+- **`overdue.html` + `overdue.js`** (Phase 1 ROADMAP item — overdue/open-invoices workflow). Standalone page in the Payments space.
+- **Layout:** Cover with 4 metric cards (Overdue / Pending / Invoiced / Total open, each = `count · sum`), filter bar with All/Overdue/Pending/Invoiced pills + count badge, card-per-deal list sorted oldest-first.
+- **Cards:** client name (→ side panel), status badge, payment-method badge if present, deal/product name (→ side panel), age line ("Nd overdue" or "Open Nd"), invoice ref (`gi_invoice_series`) if present, amount + currency, three actions: Send reminder (stub toast), Mark paid (`updateDeal(id, {billing_status:'paid'})` + cache invalidate + optimistic remove), Open in Green Invoice (shows `gi_client_id / gi_invoice_series` ref via toast — no real GI URL field exists on clients).
+- **Data path:** uses `getDeals({ billing_status })` once per status, merges client-side, filters out `sales_status IN (closed, lead)`. No new db.js functions added — `updateDeal` already existed.
+- **Schema gaps surfaced:** spec assumed `clients.green_invoice_url`, `deals.invoice_number`, `deals.due_date` — none of these exist. `gi_invoice_series` (text on deals) is the closest invoice ref; age is derived from `created_at`. Real "Open in GI" requires either a URL pattern decision or storing a full URL — currently stubbed to a toast with the GI refs.
+- **Send reminder:** stubbed to a toast. No reminder/email integration built. Could later log a `deal_reminder` row and/or hit a Green Invoice send-link API.
+
+### Open Invoices page — manual QA (Gil, run after pulling)
+1. Open `overdue.html` directly. Confirm cover paints, 4 metric cards show counts (or "0" if no open deals).
+2. Confirm cards list paints sorted oldest-first; each has client name, status badge, age label.
+3. Click a status pill (Overdue / Pending / Invoiced) → list filters; count badge updates; pill highlights.
+4. Click "All" → all rows return.
+5. Click client name on a row → side panel opens to the client.
+6. Click deal/product name → side panel opens to the deal.
+7. Click "Mark paid" → confirm dialog → on accept: row disappears, toast "Marked as paid", metrics drop. Reopen Operations dashboard → that deal now shows billing_status=paid.
+8. Click "Send reminder" → toast "Reminder queued (stub)…".
+9. Click "Open in Green Invoice" on a row that has a `gi_client_id` set → toast shows the GI ref. Rows without `gi_client_id` should NOT show this button.
+
+---
+
+### Reconcile page 2026-05-02 — built
+- **`reconcile.html` + `reconcile.js`** (Phase 1 ROADMAP item, was the highest-priority missing feature). Standalone page in the Payments space.
+- **Layout:** Tab strip (Deals / Bills) → two-column body. LEFT = open deals (or submitted bills); RIGHT = unmatched transactions filtered by direction (in for deals, out for bills). Sticky action bar appears once both sides have a selection.
+- **Auto-suggest:** on page load, computes amount-and-date proximity matches (|Δ| < 5%, within 30 days of `created_at`). Suggested cards get a green border + "match" badge. Selecting a deal narrows highlights to that deal's specific suggestions. Manual override by clicking any deal + any tx.
+- **Write-back:** uses two new `db.js` functions — `matchTransactionToDeal(txId, dealId, status)` flips `transactions.linked_entity_*` + `transactions.status` AND bumps `deals.billing_status='paid'`; `matchTransactionToBill(txId, billId, status)` flips the tx fields only (bill terminal-status is owned by the existing `markBillPaidV2` flow).
+- **Green Invoice integration:** if the deal's client has a `green_invoice_client_id`, a third button ("Match + issue receipt via GI") appears on the action bar. Currently a stub (`console.log` + match+reconciled write-back); flagged TODO until real GI receipt-issuance API call replaces it.
+- **Deep link:** `reconcile.html?highlight=<dealId>` auto-selects that deal card and scrolls it into view. The Expected Income tab's per-row action cell now exposes this via a "Match" button (was "—") wired to a new `payments.js eiMatchTx(dealId)` redirector.
+
+### Reconcile page — manual QA (Gil, run after pulling)
+1. Open Payments → Expected Income tab → click "Match" on any non-TC deal row → reconcile.html opens with that deal highlighted (amber background) + scrolled into view.
+2. Reconcile page → confirm both columns paint a "Loading…" skeleton briefly, then resolve to deal cards (LEFT) and unmatched-tx cards (RIGHT).
+3. Confirm any auto-suggested pairs are visibly highlighted (green border on both sides, "match" badge).
+4. Click a deal card → action bar stays hidden until a tx is also selected; then it appears at the bottom showing `<deal client> $X ↔ <tx desc> $Y` plus exact/Δ.
+5. Click "Match + mark paid" → toast "Matched + marked paid" → both cards disappear from the lists. Re-open the deal panel from Operations → its `billing_status` reads "paid".
+6. Switch to Bills tab → confirm submitted bills appear LEFT, outgoing unmatched txs appear RIGHT. Match flow same as deals (without GI button).
+7. URL `?tab=bills` opens directly on Bills tab.
+
+---
+
+### Performance pass 2026-04-27 — done
+- **Cache layer:** new `cache.js` with 5-min TTL, in-flight guard (coalesces concurrent fetches for same key), eviction at >150 entries. Loaded between `db.js` and `app.js` in all 12 active HTML pages. `Cache.readThrough(key, fetcher)` is the canonical helper.
+- **Cached entity reads:** `getDeal/getClient/getVendor` (detail) + `getClients/getVendors/getVendorsInactive` (list) all go through read-through cache. Cache keys: `deal:<id>`, `client:<id>`, `vendor:<id>`, `clients:list`, `deals:list`, `vendors:list:active`, `vendors:list:inactive`.
+- **Invalidation:** every write path (create/update/delete) on `deals`, `clients`, `vendors` invalidates the matching detail key + list key adjacent to the successful insert/update/delete in `db.js`.
+- **Hover prefetch:** `deals-kanban.js` adds delegated `mouseover` listener on kanban + list containers. On hover, calls `getDeal(id)` to warm the cache (skipped if already cached or in-flight). Card click → side-panel hits warm cache.
+- **Skeleton UI:** `.skeleton-shimmer` + `.skeleton-stack` + `.skeleton-row` styles in shared.css. `components/side-panel.js openPanel()` paints a 5-line skeleton stack before data resolves (replaces "Loading…"). `renderClientsSkeleton()` / `renderVendorsSkeleton()` paint 8 placeholder rows during initial `loadData()`.
+- **Explicit select:** `getDeal()` now selects an explicit 19-column list (drops 5 unused gateway-ref cols: `gi_client_id`, `gi_invoice_series`, `wise_iban`, `wise_bank_ref`, `thrive_ref`). `getClients()` (list) drops `notes` from the row payload — `getClient(id)` (detail) keeps `select('*')`. `getVendors()` keeps `select('*')` because every column is consumed somewhere.
+- **Migration 018 (proposed):** SKIPPED — audit on 2026-04-27 confirmed all proposed indexes already exist; `vendor_hours.paycheck_id` does not exist. See SCHEMA.md migration log for the rationale.
+
+### Performance pass — manual QA (Gil, run after pulling)
+1. Open Operations → click into a deal card → side panel shows skeleton briefly → data fills in.
+2. Hover (don't click) over a deal card → no visible UI change → click → panel opens noticeably faster (cache warm).
+3. Edit a deal field → save → close panel → reopen → reflects new value (write invalidated detail key).
+4. Open Clients page on cold load → 8 skeleton rows visible briefly → list resolves.
+5. Open Vendors page on cold load → skeleton rows in tbody briefly → list resolves.
+6. Network tab: navigate Deal → Deal → Deal (same id) → only ONE `/rest/v1/deals?...id=eq.<id>` request total within 5 minutes.
+7. Console clean — no errors. `window.Cache.get('deal:<id>')` returns the cached deal in DevTools after opening it.
+
+### Deals & Payments QA pass 2026-04-27 — done
+- **Side panel:** sales_status enum fix (UI cycle now matches DB: lead | qualified | active | delivered | closed); panel width responsive via clamp(300px, 30vw, 500px) using shared --sp-width custom property; empty package section confirmed hidden.
+- **Inline editing:** new components/panel-editor.js framework; Deal/Vendor/Client panels editable inline. Hybrid save mode: text fields blur-save, money/date/relation fields require explicit Save click. Notes auto-save with toast feedback (no longer silent).
+- **Operations dashboard:** existing 4 hero cards (Active deals/Active clients/Coaches/Needs attention) now clickable to filtered views. New Needs Attention strip below renders up to 8 actionable items (overdue/ready bills, stale deals, expiring packages) via getNeedsAttentionItems() in db.js.
+- **URL filters:** deals-init.js parses ?filter= URL param. New deals filter values: active, stale, expiring. Vendors view: coach/contractor/team_member/merchant. Bills tab: parsed but stashed on window._initBillsFilter (TODO; see follow-ups).
+- **Kanban toggle:** Full/Condensed view toggle persisted to localStorage hsos.kanban.cardView.
+- **Badges unified:** side-panel pills + condensed Kanban stage pills migrated to .badge[data-status="..."] styles in shared.css using existing --*-bg/--*-text CSS vars (added missing --gold-text).
+
+### Known follow-ups (next session)
+- **Cross-app counter audit:** payments tab summary cards, vendor profile stat cards, client profile stat cards, workload alert-bar metrics — make each clickable to a filtered view, matching the operations dashboard pattern shipped 2026-04-27.
+- **BILL_OPTIONS audit:** the side-panel bill status cycle (draft/approved/rejected/ready_to_pay/paid) doesn't match the actual bills.status enum values (draft/submitted/approved/paid/returned). Cycle silently no-ops on transitions without a dedicated db.js updater. Audit and reconcile.
+- **Bills tab status filter wiring:** the vendor-bills tab in payments.js shows a per-vendor list, not a flat status-filtered bills list. The ?filter=submitted / ready_to_pay URL param is parsed and stashed on window._initBillsFilter but not applied. When the bills tab gains a flat status view, wire it.
+- **Role gating on Needs Attention:** currently visible to all admin/manager/finance who reach the dashboard. Wire to role visibility table in SCHEMA.md.
+- **File splitting (large modules):** flagged for future session — prefer adding new functionality in new focused modules (per the panel-editor approach) rather than growing existing large files.
+- **Kanban full-card billing pill:** still uses inline hex via BILLING_COLORS. Migrate to .badge[data-status] in the cross-app pass.
+- **Vendor "Rates" inline edit:** out of scope this session — rates live in a separate table per vendor + task_type and have a dedicated UI on vendor-profile.html.
+- **Client "Assigned vendor" inline edit:** placeholder only — assignments live in vendor_client_assignments. Implementing edit requires a join-table editor.
+- **Manual browser QA:** all UI changes this session were not browser-tested (no dev server in this environment). See QA checklist below.
+
+### QA checklist (Gil, run after pulling qa-pass-2026-04-27 branch)
+1. Deal sales pill — cycle all 5 statuses, no console errors, badge colors update, PATCH succeeds.
+2. Edit deal Notes → blur → toast appears, value persists on reload.
+3. Edit deal Amount → "Save" button appears → click → toast → value persists. Tab away from amount without saving → reverts.
+4. Edit deal Client/Vendor (select) → "Save" required → toast → reload, persists.
+5. Edit deal Start date → "Save" required → toast → reload, persists.
+6. Open vendor panel → change name → blur → saves. Change vendor type → "Save" button required.
+7. Open client panel → change name → blur → saves. Change status → "Save" button required.
+8. Operations dashboard → hero cards clickable, land on filtered views (?view=…&filter=…).
+9. Needs Attention strip — if any items in demo DB → click items → opens correct side panel.
+10. Kanban toggle → switch to Condensed → reload → still Condensed.
+11. ESC + backdrop click both close any side panel.
+12. Console clean — no errors during normal usage.
 
 ---
 
@@ -25,7 +223,7 @@ No framework. No build step. Files served directly.
 | Payments — Vendor Bills tab | payments.html + payments.js | ✅ Working |
 | Payments — History tab | payments.html + payments.js | ✅ Working |
 | Payments — Vendor Manager tab | payments.html + payments.js | ✅ Working — vendor defaults + unmatched merchant assignment |
-| Payments — Balances tab | payments.html + payments.js | ✅ New — monthly opening/closing snapshots per account, delta reconciliation |
+| Payments — Balances | balances.html + balances.js | ✅ Promoted to standalone — monthly opening/closing snapshots per account, delta reconciliation |
 | Vendor profile | vendor-profile.html + vendor-profile.js | ✅ New — hero with overlay, stats, assigned clients, bills, docs |
 | Client profile | client-profile.html + client-profile.js | ✅ Rebuilt — hero with overlay, stats, deals/packages, payments, tags, docs, details panel |
 | Products | products.html + products.js | ✅ Rebuilt 2026-04-26 — expandable product cards, auto-fill plan grid, unified right panel (Details + Deals tabs), soft-archive with active-deal guard |

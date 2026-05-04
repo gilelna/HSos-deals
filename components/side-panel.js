@@ -35,10 +35,11 @@
       cancelled:   { bg: '#FBEAF0', color: '#72243E' },
     },
     sales: {
-      lead:     { bg: '#F1EFE8', color: '#5F5E5A' },
-      proposal: { bg: '#FAEEDA', color: '#854F0B' },
-      active:   { bg: '#EAF3DE', color: '#3B6D11' },
-      churned:  { bg: '#FBEAF0', color: '#72243E' },
+      lead:      { bg: '#F1EFE8', color: '#5F5E5A' },  // mu/grey
+      qualified: { bg: '#FAEEDA', color: '#854F0B' },  // amber
+      active:    { bg: '#EAF3DE', color: '#3B6D11' },  // green
+      delivered: { bg: '#EEEDFE', color: '#3C3489' },  // purple
+      closed:    { bg: '#E6F1FB', color: '#185FA5' },  // blue
     },
     bill: {
       draft:        { bg: '#F1EFE8', color: '#5F5E5A' },
@@ -50,7 +51,11 @@
   }
 
   const BILLING_OPTIONS = ['draft','pending','invoiced','installment','paid','overdue','cancelled']
-  const SALES_OPTIONS   = ['lead','proposal','active','churned']
+  const SALES_OPTIONS   = ['lead','qualified','active','delivered','closed']
+  // TODO(next session): audit BILL_OPTIONS against actual bills.status enum
+  // (DB has draft/submitted/approved/paid/returned per STATUS.md). Current
+  // values may not all be valid transitions; updateStatus only handles
+  // approved/rejected/paid via dedicated db.js functions.
   const BILL_OPTIONS    = ['draft','approved','rejected','ready_to_pay','paid']
 
   // ─── inline SVG icons ──────────────────────────────────────────────
@@ -80,6 +85,28 @@
     relations: {},
     saving: false,
     fetchToken: 0,
+  }
+
+  // ─── relation option loaders (for select fields) ─────────────────
+  async function loadClientOptions() {
+    if (!global.getClients) return []
+    try {
+      const rows = await global.getClients()
+      return (rows || []).map(c => ({ value: c.id, label: c.full_name || c.name || c.id }))
+    } catch (err) {
+      console.warn('[side-panel] loadClientOptions failed', err)
+      return []
+    }
+  }
+  async function loadVendorOptions() {
+    if (!global.getVendors) return []
+    try {
+      const rows = await global.getVendors()
+      return (rows || []).map(v => ({ value: v.id, label: v.full_name || v.name || v.id }))
+    } catch (err) {
+      console.warn('[side-panel] loadVendorOptions failed', err)
+      return []
+    }
   }
 
   let els = null
@@ -153,15 +180,16 @@
 
   function pill(palette, value, opts) {
     opts = opts || {}
-    const p = (PILLS[palette] || {})[value]
-    if (!p) {
-      return '<span class="sp2-pill" style="background:#F1EFE8;color:#5F5E5A">' + esc(value || '—') + '</span>'
-    }
+    const safeValue = value || ''
     const clickable = opts.clickable ? ' sp2-pill-click' : ''
     const dataAttrs = opts.clickable
-      ? ' data-palette="' + esc(palette) + '" data-status="' + esc(value) + '" data-field="' + esc(opts.field || '') + '"'
-      : ''
-    return '<span class="sp2-pill' + clickable + '" style="background:' + p.bg + ';color:' + p.color + '"' + dataAttrs + '>' + esc(value) + '</span>'
+      ? ' data-palette="' + esc(palette) + '" data-status="' + esc(safeValue) + '" data-field="' + esc(opts.field || '') + '"'
+      : ' data-status="' + esc(safeValue) + '"'
+    // Coloring sourced from .badge[data-status] in shared.css. The
+    // `sp2-pill` class keeps the click cursor + size for the side-panel
+    // context. PILLS palette retained for any legacy lookups but no longer
+    // drives inline color.
+    return '<span class="badge sp2-pill' + clickable + '"' + dataAttrs + '>' + esc(safeValue || '—') + '</span>'
   }
 
   // ─── DOM scaffold (built with safe DOM APIs, not innerHTML) ────────
@@ -475,27 +503,336 @@
     return []
   }
 
+  // ─── DOM mounters for editable panels (deal / vendor / client) ─────
+  async function mountDealFields(e) {
+    const section = document.createElement('div')
+    section.className = 'sp2-section'
+
+    const row1 = document.createElement('div'); row1.className = 'sp2-fields-row'; section.appendChild(row1)
+    const clientCell = document.createElement('div'); clientCell.className = 'sp2-field'; row1.appendChild(clientCell)
+    const vendorCell = document.createElement('div'); vendorCell.className = 'sp2-field'; row1.appendChild(vendorCell)
+
+    const row2 = document.createElement('div'); row2.className = 'sp2-fields-row'; section.appendChild(row2)
+    const amountCell = document.createElement('div'); amountCell.className = 'sp2-field'; row2.appendChild(amountCell)
+    const dateCell   = document.createElement('div'); dateCell.className   = 'sp2-field'; row2.appendChild(dateCell)
+
+    const [clientOpts, vendorOpts] = await Promise.all([loadClientOptions(), loadVendorOptions()])
+
+    global.PanelEditor.field({
+      container: clientCell, label: 'Client', value: e.client_id,
+      type: 'select', saveMode: 'explicit', options: clientOpts,
+      format: () => (e.clients && (e.clients.full_name || e.clients.name)) || e.client_name || '—',
+      onSave: async (next) => {
+        const updated = await global.updateDeal(e.id, { client_id: next })
+        if (updated) Object.assign(e, updated)
+        else e.client_id = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: vendorCell, label: 'Vendor', value: e.primary_vendor_id,
+      type: 'select', saveMode: 'explicit', options: vendorOpts,
+      format: () => (e.vendors && (e.vendors.full_name || e.vendors.name)) || e.primary_vendor_name || '—',
+      onSave: async (next) => {
+        const updated = await global.updateDeal(e.id, { primary_vendor_id: next })
+        if (updated) Object.assign(e, updated)
+        else e.primary_vendor_id = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: amountCell, label: 'Amount', value: e.agreed_price,
+      type: 'money', saveMode: 'explicit', currency: e.agreed_currency || 'USD',
+      onSave: async (next) => {
+        const updated = await global.updateDeal(e.id, { agreed_price: next })
+        if (updated) Object.assign(e, updated)
+        else e.agreed_price = next
+        return updated
+      },
+    })
+
+    // Deals table has no editable start_date column on demo (verified via
+    // information_schema). Show created_at read-only as the closest "when"
+    // signal. If a real start_date column is added later, swap this for an
+    // editable PanelEditor.field.
+    const createdLabel = document.createElement('div')
+    createdLabel.className = 'pe-field-label'
+    createdLabel.textContent = 'Created'
+    const createdDisp = document.createElement('div')
+    createdDisp.className = 'pe-field-display'
+    createdDisp.style.cursor = 'default'
+    createdDisp.textContent = fmtDate(e.created_at)
+    const createdWrap = document.createElement('div'); createdWrap.className = 'pe-field'
+    createdWrap.appendChild(createdLabel); createdWrap.appendChild(createdDisp)
+    dateCell.appendChild(createdWrap)
+
+    return section
+  }
+
+  function mountVendorFields(e) {
+    const section = document.createElement('div'); section.className = 'sp2-section'
+
+    const row1 = document.createElement('div'); row1.className = 'sp2-fields-row'; section.appendChild(row1)
+    const nameCell  = document.createElement('div'); nameCell.className  = 'sp2-field'; row1.appendChild(nameCell)
+    const emailCell = document.createElement('div'); emailCell.className = 'sp2-field'; row1.appendChild(emailCell)
+
+    const row2 = document.createElement('div'); row2.className = 'sp2-fields-row'; section.appendChild(row2)
+    const typeCell = document.createElement('div'); typeCell.className = 'sp2-field'; row2.appendChild(typeCell)
+    const curCell  = document.createElement('div'); curCell.className  = 'sp2-field'; row2.appendChild(curCell)
+
+    // Vendors: full_name is a generated column (→ name). Write to `name`;
+    // full_name updates automatically.
+    global.PanelEditor.field({
+      container: nameCell, label: 'Name', value: e.name || e.full_name || '',
+      type: 'text', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { name: next })
+        if (updated) Object.assign(e, updated)
+        else { e.name = next; e.full_name = next }
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: emailCell, label: 'Email', value: e.email || '',
+      type: 'email', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { email: next })
+        if (updated) Object.assign(e, updated)
+        else e.email = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: typeCell, label: 'Type', value: e.vendor_type || '',
+      type: 'select', saveMode: 'explicit',
+      options: [
+        { value: 'coach',       label: 'Coach' },
+        { value: 'contractor',  label: 'Contractor' },
+        { value: 'team_member', label: 'Team member' },
+        { value: 'merchant',    label: 'Merchant' },
+      ],
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { vendor_type: next })
+        if (updated) Object.assign(e, updated)
+        else e.vendor_type = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: curCell, label: 'Currency', value: e.payout_currency || '',
+      type: 'select', saveMode: 'explicit',
+      options: [
+        { value: 'USD', label: 'USD' },
+        { value: 'EUR', label: 'EUR' },
+        { value: 'ILS', label: 'ILS' },
+        { value: 'GBP', label: 'GBP' },
+      ],
+      onSave: async (next) => {
+        const updated = await global.updateVendor(e.id, { payout_currency: next })
+        if (updated) Object.assign(e, updated)
+        else e.payout_currency = next
+        return updated
+      },
+    })
+
+    // TODO: re-add Phone + Payout method fields when those columns land on
+    // the vendors table. The existing schema has neither (verified via
+    // information_schema on demo 2026-04-27).
+
+    return section
+  }
+
+  function mountClientFields(e) {
+    const section = document.createElement('div'); section.className = 'sp2-section'
+
+    const row1 = document.createElement('div'); row1.className = 'sp2-fields-row'; section.appendChild(row1)
+    const nameCell  = document.createElement('div'); nameCell.className  = 'sp2-field'; row1.appendChild(nameCell)
+    const emailCell = document.createElement('div'); emailCell.className = 'sp2-field'; row1.appendChild(emailCell)
+
+    const row2 = document.createElement('div'); row2.className = 'sp2-fields-row'; section.appendChild(row2)
+    const statusCell = document.createElement('div'); statusCell.className = 'sp2-field'; row2.appendChild(statusCell)
+    const vendorCell = document.createElement('div'); vendorCell.className = 'sp2-field'; row2.appendChild(vendorCell)
+
+    global.PanelEditor.field({
+      container: nameCell, label: 'Name', value: e.full_name || e.name || '',
+      type: 'text', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateClient(e.id, { full_name: next })
+        if (updated) Object.assign(e, updated)
+        else e.full_name = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: emailCell, label: 'Email', value: e.email || '',
+      type: 'email', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await global.updateClient(e.id, { email: next })
+        if (updated) Object.assign(e, updated)
+        else e.email = next
+        return updated
+      },
+    })
+
+    global.PanelEditor.field({
+      container: statusCell, label: 'Status', value: e.active === true ? 'active' : 'inactive',
+      type: 'select', saveMode: 'explicit',
+      options: [
+        { value: 'active',   label: 'active' },
+        { value: 'inactive', label: 'inactive' },
+      ],
+      onSave: async (next) => {
+        const updated = await global.updateClient(e.id, { active: next === 'active' })
+        if (updated) Object.assign(e, updated)
+        else e.active = next === 'active'
+        return updated
+      },
+    })
+
+    // Assigned vendor: clients table has no direct column for this — assignments
+    // live in vendor_client_assignments. Read-only placeholder for this session;
+    // editing requires modifying the join table (follow-up).
+    const labelEl = document.createElement('div')
+    labelEl.className = 'pe-field-label'
+    labelEl.textContent = 'Assigned vendor'
+    const dispEl = document.createElement('div')
+    dispEl.className = 'pe-field-display'
+    dispEl.style.cursor = 'default'
+    dispEl.textContent = '—'
+    const wrap = document.createElement('div'); wrap.className = 'pe-field'
+    wrap.appendChild(labelEl); wrap.appendChild(dispEl)
+    vendorCell.appendChild(wrap)
+
+    return section
+  }
+
+  function mountNotesField(type, e) {
+    const section = document.createElement('div')
+    section.className = 'sp2-section sp2-section-inverted'
+
+    const head = document.createElement('div')
+    head.className = 'sp2-section-head'
+
+    // Build the icon span using parseHTMLFragment so an SVG literal can mount
+    // without setting innerHTML directly. SECTION_ICON.notes is a static
+    // literal defined at module top — not user content.
+    const iconSpan = document.createElement('span')
+    iconSpan.className = 'sp2-section-icon'
+    const tpl = document.createElement('template')
+    tpl.innerHTML = SECTION_ICON.notes
+    iconSpan.appendChild(tpl.content.cloneNode(true))
+
+    const labelSpan = document.createElement('span')
+    labelSpan.className = 'sp2-section-label'
+    labelSpan.textContent = 'Notes'
+
+    head.appendChild(iconSpan)
+    head.appendChild(labelSpan)
+    section.appendChild(head)
+
+    const cell = document.createElement('div')
+    section.appendChild(cell)
+
+    const updaters = {
+      deal:    global.updateDeal,
+      client:  global.updateClient,
+      vendor:  global.updateVendor,
+      session: global.updateSession,
+    }
+    const updater = updaters[type]
+    if (!updater) return section
+
+    global.PanelEditor.field({
+      container: cell, label: '', value: e.notes || '',
+      type: 'textarea', saveMode: 'blur',
+      onSave: async (next) => {
+        const updated = await updater(e.id, { notes: next })
+        if (updated) Object.assign(e, updated)
+        else e.notes = next
+        return updated
+      },
+    })
+    return section
+  }
+
+  // appendHtmlSection: parses an HTML string built by remindersBlock /
+  // documentsBlock / packageBlockHtml (which esc() user values internally,
+  // matching the project's existing convention) and appends the first
+  // resulting element. Uses <template> so untrusted content cannot execute
+  // — template parsing does not run scripts or load resources.
+  function appendHtmlSection(parent, html) {
+    if (!html) return
+    const tpl = document.createElement('template')
+    tpl.innerHTML = html
+    const first = tpl.content.firstElementChild
+    if (first) parent.appendChild(first)
+  }
+
   function renderBody(type, e, rel) {
     if (!e) {
-      els.body.innerHTML = '<div class="sp2-empty">No data</div>'
+      els.body.textContent = ''
+      const empty = document.createElement('div'); empty.className = 'sp2-empty'; empty.textContent = 'No data'
+      els.body.appendChild(empty)
       return
     }
-    const sections = []
-    sections.push(inlineFieldsBlock(inlineFieldsFor(type, e, rel)))
-    if (type === 'deal' && rel.package) sections.push(packageBlockHtml(rel.package))
-    sections.push(notesBlock(e))
-    sections.push(remindersBlock(rel.reminders))
-    sections.push(documentsBlock(rel.documents))
-    els.body.innerHTML = sections.filter(Boolean).join('')
+    els.body.textContent = ''
 
-    wireBodyEvents(type, e)
+    if (type === 'deal') {
+      const placeholder = document.createElement('div')
+      placeholder.className = 'sp2-section'
+      const placeholderInner = document.createElement('div')
+      placeholderInner.className = 'sp2-empty'
+      placeholderInner.textContent = '…'
+      placeholder.appendChild(placeholderInner)
+      els.body.appendChild(placeholder)
+
+      mountDealFields(e).then(section => {
+        if (placeholder.parentNode) placeholder.parentNode.replaceChild(section, placeholder)
+      })
+
+      // Hide package section entirely when the deal has no package — no empty state.
+      if (rel.package) appendHtmlSection(els.body, packageBlockHtml(rel.package))
+      els.body.appendChild(mountNotesField(type, e))
+      appendHtmlSection(els.body, remindersBlock(rel.reminders))
+      appendHtmlSection(els.body, documentsBlock(rel.documents))
+    } else if (type === 'vendor') {
+      els.body.appendChild(mountVendorFields(e))
+      els.body.appendChild(mountNotesField(type, e))
+      appendHtmlSection(els.body, remindersBlock(rel.reminders))
+      appendHtmlSection(els.body, documentsBlock(rel.documents))
+    } else if (type === 'client') {
+      els.body.appendChild(mountClientFields(e))
+      els.body.appendChild(mountNotesField(type, e))
+      appendHtmlSection(els.body, remindersBlock(rel.reminders))
+      appendHtmlSection(els.body, documentsBlock(rel.documents))
+    } else {
+      // session / bill / product / plan: legacy HTML path.
+      // sections[] are built by helpers that esc() all user values.
+      const sections = [
+        inlineFieldsBlock(inlineFieldsFor(type, e, rel)),
+        notesBlock(e),
+        remindersBlock(rel.reminders),
+        documentsBlock(rel.documents),
+      ].filter(Boolean)
+      const tpl = document.createElement('template')
+      tpl.innerHTML = sections.join('')
+      while (tpl.content.firstChild) els.body.appendChild(tpl.content.firstChild)
+      wireBodyEvents(type, e)
+    }
     wireHeaderPillClicks(type, e)
   }
 
   // ─── interactions ──────────────────────────────────────────────────
   function wireHeaderPillClicks(type, entity) {
     els.pills.querySelectorAll('.sp2-pill-click').forEach(p => {
-      p.addEventListener('click', async () => {
+      p.addEventListener('click', e => {
+        e.stopPropagation()
         const palette = p.dataset.palette
         const field   = p.dataset.field
         const current = p.dataset.status
@@ -504,11 +841,60 @@
                        : palette === 'bill'   ? BILL_OPTIONS
                        : []
         if (!options.length) return
-        const idx  = options.indexOf(current)
-        const next = options[(idx + 1) % options.length]
-        await updateStatus(type, entity, field, next)
+        openStatusMenu(p, options, current, async next => {
+          if (next === current) return
+          await updateStatus(type, entity, field, next)
+        })
       })
     })
+  }
+
+  // Floating dropdown anchored to a pill. One menu open at a time.
+  let _statusMenuEl = null
+  let _statusMenuCleanup = null
+  function closeStatusMenu() {
+    if (_statusMenuEl && _statusMenuEl.parentNode) _statusMenuEl.parentNode.removeChild(_statusMenuEl)
+    _statusMenuEl = null
+    if (_statusMenuCleanup) { _statusMenuCleanup(); _statusMenuCleanup = null }
+  }
+  function openStatusMenu(anchor, options, current, onSelect) {
+    closeStatusMenu()
+    const menu = document.createElement('div')
+    menu.className = 'sp2-status-menu'
+    options.forEach(opt => {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.className = 'sp2-status-menu-item' + (opt === current ? ' is-current' : '')
+      item.dataset.status = opt
+      // Reuse the .badge[data-status] palette so menu chips match the pill.
+      const chip = document.createElement('span')
+      chip.className = 'badge'
+      chip.dataset.status = opt
+      chip.textContent = opt
+      item.appendChild(chip)
+      item.addEventListener('click', ev => {
+        ev.stopPropagation()
+        closeStatusMenu()
+        onSelect(opt)
+      })
+      menu.appendChild(item)
+    })
+    document.body.appendChild(menu)
+    const rect = anchor.getBoundingClientRect()
+    menu.style.top  = (rect.bottom + 4) + 'px'
+    menu.style.left = rect.left + 'px'
+    _statusMenuEl = menu
+
+    const onDocClick = ev => {
+      if (!menu.contains(ev.target) && ev.target !== anchor) closeStatusMenu()
+    }
+    const onEsc = ev => { if (ev.key === 'Escape') closeStatusMenu() }
+    setTimeout(() => document.addEventListener('click', onDocClick), 0)
+    document.addEventListener('keydown', onEsc)
+    _statusMenuCleanup = () => {
+      document.removeEventListener('click', onDocClick)
+      document.removeEventListener('keydown', onEsc)
+    }
   }
 
   async function updateStatus(type, entity, field, next) {
@@ -576,7 +962,15 @@
     els.title.textContent = 'Loading…'
     els.eyebrow.innerHTML = '<span class="sp2-eyebrow-type">' + esc(entityType) + '</span>'
     els.pills.innerHTML = ''
-    els.body.innerHTML  = '<div class="sp2-empty">Loading…</div>'
+    // Static template literal, no user input.
+    els.body.innerHTML  =
+      '<div class="skeleton-stack" aria-busy="true" aria-live="polite">' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+        '<div class="skeleton-shimmer"></div>' +
+      '</div>'
     els.fullLink.style.display = 'none'
 
     document.body.classList.add('sp2-open')

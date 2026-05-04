@@ -1593,6 +1593,35 @@ async function getTransactions({ includeDeleted = false } = {}) {
   return data || []
 }
 
+// Reconcile: link a transaction to a deal and update both statuses.
+// Consumers: reconcile.js
+async function matchTransactionToDeal(txId, dealId, status = 'matched') {
+  const { error: txErr } = await _sb
+    .from('transactions')
+    .update({ linked_entity_type: 'deal', linked_entity_id: dealId, status })
+    .eq('id', txId)
+  if (txErr) throw txErr
+  const { error: dealErr } = await _sb
+    .from('deals')
+    .update({ billing_status: 'paid' })
+    .eq('id', dealId)
+  if (dealErr) throw dealErr
+  if (typeof Cache !== 'undefined') {
+    Cache.invalidatePrefix('deal:')
+    Cache.invalidatePrefix('deals:')
+  }
+}
+
+// Reconcile: link a transaction to a bill (paycheck slot in linked_entity_type).
+// Consumers: reconcile.js
+async function matchTransactionToBill(txId, billId, status = 'matched') {
+  const { error } = await _sb
+    .from('transactions')
+    .update({ linked_entity_type: 'paycheck', linked_entity_id: billId, status })
+    .eq('id', txId)
+  if (error) throw error
+}
+
 // ─── registry: exchange_rates ─────────────────────────────────
 
 async function getExchangeRates() {
@@ -1625,6 +1654,48 @@ async function deleteExchangeRate(id) {
 // ─── registry: account_balances (monthly snapshots) ──────────
 
 async function getAccountBalances(accountId, year) {
+  const sample = await _sb
+    .from('account_balances')
+    .select('*')
+    .limit(1)
+  if (sample.error) throw sample.error
+
+  const sampleRow = (sample.data || [])[0]
+  if (sampleRow && !Object.prototype.hasOwnProperty.call(sampleRow, 'month') && Object.prototype.hasOwnProperty.call(sampleRow, 'date')) {
+    let oldQ = _sb
+      .from('account_balances')
+      .select('*')
+      .order('date', { ascending: false })
+    if (accountId) oldQ = oldQ.eq('account_id', accountId)
+    if (year) {
+      const from = `${year}-01-01`
+      const to   = `${year}-12-31`
+      oldQ = oldQ.gte('date', from).lte('date', to)
+    }
+    const oldResult = await oldQ
+    if (oldResult.error) throw oldResult.error
+
+    const merged = new Map()
+    for (const row of oldResult.data || []) {
+      if (!row.account_id) continue
+      const month = row.date ? row.date.slice(0, 7) + '-01' : null
+      const key = `${row.account_id}:${month}`
+      const next = merged.get(key) || {
+        id: row.id,
+        account_id: row.account_id,
+        month,
+        opening_balance: null,
+        closing_balance: null,
+        currency: row.currency || null,
+        notes: row.notes || null,
+      }
+      if (row.balance_type === 'closing') next.closing_balance = row.balance
+      else next.opening_balance = row.balance
+      merged.set(key, next)
+    }
+    return Array.from(merged.values())
+  }
+
   let q = _sb
     .from('account_balances')
     .select('*')
@@ -1649,6 +1720,61 @@ async function getAccountBalances(accountId, year) {
 }
 
 async function upsertAccountBalance({ account_id, month, opening_balance, closing_balance, currency, notes }) {
+  const sample = await _sb
+    .from('account_balances')
+    .select('*')
+    .limit(1)
+  if (sample.error) throw sample.error
+
+  const sampleRow = (sample.data || [])[0]
+  if (sampleRow && !Object.prototype.hasOwnProperty.call(sampleRow, 'month') && Object.prototype.hasOwnProperty.call(sampleRow, 'date')) {
+    const date = month
+    const existing = await _sb
+      .from('account_balances')
+      .select('*')
+      .eq('account_id', account_id)
+      .eq('date', date)
+      .eq('balance_type', 'closing')
+      .maybeSingle()
+    if (existing.error) throw existing.error
+
+    let saved = existing.data
+    if (closing_balance == null) {
+      if (saved?.id) {
+        const del = await _sb.from('account_balances').delete().eq('id', saved.id)
+        if (del.error) throw del.error
+      }
+      saved = null
+    } else if (saved?.id) {
+      const updated = await _sb
+        .from('account_balances')
+        .update({ balance: closing_balance, notes })
+        .eq('id', saved.id)
+        .select()
+        .single()
+      if (updated.error) throw updated.error
+      saved = updated.data
+    } else {
+      const inserted = await _sb
+        .from('account_balances')
+        .insert({ account_id, date, balance: closing_balance, balance_type: 'closing', notes })
+        .select()
+        .single()
+      if (inserted.error) throw inserted.error
+      saved = inserted.data
+    }
+
+    return {
+      id: saved?.id || `${account_id}:${date}:closing`,
+      account_id,
+      month: date,
+      opening_balance,
+      closing_balance,
+      currency,
+      notes: saved?.notes || notes || null,
+    }
+  }
+
   const { data, error } = await _sb
     .from('account_balances')
     .upsert(
@@ -1903,7 +2029,7 @@ async function getProfile(userId) {
   if (!userId) return null
   const { data, error } = await _sb
     .from('profiles')
-    .select('id, role, vendor_id, full_name, email')
+    .select('id, system_role, vendor_id, full_name, email')
     .eq('id', userId)
     .maybeSingle()
   if (error) throw error
@@ -1928,6 +2054,30 @@ async function getRoleFromDB() {
   // When auth is live: const user = await getCurrentUser(); return getProfile(user?.id)
   return null
 }
+
+// User management (admin/users.html). Both go through SECURITY DEFINER RPCs
+// defined in schema/user_management_rpc.sql — that's the only way to read
+// auth.users.last_sign_in_at from the anon client, and it gates access to
+// admin callers server-side.
+
+async function getAllProfiles() {
+  const { data, error } = await _sb.rpc('get_user_management_rows')
+  if (error) throw error
+  return data || []
+}
+
+async function updateProfileRole(userId, newRole) {
+  const { data, error } = await _sb.rpc('update_profile_role', {
+    target_user_id: userId,
+    new_role:       newRole,
+  })
+  if (error) throw error
+  // RPC returns SETOF; supabase-js normalizes to an array of rows.
+  return Array.isArray(data) ? data[0] : data
+}
+
+window.getAllProfiles    = getAllProfiles
+window.updateProfileRole = updateProfileRole
 
 // ─── activities ───────────────────────────────────────────────
 
@@ -1985,3 +2135,114 @@ async function updateActivity(id, fields) {
   if (error) throw error
   return data
 }
+
+// ─── Operations dashboard: Needs Attention ─────────────────────
+// TODO: role-gate. Currently visible to all users who can reach the
+// operations dashboard (admin/manager/finance per existing route guards).
+async function getNeedsAttentionItems({ limit = 8 } = {}) {
+  const now = Date.now()
+  const items = []
+
+  // 1. Overdue bills: status='submitted', age > 7 days
+  try {
+    const sevenDays = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: overdue } = await _sb
+      .from('bills')
+      .select('id, vendor_id, total_amount, currency, created_at, vendors(full_name)')
+      .eq('status', 'submitted')
+      .lt('created_at', sevenDays)
+      .order('created_at', { ascending: true })
+    ;(overdue || []).forEach(b => {
+      const ageDays = Math.floor((now - new Date(b.created_at).getTime()) / 86400000)
+      items.push({
+        kind: 'overdue_bill',
+        id: b.id,
+        title: (b.vendors && b.vendors.full_name) || 'Unknown vendor',
+        sub: _formatBillAmount(b.total_amount, b.currency) + ' · submitted ' + ageDays + 'd ago',
+        sortKey: ageDays,
+        priority: 1,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] overdue bills', err) }
+
+  // 2. Ready to pay: status='approved' (approved = manager reviewed, awaiting payment)
+  try {
+    const { data: ready } = await _sb
+      .from('bills')
+      .select('id, vendor_id, total_amount, currency, vendors(full_name)')
+      .eq('status', 'approved')
+    ;(ready || []).forEach(b => {
+      items.push({
+        kind: 'ready_bill',
+        id: b.id,
+        title: (b.vendors && b.vendors.full_name) || 'Unknown vendor',
+        sub: _formatBillAmount(b.total_amount, b.currency) + ' · approved, awaiting payment',
+        sortKey: 0,
+        priority: 2,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] ready bills', err) }
+
+  // 3. Stale deals: lead/qualified, no update >14 days
+  try {
+    const fourteenDays = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: stale } = await _sb
+      .from('deals')
+      .select('id, sales_status, updated_at, clients(full_name)')
+      .in('sales_status', ['lead', 'qualified'])
+      .lt('updated_at', fourteenDays)
+      .order('updated_at', { ascending: true })
+    ;(stale || []).forEach(d => {
+      const ageDays = Math.floor((now - new Date(d.updated_at).getTime()) / 86400000)
+      items.push({
+        kind: 'stale_deal',
+        id: d.id,
+        title: (d.clients && d.clients.full_name) || 'Unknown client',
+        sub: d.sales_status + ' · no follow-up ' + ageDays + 'd',
+        sortKey: ageDays,
+        priority: 3,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] stale deals', err) }
+
+  // 4. Expiring packages: active, sessions_used / sessions_total >= 0.8
+  try {
+    const { data: pkgs } = await _sb
+      .from('packages')
+      .select('id, deal_id, sessions_used, sessions_total, status, deals(client_id, clients(full_name))')
+      .eq('status', 'active')
+    ;(pkgs || []).forEach(p => {
+      const total = Number(p.sessions_total || 0)
+      const used  = Number(p.sessions_used  || 0)
+      if (total <= 0) return
+      const ratio = used / total
+      if (ratio < 0.8) return
+      const remaining = Math.max(0, total - used)
+      const clientName = p.deals && p.deals.clients ? (p.deals.clients.full_name || 'Unknown client') : 'Unknown client'
+      items.push({
+        kind: 'expiring_package',
+        id: p.deal_id,
+        title: clientName,
+        sub: remaining + ' / ' + total + ' sessions left',
+        sortKey: -ratio,
+        priority: 4,
+      })
+    })
+  } catch (err) { console.warn('[needs-attention] expiring packages', err) }
+
+  // Sort: priority asc, then sortKey desc (older = higher).
+  items.sort((a, b) => a.priority - b.priority || b.sortKey - a.sortKey)
+  return items.slice(0, limit)
+}
+
+function _formatBillAmount(amount, currency) {
+  const n = Number(amount)
+  if (Number.isNaN(n)) return '—'
+  const cur = (currency || 'USD').toUpperCase()
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(n)
+  } catch (_) {
+    return cur + ' ' + n.toFixed(0)
+  }
+}
+window.getNeedsAttentionItems = getNeedsAttentionItems

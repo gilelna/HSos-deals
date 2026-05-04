@@ -25,9 +25,64 @@ async function renderDashboard() {
     renderDashCoaches()
     renderDashClients()
     renderDashMetricsAttention()
+    renderNeedsAttention()
   } catch(e) {
     console.error('[Dashboard]', e)
   }
+}
+
+async function renderNeedsAttention() {
+  const section = document.getElementById('needs-attention')
+  const strip   = document.getElementById('needs-attention-strip')
+  const countEl = document.getElementById('needs-attention-count')
+  if (!section || !strip) return
+
+  let items = []
+  try {
+    items = await getNeedsAttentionItems({ limit: 8 })
+  } catch (err) {
+    console.error('[Dashboard] needs-attention', err)
+    items = []
+  }
+
+  if (!items.length) {
+    section.style.display = 'none'
+    return
+  }
+  section.style.display = ''
+  if (countEl) countEl.textContent = String(items.length)
+
+  // Build items via DOM APIs (no innerHTML with interpolation).
+  strip.textContent = ''
+  items.forEach(it => {
+    const card = document.createElement('div')
+    card.className = 'na-item'
+    card.dataset.kind = it.kind
+    card.dataset.id   = it.id
+
+    const title = document.createElement('div')
+    title.className = 'na-item-title'
+    title.textContent = it.title
+    card.appendChild(title)
+
+    const sub = document.createElement('div')
+    sub.className = 'na-item-sub'
+    sub.textContent = it.sub
+    card.appendChild(sub)
+
+    card.addEventListener('click', () => {
+      const kind = card.dataset.kind
+      const id   = card.dataset.id
+      if (!kind || !id) return
+      if (kind === 'overdue_bill' || kind === 'ready_bill') {
+        if (window.SidePanel) window.SidePanel.open('bill', { id })
+      } else if (kind === 'stale_deal' || kind === 'expiring_package') {
+        if (window.SidePanel) window.SidePanel.open('deal', { id })
+      }
+    })
+
+    strip.appendChild(card)
+  })
 }
 
 function renderDashMetrics() {
@@ -315,11 +370,11 @@ function _renderClientDetailPanel(clientId) {
           <thead><tr><th>Product</th><th>Status</th><th>Billing</th><th></th></tr></thead>
           <tbody>
             ${deals.length ? deals.slice(0, 8).map(d => `
-              <tr>
+              <tr onclick="openEditDeal('${d.id}',event)" style="cursor:pointer">
                 <td>${escHtml(d.products?.name || 'Custom')}</td>
                 <td>${escHtml(d.sales_status || '—')}</td>
                 <td>${escHtml(d.billing_status || '—')}</td>
-                <td><button class="btn btn-sm btn-ghost" style="padding:2px 7px;font-size:11px" onclick="openEditDeal('${d.id}',event)">Edit</button></td>
+                <td><button class="btn btn-sm btn-ghost" style="padding:2px 7px;font-size:11px" onclick="event.stopPropagation();openEditDeal('${d.id}',event)">Edit</button></td>
               </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--mu2);padding:16px">No deals yet</td></tr>`}
           </tbody>
         </table>

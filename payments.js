@@ -3,38 +3,8 @@
 
 // ═══════════════════════════════════════════════════════════════
 // CLASSIFICATION CONSTANTS
+// (DEFAULT_CATEGORIES is declared in payments-state.js, loaded first)
 // ═══════════════════════════════════════════════════════════════
-
-const DEFAULT_CATEGORIES = [
-  { id: 'ca_income', name: 'Income', tax: 'income' },
-  { id: 'ca_internaltransfer', name: 'Internal Transfer', tax: null },
-  { id: 'ca_intercompanytransfer', name: 'Intercompany Transfer', tax: null },
-  { id: 'ca_ownerdraw', name: 'Owner Draw', tax: 'non_deductible' },
-  { id: 'ca_ownersalary', name: 'Owner Salary', tax: 'business_payroll_contractors' },
-  { id: 'ca_teammemberspayroll', name: 'Team Members (Payroll)', tax: 'business_payroll_contractors' },
-  { id: 'ca_contractorsfreelancers', name: 'Contractors & Freelancers', tax: 'business_professional_services' },
-  { id: 'ca_accountingbookkeeping', name: 'Accounting & Bookkeeping', tax: 'business_professional_services' },
-  { id: 'ca_bankfees', name: 'Bank Fees', tax: 'business_banking_fees' },
-  { id: 'ca_paymentprocessingfees', name: 'Payment Processing Fees', tax: 'business_banking_fees' },
-  { id: 'ca_taxesincometaxvatetc', name: 'Taxes (Income Tax, VAT, etc.)', tax: 'business_taxes_government' },
-  { id: 'ca_governmentmunicipalutilities', name: 'Government & Municipal', tax: 'business_taxes_government' },
-  { id: 'ca_insurance', name: 'Insurance', tax: 'business_insurance' },
-  { id: 'ca_softwaresaasrecurring', name: 'Software & SaaS (Recurring)', tax: 'business_software_online' },
-  { id: 'ca_softwareonetime', name: 'Software (One-Time)', tax: 'business_software_online' },
-  { id: 'ca_serversinfrastructure', name: 'Servers & Infrastructure', tax: 'business_software_online' },
-  { id: 'ca_flights', name: 'Flights', tax: 'business_travel' },
-  { id: 'ca_travelexpenses', name: 'Travel Expenses', tax: 'business_travel' },
-  { id: 'ca_groceries', name: 'Groceries', tax: 'non_deductible' },
-  { id: 'ca_restaurantscafes', name: 'Restaurants & Cafes', tax: 'mixed_review' },
-  { id: 'ca_shoppingretail', name: 'Shopping & Retail', tax: 'mixed_review' },
-  { id: 'ca_electronicsequipment', name: 'Electronics & Equipment', tax: 'business_equipment' },
-  { id: 'ca_homehousehold', name: 'Home & Household', tax: 'non_deductible' },
-  { id: 'ca_lifestyleleisure', name: 'Lifestyle & Leisure', tax: 'non_deductible' },
-  { id: 'ca_cultureentertainment', name: 'Culture & Entertainment', tax: 'mixed_review' },
-  { id: 'ca_trainingeducation', name: 'Training & Education', tax: 'business_training' },
-  { id: 'ca_medicalhealth', name: 'Medical & Health', tax: 'non_deductible' },
-  { id: 'ca_advertisingmarketing', name: 'Advertising & Marketing', tax: 'business_marketing' },
-]
 
 const TAX_TREATMENTS = [
   'non_deductible', 'mixed_review', 'income',
@@ -3734,7 +3704,7 @@ function renderExpectedIncome() {
     const badgeHtml = `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${bg};color:${col};font-family:var(--font-mono)">${status.replace('_', ' ')}</span>`
     const actionHtml = isTC
       ? '<span style="font-size:11px;color:var(--mu)">auto-closed</span>'
-      : '<span style="font-size:11px;color:var(--mu2)">—</span>'
+      : `<button class="ep-link" onclick="event.stopPropagation();eiMatchTx('${escHtmlAttr(deal.id)}')" style="font-size:11px">Match</button>`
 
     const SYM = { USD: '$', ILS: '₪', EUR: '€' }
     const sym = SYM[deal.agreed_currency] || '$'
@@ -3755,6 +3725,13 @@ function renderExpectedIncome() {
     </tr>`
   }).join('')
 }
+
+// Reconcile entry point: open reconcile.html with the deal pre-selected.
+// Consumer: Expected Income action cell.
+function eiMatchTx(dealId) {
+  window.location.href = `reconcile.html?highlight=${encodeURIComponent(dealId)}`
+}
+window.eiMatchTx = eiMatchTx
 
 function updateEiMetrics() {
   const pending  = eiRows.filter(d => d.billing_status === 'pending')
@@ -4509,6 +4486,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast('Failed to load vendor data', 'warn')
   }
   const initTab = new URLSearchParams(window.location.search).get('tab') || 'transactions'
+  const initFilter = new URLSearchParams(window.location.search).get('filter') || ''
+  if (initTab === 'vendor-bills' && initFilter) {
+    // TODO: wire bills tab status filter — the current vendor-bills tab
+    // shows a per-vendor list, not a flat status-filtered bills list. The
+    // ?filter= param is parsed but not applied yet. Linked from operations
+    // dashboard hero cards (deals.html → ?tab=vendor-bills&filter=submitted
+    // / ready_to_pay). When a status filter exists on this tab, set the
+    // variable here.
+    window._initBillsFilter = initFilter
+  }
   switchTab(initTab, { pushUrl: false })
   if (window.Router) Router.dispatch()
 })

@@ -36,6 +36,12 @@
       </div>
     </div>
     <span class="tb-user-name" id="topbar-name"></span>
-    <div class="tb-av" style="background:var(--ink);cursor:default">HS</div>
+    <div class="um-wrap" style="position:relative">
+      <div class="tb-av" id="user-menu-avatar" style="background:var(--ink);cursor:pointer"
+           role="button" tabindex="0" aria-haspopup="true" aria-label="Account menu"
+           onclick="USER_MENU?.toggle()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();USER_MENU?.toggle()}">HS</div>
+      <div class="um-dropdown" id="user-menu-dropdown" style="display:none"></div>
+    </div>
   </div>
 </div>

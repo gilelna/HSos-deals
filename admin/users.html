@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos — Manage Users</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared.css">
+</head>
+<body>
+<div class="app">
+  <div id="layout-topbar"></div>
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+    <div class="app-content">
+
+      <div class="space-cover operations">
+        <div class="space-cover__bg" style="background-image:url('../files/team.png')"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow">Admin</div>
+        <div class="space-cover-title">Manage Users</div>
+      </div>
+      <div class="alert-bar"></div>
+
+      <div class="main">
+        <div class="scroll" style="padding:20px">
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+            <span id="um-count-badge" style="font-size:11px;font-family:var(--font-mono);color:var(--mu);padding:4px 10px;background:var(--bg);border-radius:12px">— users</span>
+            <span style="flex:1"></span>
+          </div>
+
+          <div class="block">
+            <table class="tbl" id="um-table">
+              <thead>
+                <tr>
+                  <th style="width:32%">User</th>
+                  <th style="width:18%">Role</th>
+                  <th style="width:25%">Vendor</th>
+                  <th style="width:15%">Status</th>
+                  <th style="width:10%">Joined</th>
+                </tr>
+              </thead>
+              <tbody id="um-tbody">
+                <tr><td colspan="5" style="padding:40px;text-align:center;color:var(--mu2);font-size:13px">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Inline mini-profile modal target (used when row has no vendor_id). -->
+<div id="um-profile-card" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../env-keys.js"></script>
+<script src="../env-config.js"></script>
+<script src="../db.js"></script>
+<script src="../cache.js"></script>
+<script src="../auth.js"></script>
+<script src="../app.js"></script>
+<script src="../router.js"></script>
+<script src="../components/user-menu.js"></script>
+<script src="../components/layout.js"></script>
+<script src="../components/icons.js"></script>
+<script src="../components/badges.js"></script>
+<script src="../components/panel-editor.js"></script>
+<script src="../components/side-panel.js"></script>
+<script src="../panel-manager.js"></script>
+<script src="users.js"></script>
+</body>
+</html>

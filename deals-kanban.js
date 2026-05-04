@@ -1,5 +1,16 @@
 // deals-kanban.js — deals filtering, kanban, and list view
 
+const KANBAN_VIEW_KEY = 'hsos.kanban.cardView'
+function kanbanViewMode() {
+  try {
+    const v = localStorage.getItem(KANBAN_VIEW_KEY)
+    return v === 'condensed' ? 'condensed' : 'full'
+  } catch (_) { return 'full' }
+}
+function setKanbanViewMode(v) {
+  try { localStorage.setItem(KANBAN_VIEW_KEY, v === 'condensed' ? 'condensed' : 'full') } catch (_) {}
+}
+
 function filteredDeals() {
   let d = [..._deals]
   if (_search) {
@@ -13,6 +24,25 @@ function filteredDeals() {
   if (_filters.has('overdue')) d = d.filter(x => x.billing_status === 'overdue')
   if (_filters.has('active'))  d = d.filter(x => x.sales_status === 'active')
   if (_filters.has('unpaid'))  d = d.filter(x => !['paid'].includes(x.billing_status))
+  if (_filters.has('stale')) {
+    const cutoff = Date.now() - 14 * 86400000
+    d = d.filter(x => ['lead','qualified'].includes(x.sales_status) &&
+                       x.updated_at && new Date(x.updated_at).getTime() < cutoff)
+  }
+  if (_filters.has('expiring')) {
+    // Show only deals whose package is at >=80% utilization. Package data is
+    // populated on _dashData by renderDashboard; falls through silently if
+    // not loaded yet.
+    const pkgList = (window._dashData && window._dashData.allPackages) || []
+    const expiringDealIds = new Set(
+      pkgList.filter(p => {
+        const total = Number(p.sessions_total || 0)
+        const used  = Number(p.sessions_used  || 0)
+        return total > 0 && used / total >= 0.8 && p.status === 'active'
+      }).map(p => p.deal_id)
+    )
+    d = d.filter(x => expiringDealIds.has(x.id))
+  }
   if (_fVendor)  d = d.filter(x => x.primary_vendor_id === _fVendor)
   if (_fProduct) d = d.filter(x => x.product_id === _fProduct)
   if (_fBilling) d = d.filter(x => x.billing_status === _fBilling)
@@ -31,7 +61,15 @@ function renderKanban() {
     el.innerHTML = `<div class="empty"><div class="empty-icon">◻</div><div>No deals yet</div></div>`
     return
   }
-  el.innerHTML = STAGES.map(stage => {
+  const view = kanbanViewMode()
+  const toggleHtml = `
+    <div class="kanban-view-toggle">
+      <button class="ktv-btn ${view === 'full' ? 'is-active' : ''}" data-ktv="full">Full</button>
+      <button class="ktv-btn ${view === 'condensed' ? 'is-active' : ''}" data-ktv="condensed">Condensed</button>
+    </div>
+  `
+
+  const colsHtml = STAGES.map(stage => {
     const cols = deals.filter(d => d.sales_status === stage.key)
     return `
       <div class="kanban-col" style="min-width:240px">
@@ -42,10 +80,56 @@ function renderKanban() {
           </span>
           <span style="font-size:11px">${cols.length}</span>
         </div>
-        ${cols.map(d => kanbanCard(d)).join('')}
+        ${cols.map(d => view === 'condensed' ? kanbanCardCondensed(d) : kanbanCard(d)).join('')}
       </div>
     `
   }).join('')
+
+  // Output already escaped via escHtml() in card builders (existing pattern).
+  el.replaceChildren()
+  const tpl = document.createElement('template')
+  tpl.innerHTML = toggleHtml + `<div class="kanban-cols">${colsHtml}</div>`
+  while (tpl.content.firstChild) el.appendChild(tpl.content.firstChild)
+
+  el.querySelectorAll('.ktv-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      setKanbanViewMode(b.dataset.ktv)
+      renderKanban()
+    })
+  })
+
+  _wirePrefetchOnce(el)
+}
+
+// Delegated hover-prefetch for deal cards. Attached once per container element
+// (kanban or list tbody). On hover, warms the deal:<id> cache via getDeal().
+const _PREFETCH_FLAG = '__hsosPrefetchWired'
+function _wirePrefetchOnce(container) {
+  if (!container || container[_PREFETCH_FLAG]) return
+  container[_PREFETCH_FLAG] = true
+  container.addEventListener('mouseover', e => {
+    const card = e.target.closest('[data-deal-id]')
+    if (!card || !container.contains(card)) return
+    const id = card.dataset.dealId
+    if (!id || !window.Cache || !window.getDeal) return
+    const key = 'deal:' + id
+    if (window.Cache.get(key) || window.Cache.isInFlight(key)) return
+    window.getDeal(id).catch(() => { /* prefetch failures are silent */ })
+  })
+}
+
+function kanbanCardCondensed(d) {
+  // Click anywhere opens the deal panel via openEditDeal.
+  const client = d.clients?.full_name || '—'
+  const price  = d.agreed_price != null ? fmt(finalAmt(d.agreed_price, d.vat_pct, d.vat_mode), d.agreed_currency) : ''
+  const status = d.sales_status || ''
+  return `
+    <div class="kanban-card kanban-card-condensed" data-deal-id="${d.id}" onclick="openEditDeal('${d.id}',event)">
+      <span class="kc-name">${escHtml(client)}</span>
+      <span class="badge kc-stage" data-status="${escHtml(status)}">${escHtml(status)}</span>
+      ${price ? `<span class="kc-price">${price}</span>` : ''}
+    </div>
+  `
 }
 
 function kanbanCard(d) {
@@ -64,7 +148,7 @@ function kanbanCard(d) {
     : ''
 
   return `
-    <div class="kanban-card" onclick="openEditDeal('${d.id}',event)">
+    <div class="kanban-card" data-deal-id="${d.id}" onclick="openEditDeal('${d.id}',event)">
       <div style="margin-bottom:4px">
         <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.3">${product}</div>
       </div>
@@ -110,7 +194,7 @@ function renderList() {
     const stage   = STAGES.find(s => s.key === d.sales_status)
     const bColor  = BILLING_COLORS[d.billing_status] || 'var(--mu2)'
     return `
-      <tr onclick="openEditDeal('${d.id}',event)" style="cursor:pointer">
+      <tr data-deal-id="${d.id}" onclick="openEditDeal('${d.id}',event)" style="cursor:pointer">
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="av av-sm" style="background:${avatarBg(client)};color:${avatarFg(client)}">${initials(client)}</div>
@@ -126,4 +210,5 @@ function renderList() {
       </tr>
     `
   }).join('')
+  _wirePrefetchOnce(tbody)
 }

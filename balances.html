@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSos - Account Balances</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="app">
+  <div id="layout-topbar"></div>
+  <div class="app-body" id="app-body">
+    <div id="layout-sidebar"></div>
+    <div class="app-content">
+
+      <div class="space-cover payments">
+        <div class="space-cover__bg" style="background-image:url('files/payments.png')"></div>
+        <div class="space-cover__overlay"></div>
+        <div class="space-cover-eyebrow">Payments &middot; Finance</div>
+        <div class="space-cover-title">Account Balances</div>
+      </div>
+      <div class="alert-bar"></div>
+
+      <div class="main">
+        <div class="scroll" style="padding:20px">
+          <div id="balances-root"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="env-keys.js"></script>
+<script src="env-config.js"></script>
+<script src="db.js"></script>
+<script src="cache.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script src="router.js"></script>
+<script src="components/user-menu.js"></script>
+<script src="components/layout.js"></script>
+<script src="balances.js"></script>
+</body>
+</html>
